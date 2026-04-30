@@ -2,16 +2,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StModal } from '@/components/ui/StModal'
-import { StField, inputStyle } from '@/components/ui/StField'
+import { StField, inputClass } from '@/components/ui/StField'
 import { Toast } from '@/components/ui/Toast'
-import { fmtDate } from '@/lib/utils'
+import { fmtDate, proxyImage } from '@/lib/utils'
 
 const STUDENTS = ['Hoshino','Shiroko','Yuuka','Aris','Natsu','Hibiki','Kayoko','Neru','Haruna','Mutsuki','Serika','Nonomi','Karin','Haruka','Izumi','Ui','Mika','Sora','Toki','Ako']
 
 interface Player {
   id: string; ign: string; username: string; favouriteStudent?: string | null
   joinedDate?: string | null; club?: string | null; clubID?: string | null
-  userID?: string | null
+  userID?: string | null; isGuildMember: boolean
 }
 
 interface RaidBoss {
@@ -50,20 +50,30 @@ interface Entry {
 
 type Section = 'dashboard' | 'players' | 'raids' | 'bosses' | 'entries' | 'settings'
 
-const navItems = [
-  { id: 'dashboard' as Section, label: 'Dashboard', icon: '◈' },
-  { id: 'players'   as Section, label: 'Players',   icon: '◎' },
-  { id: 'raids'     as Section, label: 'Raids',     icon: '⬡' },
-  { id: 'bosses'    as Section, label: 'Bosses',    icon: '◉' },
-  { id: 'entries'   as Section, label: 'Entries',   icon: '⊞' },
-  { id: 'settings'  as Section, label: 'Settings',  icon: '⊛' },
+const navItems: { id: Section; label: string; icon: string }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: '◈' },
+  { id: 'players',   label: 'Players',   icon: '◎' },
+  { id: 'raids',     label: 'Raids',     icon: '⬡' },
+  { id: 'bosses',    label: 'Bosses',    icon: '◉' },
+  { id: 'entries',   label: 'Entries',   icon: '⊞' },
+  { id: 'settings',  label: 'Settings',  icon: '⊛' },
 ]
 
-const RAID_TYPES  = ['Total Assault', 'Grand Assault']
+const RAID_TYPES   = ['Total Assault', 'Grand Assault']
 const RAID_SERVERS = ['Global', 'Japan']
+
+const editBtnClass =
+  'bg-accent/[0.12] border border-accent/30 rounded-md px-2.5 py-1 text-accent text-xs font-semibold hover:bg-accent/20 transition-colors'
+const delBtnClass =
+  'bg-red/10 border border-red/25 rounded-md px-2.5 py-1 text-red text-xs hover:bg-red/20 transition-colors'
+const submitBtnClass =
+  'w-full bg-accent rounded-lg py-3 text-white font-bold text-sm cursor-pointer mt-1.5 hover:bg-accent/90 transition-colors'
+const addBtnClass =
+  'bg-accent rounded-lg px-4 py-2 text-white font-semibold text-[13px] cursor-pointer hover:bg-accent/90 transition-colors whitespace-nowrap'
 
 export function AdminPanel() {
   const [sec, setSec] = useState<Section>('dashboard')
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [players, setPlayers]   = useState<Player[]>([])
   const [raids, setRaids]       = useState<Raid[]>([])
   const [bosses, setBosses]     = useState<RaidBoss[]>([])
@@ -104,25 +114,38 @@ export function AdminPanel() {
     loadPlayers(); loadRaids(); loadBosses(); loadEntries(); loadLookups()
   }, [loadPlayers, loadRaids, loadBosses, loadEntries, loadLookups])
 
+  // Lock body scroll while the mobile sidebar drawer is open.
+  useEffect(() => {
+    if (!drawerOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [drawerOpen])
+
   // ── Player form ────────────────────────────────────────────────────────────
   const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', joinedDate: '', club: 'Guest', clubID: 'GUEST', userID: '' }
   const [pForm, setPForm] = useState(emptyP)
+  const [isGuest, setIsGuest] = useState(true)
 
-  function openAddPlayer() { setPForm(emptyP); setEditTarget(null); setModal('player') }
+  function openAddPlayer() { setPForm(emptyP); setIsGuest(true); setEditTarget(null); setModal('player') }
   function openEditPlayer(p: Player) {
-    setPForm({ ign: p.ign, username: p.username, favouriteStudent: p.favouriteStudent || 'Hoshino', joinedDate: p.joinedDate ? p.joinedDate.split('T')[0] : '', club: p.club || 'Guest', clubID: p.clubID || (p.club === 'Guest' ? 'GUEST' : ''), userID: p.userID || '' })
-    setEditTarget(p); setModal('player')
+    const guest = !p.isGuildMember
+    setPForm({ ign: p.ign, username: p.username, favouriteStudent: p.favouriteStudent || 'Hoshino', joinedDate: p.joinedDate ? p.joinedDate.split('T')[0] : '', club: p.club || 'Guest', clubID: p.clubID || (guest ? 'GUEST' : ''), userID: p.userID || '' })
+    setIsGuest(guest); setEditTarget(p); setModal('player')
   }
   async function deletePlayer(id: string) {
     await fetch(`/api/admin/players/${id}`, { method: 'DELETE' }); loadPlayers(); showToast('Player deleted.')
   }
   async function savePlayer(e: React.FormEvent) {
     e.preventDefault()
+    const payload = isGuest
+      ? { ...pForm, club: 'Guest', clubID: 'GUEST', isGuildMember: false }
+      : { ...pForm, isGuildMember: true }
     if (editTarget) {
-      await fetch(`/api/admin/players/${(editTarget as Player).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pForm) })
+      await fetch(`/api/admin/players/${(editTarget as Player).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       showToast('Player updated.')
     } else {
-      await fetch('/api/admin/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pForm) })
+      await fetch('/api/admin/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       showToast('Player added.')
     }
     setModal(null); loadPlayers()
@@ -219,63 +242,115 @@ export function AdminPanel() {
   }
 
   const activeRaidCount = raids.filter(r => r.status === 'CURRENT').length
+  const currentNav = navItems.find((n) => n.id === sec)
+
+  function selectSection(s: Section) {
+    setSec(s)
+    setDrawerOpen(false)
+  }
 
   return (
-    <div style={{ display: 'flex', background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden', minHeight: 520, position: 'relative' }}>
-      {/* Sidebar */}
-      <div style={{ width: 196, background: 'var(--bg)', borderRight: '1px solid var(--border)', padding: '20px 0', flexShrink: 0 }}>
-        <div style={{ padding: '0 16px 14px', fontSize: 11, color: 'var(--muted)', letterSpacing: '0.1em', fontWeight: 600 }}>ADMIN PANEL</div>
-        {navItems.map((n) => (
-          <button
-            key={n.id}
-            onClick={() => setSec(n.id)}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px',
-              background: sec === n.id ? 'rgba(79,142,247,0.12)' : 'none',
-              border: 'none', borderLeft: sec === n.id ? '2px solid var(--accent)' : '2px solid transparent',
-              color: sec === n.id ? 'var(--accent)' : 'var(--muted2)',
-              cursor: 'pointer', fontSize: 14, fontWeight: sec === n.id ? 600 : 400,
-              textAlign: 'left', transition: 'all 0.15s',
-              fontFamily: 'var(--font), Space Grotesk, sans-serif',
-            }}
-          >
-            <span style={{ fontSize: 16 }}>{n.icon}</span>{n.label}
-          </button>
-        ))}
+    <div className="relative bg-surface rounded-2xl border border-border overflow-hidden md:flex md:min-h-[520px]">
+      {/* Mobile top bar */}
+      <div className="md:hidden flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-bg">
+        <button
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open admin menu"
+          className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-card text-muted2 hover:text-text hover:border-border2 transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="7"  x2="20" y2="7" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="17" x2="20" y2="17" />
+          </svg>
+        </button>
+        <div className="flex items-center gap-2 text-sm text-muted2">
+          <span className="text-base">{currentNav?.icon}</span>
+          <span className="font-semibold text-text">{currentNav?.label}</span>
+        </div>
+        <div className="text-[10px] text-muted tracking-[0.1em] font-semibold">ADMIN</div>
       </div>
 
-      {/* Content */}
-      <div style={{ flex: 1, padding: 24, overflow: 'auto' }}>
+      {/* Mobile drawer backdrop */}
+      {drawerOpen && (
+        <button
+          aria-label="Close menu"
+          className="md:hidden fixed inset-0 z-40 bg-black/60"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
 
+      {/* Sidebar */}
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 md:w-48 md:shrink-0 bg-bg md:border-r md:border-border py-5 md:py-5 overflow-y-auto transition-transform duration-200 ease-out border-r border-border ${
+          drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        <div className="flex items-center justify-between px-4 mb-3.5 md:px-4">
+          <span className="text-[11px] text-muted tracking-[0.1em] font-semibold">ADMIN PANEL</span>
+          <button
+            onClick={() => setDrawerOpen(false)}
+            aria-label="Close menu"
+            className="md:hidden text-muted hover:text-text w-8 h-8 inline-flex items-center justify-center rounded-md"
+          >
+            ✕
+          </button>
+        </div>
+        <nav>
+          {navItems.map((n) => (
+            <button
+              key={n.id}
+              onClick={() => selectSection(n.id)}
+              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors border-l-2 font-sans ${
+                sec === n.id
+                  ? 'bg-accent/[0.12] border-accent text-accent font-semibold'
+                  : 'border-transparent text-muted2 hover:text-text hover:bg-white/5'
+              }`}
+            >
+              <span className="text-base">{n.icon}</span>{n.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Content */}
+      <div className="flex-1 p-4 sm:p-5 md:p-6 overflow-auto min-w-0">
         {/* DASHBOARD */}
         {sec === 'dashboard' && (
           <div>
-            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 20 }}>Dashboard</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+            <div className="font-bold text-lg mb-5">Dashboard</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
               {[
-                { l: 'Total Players', v: players.length,     c: 'var(--accent)' },
-                { l: 'Active Raids',  v: activeRaidCount,    c: 'var(--green)'  },
-                { l: 'Total Entries', v: entries.length,     c: '#a78bfa'       },
+                { l: 'Total Players', v: players.length,  c: 'var(--accent)' },
+                { l: 'Active Raids',  v: activeRaidCount, c: 'var(--green)'  },
+                { l: 'Total Entries', v: entries.length,  c: '#a78bfa'       },
               ].map((d) => (
-                <div key={d.l} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
-                  <div style={{ fontSize: 26, fontWeight: 700, color: d.c, fontFamily: 'var(--mono)' }}>{d.v}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{d.l}</div>
+                <div key={d.l} className="bg-card border border-border rounded-xl px-5 py-4">
+                  <div className="text-2xl font-bold font-mono" style={{ color: d.c }}>{d.v}</div>
+                  <div className="text-xs text-muted mt-1">{d.l}</div>
                 </div>
               ))}
             </div>
-            <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Recent Activity</div>
+            <div className="bg-card border border-border rounded-xl px-5 py-4">
+              <div className="text-[13px] font-semibold mb-3">Recent Activity</div>
               {entries.slice(0, 10).map((e, i) => (
-                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < 9 && i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>{e.player.ign}</span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
+                <div
+                  key={e.id}
+                  className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 py-2 ${
+                    i < 9 && i < entries.length - 1 ? 'border-b border-border' : ''
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <span className="font-semibold text-[13px]">{e.player.ign}</span>
+                    <span className="text-xs text-muted ml-2">
                       Entry — {e.raid.raidBoss.name} S{e.raid.season}
                     </span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--green)', fontFamily: 'var(--mono)', fontSize: 13 }}>+{e.score.toLocaleString()}</span>
-                    <span style={{ color: 'var(--muted)', fontSize: 11, marginLeft: 10 }}>{new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  <div className="flex items-center gap-2.5 sm:shrink-0">
+                    <span className="text-green font-mono text-[13px]">+{e.score.toLocaleString()}</span>
+                    <span className="text-muted text-[11px]">
+                      {new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -286,35 +361,82 @@ export function AdminPanel() {
         {/* PLAYERS */}
         {sec === 'players' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 18 }}>Players <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 400 }}>({players.length})</span></div>
-              <button onClick={openAddPlayer} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '9px 18px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Add Player</button>
+            <div className="flex justify-between items-center gap-3 mb-5">
+              <div className="font-bold text-lg">
+                Players <span className="text-[13px] text-muted font-normal">({players.length})</span>
+              </div>
+              <button onClick={openAddPlayer} className={addBtnClass}>+ Add Player</button>
             </div>
-            <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+
+            {/* Card list (mobile) */}
+            <div className="sm:hidden flex flex-col gap-2.5">
+              {players.map((p) => (
+                <div key={p.id} className="bg-card border border-border rounded-xl p-3.5">
+                  <div className="flex justify-between items-start gap-3 mb-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm break-words">{p.ign}</div>
+                      <div className="text-[11px] text-muted font-mono">@{p.username}</div>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button onClick={() => openEditPlayer(p)} className={editBtnClass}>Edit</button>
+                      <button onClick={() => deletePlayer(p.id)} className={delBtnClass}>Delete</button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
+                    <div>
+                      <div className="text-[10px] text-muted tracking-[0.06em] uppercase">Fav</div>
+                      <div className="text-muted2">{p.favouriteStudent || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-muted tracking-[0.06em] uppercase">Club</div>
+                      <div>{p.club || 'Guest'}</div>
+                      <div className="text-[10px] text-muted font-mono">
+                        {p.clubID || (p.club === 'Guest' ? 'GUEST' : '—')}
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-[10px] text-muted tracking-[0.06em] uppercase">User ID</div>
+                      <div className="font-mono text-[12px] text-muted2 break-all">{p.userID || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {players.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">No players yet.</div>
+              )}
+            </div>
+
+            {/* Table (sm+) */}
+            <div className="hidden sm:block bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[13px]">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border2)', background: 'rgba(255,255,255,0.02)' }}>
+                    <tr className="border-b border-border2 bg-white/[0.02]">
                       {['IGN','USERNAME','FAV STUDENT','CLUB / ID','USER ID','ACTIONS'].map((h) => (
-                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--muted)', fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>{h}</th>
+                        <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {players.map((p, i) => (
-                      <tr key={p.id} style={{ borderBottom: i < players.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                        <td style={{ padding: '11px 14px', fontWeight: 600 }}>{p.ign}</td>
-                        <td style={{ padding: '11px 14px', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 12 }}>@{p.username}</td>
-                        <td style={{ padding: '11px 14px', color: 'var(--muted2)', fontSize: 13 }}>{p.favouriteStudent}</td>
-                        <td style={{ padding: '11px 14px' }}>
-                          <div style={{ fontSize: 13 }}>{p.club || 'Guest'}</div>
-                          <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{p.clubID || (p.club === 'Guest' ? 'GUEST' : '—')}</div>
+                      <tr
+                        key={p.id}
+                        className={i < players.length - 1 ? 'border-b border-border' : ''}
+                      >
+                        <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{p.ign}</td>
+                        <td className="px-3.5 py-2.5 text-muted font-mono text-xs whitespace-nowrap">@{p.username}</td>
+                        <td className="px-3.5 py-2.5 text-muted2 text-[13px]">{p.favouriteStudent}</td>
+                        <td className="px-3.5 py-2.5">
+                          <div className="text-[13px]">{p.club || 'Guest'}</div>
+                          <div className="text-[11px] text-muted font-mono">{p.clubID || (p.club === 'Guest' ? 'GUEST' : '—')}</div>
                         </td>
-                        <td style={{ padding: '11px 14px', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted2)' }}>{p.userID || '—'}</td>
-                        <td style={{ padding: '11px 14px' }}>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => openEditPlayer(p)} style={{ background: 'rgba(79,142,247,0.12)', border: '1px solid rgba(79,142,247,0.3)', borderRadius: 6, padding: '4px 10px', color: 'var(--accent)', fontSize: 12, cursor: 'pointer' }}>Edit</button>
-                            <button onClick={() => deletePlayer(p.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 6, padding: '4px 10px', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                        <td className="px-3.5 py-2.5 font-mono text-xs text-muted2">{p.userID || '—'}</td>
+                        <td className="px-3.5 py-2.5">
+                          <div className="flex gap-1.5">
+                            <button onClick={() => openEditPlayer(p)} className={editBtnClass}>Edit</button>
+                            <button onClick={() => deletePlayer(p.id)} className={delBtnClass}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -329,32 +451,56 @@ export function AdminPanel() {
         {/* RAIDS */}
         {sec === 'raids' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 18 }}>Raids</div>
-              <button onClick={openAddRaid} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '9px 18px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Add Raid</button>
+            <div className="flex justify-between items-center gap-3 mb-5">
+              <div className="font-bold text-lg">Raids</div>
+              <button onClick={openAddRaid} className={addBtnClass}>+ Add Raid</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
               {raids.map((r) => (
-                <div key={r.id} style={{ background: 'var(--card)', border: `1px solid ${r.color}25`, borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 3, height: 36, borderRadius: 2, background: r.color, boxShadow: `0 0 8px ${r.color}60`, flexShrink: 0 }} />
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700 }}>{r.raidBoss.name}</span>
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>S{r.season} · {r.type.name}</span>
+                <div
+                  key={r.id}
+                  className="bg-card border rounded-xl px-4 py-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                  style={{ borderColor: `${r.color}25` }}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className="w-[3px] h-9 rounded-sm shrink-0"
+                      style={{ background: r.color, boxShadow: `0 0 8px ${r.color}60` }}
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold break-words">{r.raidBoss.name}</span>
+                        <span className="text-xs text-muted">S{r.season} · {r.type.name}</span>
                         <ServerBadge server={r.server.name} />
                         {r.status === 'CURRENT' && (
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(52,211,153,0.15)', color: 'var(--green)', border: '1px solid rgba(52,211,153,0.35)' }}>LIVE</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green/15 text-green border border-green/35">
+                            LIVE
+                          </span>
                         )}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontFamily: 'var(--mono)' }}>
+                      <div className="text-[11px] text-muted mt-1 font-mono">
                         {fmtDate(r.startDate)} — {fmtDate(r.endDate)}
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => openEditRaid(r)} style={{ background: `${r.color}18`, border: `1px solid ${r.color}40`, borderRadius: 6, padding: '6px 12px', color: r.color, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Edit</button>
-                    <button onClick={() => deleteRaid(r.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 6, padding: '6px 12px', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      onClick={() => openEditRaid(r)}
+                      className="rounded-md px-3 py-1.5 text-xs font-semibold border transition-colors"
+                      style={{
+                        background: `${r.color}18`,
+                        borderColor: `${r.color}40`,
+                        color: r.color,
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteRaid(r.id)}
+                      className="rounded-md px-3 py-1.5 text-xs bg-red/10 border border-red/25 text-red hover:bg-red/20 transition-colors"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -365,27 +511,41 @@ export function AdminPanel() {
         {/* BOSSES */}
         {sec === 'bosses' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 18 }}>Raid Bosses <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 400 }}>({bosses.length})</span></div>
-              <button onClick={openAddBoss} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '9px 18px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Add Boss</button>
+            <div className="flex justify-between items-center gap-3 mb-5">
+              <div className="font-bold text-lg">
+                Raid Bosses <span className="text-[13px] text-muted font-normal">({bosses.length})</span>
+              </div>
+              <button onClick={openAddBoss} className={addBtnClass}>+ Add Boss</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
               {bosses.map((b) => (
-                <div key={b.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div
+                  key={b.id}
+                  className="bg-card border border-border rounded-xl px-4 py-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
                     {b.image ? (
-                      <img src={b.image} alt={b.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} />
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={b.image}
+                        alt={b.name}
+                        className="w-11 h-11 rounded-lg object-cover border border-border shrink-0"
+                      />
                     ) : (
-                      <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--card2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>◉</div>
+                      <div className="w-11 h-11 rounded-lg bg-card2 border border-border flex items-center justify-center text-xl shrink-0">
+                        ◉
+                      </div>
                     )}
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{b.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, maxWidth: 400 }}>{b.description || <span style={{ fontStyle: 'italic' }}>No description</span>}</div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm break-words">{b.name}</div>
+                      <div className="text-xs text-muted mt-0.5 max-w-[480px]">
+                        {b.description || <span className="italic">No description</span>}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => openEditBoss(b)} style={{ background: 'rgba(79,142,247,0.12)', border: '1px solid rgba(79,142,247,0.3)', borderRadius: 6, padding: '6px 12px', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Edit</button>
-                    <button onClick={() => deleteBoss(b.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 6, padding: '6px 12px', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button onClick={() => openEditBoss(b)} className={editBtnClass}>Edit</button>
+                    <button onClick={() => deleteBoss(b.id)} className={delBtnClass}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -396,32 +556,75 @@ export function AdminPanel() {
         {/* ENTRIES */}
         {sec === 'entries' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 18 }}>Entries</div>
-              <button onClick={openAddEntry} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '9px 18px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Add Entry</button>
+            <div className="flex justify-between items-center gap-3 mb-5">
+              <div className="font-bold text-lg">Entries</div>
+              <button onClick={openAddEntry} className={addBtnClass}>+ Add Entry</button>
             </div>
-            <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+
+            {/* Card list (mobile) */}
+            <div className="sm:hidden flex flex-col gap-2.5">
+              {entries.map((e) => (
+                <div key={e.id} className="bg-card border border-border rounded-xl p-3.5">
+                  <div className="flex justify-between items-start gap-3 mb-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm break-words">{e.player.ign}</div>
+                      <div className="text-[11px] text-muted2 mt-0.5 break-words">
+                        {e.raid.raidBoss.name} S{e.raid.season}
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button onClick={() => openEditEntry(e)} className={editBtnClass}>Edit</button>
+                      <button onClick={() => deleteEntry(e.id)} className={delBtnClass}>Del</button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <ServerBadge server={e.raid.server.name} />
+                      <span className="text-muted font-mono text-[11px]">
+                        {new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                    <span className="font-mono text-accent font-semibold">
+                      {e.score.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {entries.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">No entries yet.</div>
+              )}
+            </div>
+
+            {/* Table (sm+) */}
+            <div className="hidden sm:block bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[13px]">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border2)', background: 'rgba(255,255,255,0.02)' }}>
+                    <tr className="border-b border-border2 bg-white/[0.02]">
                       {['PLAYER','RAID','SERVER','SCORE','DATE','ACTIONS'].map((h) => (
-                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--muted)', fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>{h}</th>
+                        <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {entries.map((e, i) => (
-                      <tr key={e.id} style={{ borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                        <td style={{ padding: '11px 14px', fontWeight: 600 }}>{e.player.ign}</td>
-                        <td style={{ padding: '11px 14px', color: 'var(--muted2)' }}>{e.raid.raidBoss.name} S{e.raid.season}</td>
-                        <td style={{ padding: '11px 14px' }}><ServerBadge server={e.raid.server.name} /></td>
-                        <td style={{ padding: '11px 14px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600 }}>{e.score.toLocaleString()}</td>
-                        <td style={{ padding: '11px 14px', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 12 }}>{new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
-                        <td style={{ padding: '11px 14px' }}>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => openEditEntry(e)} style={{ background: 'rgba(79,142,247,0.12)', border: '1px solid rgba(79,142,247,0.3)', borderRadius: 6, padding: '4px 8px', color: 'var(--accent)', fontSize: 11, cursor: 'pointer' }}>Edit</button>
-                            <button onClick={() => deleteEntry(e.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 6, padding: '4px 8px', color: 'var(--red)', fontSize: 11, cursor: 'pointer' }}>Del</button>
+                      <tr
+                        key={e.id}
+                        className={i < entries.length - 1 ? 'border-b border-border' : ''}
+                      >
+                        <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{e.player.ign}</td>
+                        <td className="px-3.5 py-2.5 text-muted2">{e.raid.raidBoss.name} S{e.raid.season}</td>
+                        <td className="px-3.5 py-2.5"><ServerBadge server={e.raid.server.name} /></td>
+                        <td className="px-3.5 py-2.5 font-mono text-accent font-semibold">{e.score.toLocaleString()}</td>
+                        <td className="px-3.5 py-2.5 text-muted font-mono text-xs whitespace-nowrap">
+                          {new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </td>
+                        <td className="px-3.5 py-2.5">
+                          <div className="flex gap-1.5">
+                            <button onClick={() => openEditEntry(e)} className={editBtnClass}>Edit</button>
+                            <button onClick={() => deleteEntry(e.id)} className={delBtnClass}>Del</button>
                           </div>
                         </td>
                       </tr>
@@ -434,10 +637,10 @@ export function AdminPanel() {
         )}
 
         {sec === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: 'var(--muted)', gap: 12 }}>
-            <div style={{ fontSize: 40 }}>⊛</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--muted2)' }}>Settings</div>
-            <div style={{ fontSize: 13 }}>Site configuration would go here in production.</div>
+          <div className="flex flex-col items-center justify-center min-h-[300px] text-muted gap-3">
+            <div className="text-4xl">⊛</div>
+            <div className="text-[15px] font-semibold text-muted2">Settings</div>
+            <div className="text-[13px]">Site configuration would go here in production.</div>
           </div>
         )}
       </div>
@@ -448,20 +651,52 @@ export function AdminPanel() {
       {modal === 'player' && (
         <StModal title={editTarget ? 'Edit Player' : 'Add Player'} onClose={() => setModal(null)} wide>
           <form onSubmit={savePlayer}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-              <StField label="IGN"><input style={inputStyle} type="text" value={pForm.ign} onChange={e => setPForm(f => ({ ...f, ign: e.target.value }))} placeholder="In-game name" required /></StField>
-              <StField label="USERNAME"><input style={inputStyle} type="text" value={pForm.username} onChange={e => setPForm(f => ({ ...f, username: e.target.value }))} placeholder="@handle" required /></StField>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <StField label="IGN">
+                <input className={inputClass} type="text" value={pForm.ign} onChange={e => setPForm(f => ({ ...f, ign: e.target.value }))} placeholder="In-game name" required />
+              </StField>
+              <StField label="USERNAME">
+                <input className={inputClass} type="text" value={pForm.username} onChange={e => setPForm(f => ({ ...f, username: e.target.value }))} placeholder="@handle" required />
+              </StField>
               <StField label="FAVOURITE STUDENT (AVATAR)">
-                <select style={inputStyle} value={pForm.favouriteStudent} onChange={e => setPForm(f => ({ ...f, favouriteStudent: e.target.value }))}>
+                <select className={inputClass} value={pForm.favouriteStudent} onChange={e => setPForm(f => ({ ...f, favouriteStudent: e.target.value }))}>
                   {STUDENTS.map(s => <option key={s}>{s}</option>)}
                 </select>
               </StField>
-              <StField label="JOINED DATE"><input style={inputStyle} type="date" value={pForm.joinedDate} onChange={e => setPForm(f => ({ ...f, joinedDate: e.target.value }))} /></StField>
-              <StField label="CLUB"><input style={inputStyle} type="text" value={pForm.club} onChange={e => setPForm(f => ({ ...f, club: e.target.value }))} placeholder="Guest" /></StField>
-              <StField label="CLUB ID"><input style={inputStyle} type="text" value={pForm.clubID} onChange={e => setPForm(f => ({ ...f, clubID: e.target.value }))} placeholder="e.g. MIL001" /></StField>
-              <StField label="USER ID"><input style={inputStyle} type="text" value={pForm.userID} onChange={e => setPForm(f => ({ ...f, userID: e.target.value }))} placeholder="e.g. USR011" /></StField>
+              <StField label="JOINED DATE">
+                <input className={inputClass} type="date" value={pForm.joinedDate} onChange={e => setPForm(f => ({ ...f, joinedDate: e.target.value }))} />
+              </StField>
             </div>
-            <button type="submit" style={{ width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 6 }}>
+            {/* Guest toggle */}
+            <div className="flex items-center gap-3 mb-3 mt-1">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isGuest}
+                onClick={() => setIsGuest(v => !v)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${isGuest ? 'bg-accent' : 'bg-border'}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${isGuest ? 'translate-x-4' : 'translate-x-0'}`} />
+              </button>
+              <span className="text-[11px] font-bold tracking-[0.1em] text-muted2">GUEST</span>
+              {isGuest && <span className="text-[11px] text-muted">Player has no club</span>}
+            </div>
+            {!isGuest && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                <StField label="CLUB">
+                  <input className={inputClass} type="text" value={pForm.club} onChange={e => setPForm(f => ({ ...f, club: e.target.value }))} placeholder="Club name" />
+                </StField>
+                <StField label="CLUB ID">
+                  <input className={inputClass} type="text" value={pForm.clubID} onChange={e => setPForm(f => ({ ...f, clubID: e.target.value }))} placeholder="e.g. MIL001" />
+                </StField>
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <StField label="USER ID">
+                <input className={inputClass} type="text" value={pForm.userID} onChange={e => setPForm(f => ({ ...f, userID: e.target.value }))} placeholder="e.g. USR011" />
+              </StField>
+            </div>
+            <button type="submit" className={submitBtnClass}>
               {editTarget ? 'Save Changes' : 'Add Player'}
             </button>
           </form>
@@ -473,20 +708,31 @@ export function AdminPanel() {
         <StModal title={editTarget ? 'Edit Raid Boss' : 'Add Raid Boss'} onClose={() => setModal(null)} wide>
           <form onSubmit={saveBoss}>
             <StField label="BOSS NAME" span2>
-              <input style={inputStyle} type="text" value={bForm.name} onChange={e => setBForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Void Sanctum" required />
+              <input className={inputClass} type="text" value={bForm.name} onChange={e => setBForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Void Sanctum" required />
             </StField>
             <StField label="IMAGE URL" span2>
-              <input style={inputStyle} type="text" value={bForm.image} onChange={e => setBForm(f => ({ ...f, image: e.target.value }))} placeholder="https://... (optional)" />
+              <input className={inputClass} type="text" value={bForm.image} onChange={e => setBForm(f => ({ ...f, image: e.target.value }))} placeholder="https://... (optional)" />
             </StField>
             {bForm.image && (
-              <div style={{ marginBottom: 12 }}>
-                <img src={bForm.image} alt="Preview" style={{ height: 80, borderRadius: 8, border: '1px solid var(--border)', objectFit: 'cover' }} onError={e => (e.currentTarget.style.display = 'none')} />
+              <div className="mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={proxyImage(bForm.image)}
+                  alt="Preview"
+                  className="h-20 rounded-lg border border-border object-cover"
+                  onError={e => (e.currentTarget.style.display = 'none')}
+                />
               </div>
             )}
             <StField label="DESCRIPTION" span2>
-              <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }} value={bForm.description} onChange={e => setBForm(f => ({ ...f, description: e.target.value }))} placeholder="Boss lore / description…" />
+              <textarea
+                className={`${inputClass} min-h-20 resize-y`}
+                value={bForm.description}
+                onChange={e => setBForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Boss lore / description…"
+              />
             </StField>
-            <button type="submit" style={{ width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 6 }}>
+            <button type="submit" className={submitBtnClass}>
               {editTarget ? 'Save Changes' : 'Add Boss'}
             </button>
           </form>
@@ -497,50 +743,58 @@ export function AdminPanel() {
       {modal === 'raid' && (
         <StModal title={editTarget ? 'Edit Raid' : 'Add Raid'} onClose={() => setModal(null)}>
           <form onSubmit={saveRaid}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <StField label="RAID BOSS" span2>
-                <select style={inputStyle} value={rForm.raidBossId} onChange={e => setRForm(f => ({ ...f, raidBossId: e.target.value }))} required>
+                <select className={inputClass} value={rForm.raidBossId} onChange={e => setRForm(f => ({ ...f, raidBossId: e.target.value }))} required>
                   <option value="">— Select Boss —</option>
                   {bosses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </StField>
               <StField label="SEASON">
-                <input style={inputStyle} type="number" min="1" value={rForm.season} onChange={e => setRForm(f => ({ ...f, season: e.target.value }))} placeholder="e.g. 3" required />
+                <input className={inputClass} type="number" min="1" value={rForm.season} onChange={e => setRForm(f => ({ ...f, season: e.target.value }))} placeholder="e.g. 3" required />
               </StField>
               <StField label="TYPE">
-                <select style={inputStyle} value={rForm.typeId} onChange={e => setRForm(f => ({ ...f, typeId: e.target.value }))} required>
+                <select className={inputClass} value={rForm.typeId} onChange={e => setRForm(f => ({ ...f, typeId: e.target.value }))} required>
                   <option value="">— Select Type —</option>
                   {raidTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   {raidTypes.length === 0 && RAID_TYPES.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </StField>
               <StField label="SERVER">
-                <select style={inputStyle} value={rForm.serverId} onChange={e => setRForm(f => ({ ...f, serverId: e.target.value }))} required>
+                <select className={inputClass} value={rForm.serverId} onChange={e => setRForm(f => ({ ...f, serverId: e.target.value }))} required>
                   <option value="">— Select Server —</option>
                   {raidServers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   {raidServers.length === 0 && RAID_SERVERS.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </StField>
               <StField label="STATUS">
-                <select style={inputStyle} value={rForm.status} onChange={e => setRForm(f => ({ ...f, status: e.target.value }))}>
+                <select className={inputClass} value={rForm.status} onChange={e => setRForm(f => ({ ...f, status: e.target.value }))}>
                   <option value="CURRENT">Current (Live)</option>
                   <option value="PREVIOUS">Previous (Archived)</option>
                 </select>
               </StField>
-              <StField label="PRIMARY COLOR"><input style={{ ...inputStyle, height: 42 }} type="color" value={rForm.color} onChange={e => setRForm(f => ({ ...f, color: e.target.value }))} /></StField>
-              <StField label="SECONDARY COLOR"><input style={{ ...inputStyle, height: 42 }} type="color" value={rForm.color2} onChange={e => setRForm(f => ({ ...f, color2: e.target.value }))} /></StField>
+              <StField label="PRIMARY COLOR">
+                <input className={`${inputClass} h-11`} type="color" value={rForm.color} onChange={e => setRForm(f => ({ ...f, color: e.target.value }))} />
+              </StField>
+              <StField label="SECONDARY COLOR">
+                <input className={`${inputClass} h-11`} type="color" value={rForm.color2} onChange={e => setRForm(f => ({ ...f, color2: e.target.value }))} />
+              </StField>
               <StField label="PATTERN">
-                <select style={inputStyle} value={rForm.pattern} onChange={e => setRForm(f => ({ ...f, pattern: e.target.value }))}>
+                <select className={inputClass} value={rForm.pattern} onChange={e => setRForm(f => ({ ...f, pattern: e.target.value }))}>
                   <option value="hex">Hexagons</option>
                   <option value="grid">Grid</option>
                   <option value="diamond">Diamond</option>
                   <option value="dot">Dots</option>
                 </select>
               </StField>
-              <StField label="START DATE"><input style={inputStyle} type="date" value={rForm.startDate} onChange={e => setRForm(f => ({ ...f, startDate: e.target.value }))} required /></StField>
-              <StField label="END DATE"><input style={inputStyle} type="date" value={rForm.endDate} onChange={e => setRForm(f => ({ ...f, endDate: e.target.value }))} required /></StField>
+              <StField label="START DATE">
+                <input className={inputClass} type="date" value={rForm.startDate} onChange={e => setRForm(f => ({ ...f, startDate: e.target.value }))} required />
+              </StField>
+              <StField label="END DATE">
+                <input className={inputClass} type="date" value={rForm.endDate} onChange={e => setRForm(f => ({ ...f, endDate: e.target.value }))} required />
+              </StField>
             </div>
-            <button type="submit" style={{ width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 6 }}>
+            <button type="submit" className={submitBtnClass}>
               {editTarget ? 'Save Changes' : 'Add Raid'}
             </button>
           </form>
@@ -552,18 +806,20 @@ export function AdminPanel() {
         <StModal title={editTarget ? 'Edit Entry' : 'Add Entry'} onClose={() => setModal(null)}>
           <form onSubmit={saveEntry}>
             <StField label="PLAYER" span2>
-              <select style={inputStyle} value={eForm.playerId} onChange={e => setEForm(f => ({ ...f, playerId: e.target.value }))} required>
+              <select className={inputClass} value={eForm.playerId} onChange={e => setEForm(f => ({ ...f, playerId: e.target.value }))} required>
                 <option value="">— Select Player —</option>
                 {players.map(p => <option key={p.id} value={p.id}>{p.ign} (@{p.username})</option>)}
               </select>
             </StField>
             <StField label="RAID" span2>
-              <select style={inputStyle} value={eForm.raidId} onChange={e => setEForm(f => ({ ...f, raidId: e.target.value }))}>
+              <select className={inputClass} value={eForm.raidId} onChange={e => setEForm(f => ({ ...f, raidId: e.target.value }))}>
                 {raids.map(r => <option key={r.id} value={r.id}>{r.raidBoss.name} — S{r.season} ({r.server.name})</option>)}
               </select>
             </StField>
-            <StField label="SCORE" span2><input style={inputStyle} type="number" placeholder="e.g. 12500" value={eForm.score} onChange={e => setEForm(f => ({ ...f, score: e.target.value }))} required /></StField>
-            <button type="submit" style={{ width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            <StField label="SCORE" span2>
+              <input className={inputClass} type="number" placeholder="e.g. 12500" value={eForm.score} onChange={e => setEForm(f => ({ ...f, score: e.target.value }))} required />
+            </StField>
+            <button type="submit" className={submitBtnClass}>
               {editTarget ? 'Save Changes' : 'Add Entry'}
             </button>
           </form>

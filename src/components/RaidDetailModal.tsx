@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { StModal } from '@/components/ui/StModal'
 import { LeaderboardTable, type TableEntry } from '@/components/LeaderboardTable'
 import { ServerBadge } from '@/components/ui/ServerBadge'
@@ -19,10 +19,12 @@ interface Raid {
 interface Props {
   raid: Raid
   onClose: () => void
-  onPlayerClick?: (name: string) => void
+  onPlayerClick?: (playerId: string) => void
+  hideGuests: boolean
+  onToggleGuests: () => void
 }
 
-export function RaidDetailModal({ raid, onClose, onPlayerClick }: Props) {
+export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onToggleGuests }: Props) {
   const [full, setFull] = useState<TableEntry[]>([])
 
   useEffect(() => {
@@ -31,25 +33,45 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick }: Props) {
       .then((data: TableEntry[]) => setFull(data))
   }, [raid.id])
 
+  const filteredFull = (hideGuests
+    ? full.filter((e) => e.isGuild).map((e, i) => ({ ...e, rank: i + 1 }))
+    : full
+  ).slice(0, 50)
+
   return (
     <StModal
-      title={`${raid.raidBoss.name} — S${raid.season} · Full Rankings (Top 50)`}
+      title={`${raid.raidBoss.name} — S${raid.season} · Top 50`}
       onClose={onClose}
-      wide
+      fullScreen
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3.5 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
           <ServerBadge server={raid.server.name} />
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+          <span className="text-xs text-muted">
             {raid.type.name} · {fmtDate(raid.startDate)} — {fmtDate(raid.endDate)}
           </span>
+          <span className="text-xs text-muted2 ml-auto sm:ml-0">
+            <span className="font-mono text-text">{filteredFull.length}</span> entries
+          </span>
         </div>
-        <span style={{ fontSize: 12, color: 'var(--muted2)' }}>
-          <span style={{ color: 'var(--green)', fontWeight: 600 }}>GUILD</span> badge = your members
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleGuests}
+            className={`text-[11px] px-2.5 py-1 rounded border font-semibold tracking-[0.04em] transition-colors ${
+              hideGuests
+                ? 'bg-accent/10 border-accent/30 text-accent'
+                : 'bg-transparent border-border text-muted hover:text-muted2 hover:border-border2'
+            }`}
+          >
+            {hideGuests ? 'Guild Only' : 'All Players'}
+          </button>
+          <span className="text-xs text-muted2">
+            <span className="text-green font-semibold">GUILD</span> badge = your members
+          </span>
+        </div>
       </div>
-      <div style={{ maxHeight: '62vh', overflowY: 'auto', overscrollBehavior: 'contain', borderRadius: 10, border: '1px solid var(--border)' }}>
-        <LeaderboardTable players={full} accent={raid.color} onPlayerClick={onPlayerClick} />
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-border">
+        <LeaderboardTable players={filteredFull} accent={raid.color} onPlayerClick={onPlayerClick} />
       </div>
     </StModal>
   )

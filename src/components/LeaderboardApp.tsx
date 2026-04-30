@@ -29,18 +29,11 @@ interface RaidData {
   endDate?: string | null
 }
 
-interface PlayerData {
-  id: string
-  ign: string
-  favouriteStudent?: string | null
-}
-
 interface Props {
   initialRaids: RaidData[]
-  initialPlayers: PlayerData[]
 }
 
-export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
+export function LeaderboardApp({ initialRaids }: Props) {
   const { data: session, status } = useSession()
   const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
 
@@ -50,7 +43,6 @@ export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
   const [raidEntries, setRaidEntries] = useState<Record<string, TableEntry[]>>({})
 
-  // Fetch entries for all raids on mount
   useEffect(() => {
     initialRaids.forEach((raid) => {
       fetch(`/api/raids/${raid.id}/entries`)
@@ -70,9 +62,8 @@ export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
     }
   }
 
-  function handlePlayerClick(name: string) {
-    const player = initialPlayers.find((p) => p.ign === name)
-    if (player) setProfilePlayerId(player.id)
+  function handlePlayerClick(playerId: string) {
+    setProfilePlayerId(playerId)
   }
 
   function matchesServer(raid: RaidData): boolean {
@@ -82,18 +73,20 @@ export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
     return true
   }
 
-  const currentRaids  = initialRaids.filter((r) => r.status === 'CURRENT'  && matchesServer(r))
+  const currentRaids = initialRaids.filter((r) => r.status === 'CURRENT' && matchesServer(r))
   const previousRaids = initialRaids.filter((r) => r.status === 'PREVIOUS' && matchesServer(r))
   const previousCount = initialRaids.filter((r) => r.status === 'PREVIOUS').length
 
-  // When admin logs in, switch to admin tab
   function handleLogin() {
     setShowLogin(false)
     setTab('admin')
   }
 
+  const containerMax = tab === 'admin' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
+
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="min-h-screen bg-bg">
       <Navbar
         tab={tab}
         setTab={setTab}
@@ -104,33 +97,26 @@ export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
         previousRaidCount={previousCount}
       />
 
-      <div style={{
-        maxWidth: tab === 'admin' ? 1100 : 940,
-        margin: '0 auto',
-        padding: tab === 'admin' ? '24px 20px 60px' : '0 20px 60px',
-      }}>
-
+      <div className={`mx-auto w-full ${containerMax} ${containerPad}`}>
         {/* LEADERBOARD */}
         {tab === 'leaderboard' && (
           <div>
-            <div style={{
-              textAlign: 'center', padding: '34px 0 26px',
-              background: 'radial-gradient(ellipse 70% 260px at 50% 0, rgba(79,142,247,0.07), transparent)',
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.14em', marginBottom: 8 }}>
+            <div className="text-center py-8 sm:py-9 bg-[radial-gradient(ellipse_70%_260px_at_50%_0,_rgba(79,142,247,0.07),_transparent)]">
+              <div className="text-[11px] font-bold text-accent tracking-[0.14em] mb-2">
                 ◈ SEASON 3 · ACTIVE RAIDS
               </div>
-              <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: '-0.03em' }}>
-                Stratonas <span style={{ color: 'var(--accent)' }}>Leaderboard</span>
+              <h1 className="text-2xl sm:text-3xl md:text-[32px] font-bold tracking-[-0.03em] leading-tight">
+                Stratonas <span className="text-accent">Leaderboard</span>
               </h1>
-              <p style={{ color: 'var(--muted2)', fontSize: 14, marginTop: 8 }}>
-                {currentRaids.length} active raid{currentRaids.length !== 1 ? 's' : ''} · Showing top 10 per raid
+              <p className="text-muted2 text-sm mt-2 px-2">
+                {currentRaids.length} active raid{currentRaids.length !== 1 ? 's' : ''}
                 {serverFilter !== 'all' ? ` · ${serverFilter === 'jp' ? 'JP' : 'Global'} server` : ''}
               </p>
             </div>
-            {currentRaids.length === 0
-              ? <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '60px 0', fontSize: 14 }}>No active raids for this server filter.</div>
-              : currentRaids.map((r) => (
+            {currentRaids.length === 0 ? (
+              <div className="text-center text-muted py-16 text-sm">No active raids for this server filter.</div>
+            ) : (
+              currentRaids.map((r) => (
                 <RaidBlock
                   key={r.id}
                   raid={r}
@@ -139,40 +125,43 @@ export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
                   capRows={10}
                 />
               ))
-            }
+            )}
           </div>
         )}
 
         {/* PREVIOUS RAIDS */}
         {tab === 'previous' && (
           <div>
-            <div style={{ padding: '28px 0 20px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.14em', marginBottom: 6 }}>◈ ARCHIVED RAIDS</div>
-              <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>Previous Rankings</h2>
-              <p style={{ color: 'var(--muted2)', fontSize: 13, marginTop: 6 }}>
+            <div className="pt-7 pb-5">
+              <div className="text-[11px] font-bold text-muted tracking-[0.14em] mb-1.5">◈ ARCHIVED RAIDS</div>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Previous Rankings</h2>
+              <p className="text-muted2 text-[13px] mt-1.5">
                 All past raids and their final standings — click &quot;View Full Rankings&quot; for Top 50
               </p>
             </div>
-            {previousRaids.length === 0
-              ? <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '60px 0', fontSize: 14 }}>No previous raids for this server filter.</div>
-              : previousRaids.map((r) => (
+            {previousRaids.length === 0 ? (
+              <div className="text-center text-muted py-16 text-sm">No previous raids for this server filter.</div>
+            ) : (
+              previousRaids.map((r) => (
                 <RaidBlock
                   key={r.id}
                   raid={r}
                   entries={raidEntries[r.id] || []}
                   onPlayerClick={handlePlayerClick}
+                  capRows={10}
+                  defaultOpen={false}
                 />
               ))
-            }
+            )}
           </div>
         )}
 
         {/* STATS */}
         {tab === 'stats' && (
-          <div style={{ paddingTop: 28 }}>
-            <div style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.14em', marginBottom: 6 }}>◈ SEASON OVERVIEW</div>
-              <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>Statistics</h2>
+          <div className="pt-7">
+            <div className="mb-5">
+              <div className="text-[11px] font-bold text-muted tracking-[0.14em] mb-1.5">◈ SEASON OVERVIEW</div>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Statistics</h2>
             </div>
             <StatsPage onPlayerClick={(pid) => setProfilePlayerId(pid)} />
           </div>
@@ -180,13 +169,13 @@ export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
 
         {/* ADMIN */}
         {tab === 'admin' && !isAdmin && (
-          <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--muted)' }}>
-            <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--muted2)', marginBottom: 8 }}>Admin Access Required</div>
-            <div style={{ fontSize: 14, marginBottom: 24 }}>Please log in to manage leaderboard data.</div>
+          <div className="text-center py-20 text-muted">
+            <div className="text-4xl mb-4">🔒</div>
+            <div className="text-lg font-semibold text-muted2 mb-2">Admin Access Required</div>
+            <div className="text-sm mb-6">Please log in to manage leaderboard data.</div>
             <button
               onClick={() => setShowLogin(true)}
-              style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '11px 24px', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+              className="bg-accent rounded-lg px-6 py-2.5 text-white font-bold text-sm hover:bg-accent/90 transition-colors"
             >
               Login as Admin
             </button>

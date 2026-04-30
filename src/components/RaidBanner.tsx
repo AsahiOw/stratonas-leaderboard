@@ -1,5 +1,5 @@
 import { ServerBadge } from '@/components/ui/ServerBadge'
-import { fmtDate } from '@/lib/utils'
+import { fmtDate, proxyImage } from '@/lib/utils'
 
 const patternMap: Record<string, string> = {
   hex:     `url("data:image/svg+xml,%3Csvg width='40' height='46' viewBox='0 0 40 46' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0 L40 11.5 L40 34.5 L20 46 L0 34.5 L0 11.5Z' fill='none' stroke='%23ffffff' stroke-width='0.4' stroke-opacity='0.1'/%3E%3C/svg%3E")`,
@@ -26,78 +26,90 @@ interface TopPlayer { name: string; score: number }
 interface Props {
   raid: RaidBannerRaid
   topPlayer?: TopPlayer | null
-  participantCount: number
 }
 
-export function RaidBanner({ raid, topPlayer, participantCount }: Props) {
+export function RaidBanner({ raid, topPlayer }: Props) {
+  const isLive = raid.status === 'CURRENT' || raid.status === 'current'
+
   return (
-    <div style={{
-      borderRadius: '12px 12px 0 0', overflow: 'hidden', position: 'relative',
-      background: `linear-gradient(135deg,${raid.color}22 0%,${raid.color2}18 50%,#0d0d13 100%)`,
-      border: `1px solid ${raid.color}33`, borderBottom: 'none', padding: '20px 22px',
-    }}>
+    <div
+      className="relative overflow-hidden rounded-t-xl border border-b-0 px-4 py-4 sm:px-5 sm:py-5"
+      style={{
+        background: `linear-gradient(135deg,${raid.color}22 0%,${raid.color2}18 50%,#0d0d13 100%)`,
+        borderColor: `${raid.color}33`,
+      }}
+    >
+      {/* Raid boss image */}
+      {raid.raidBoss.image && (
+        <div
+          className="absolute inset-y-0 right-0 w-4/5 sm:w-3/5 pointer-events-none"
+          style={{ maskImage: 'linear-gradient(to right, transparent 0%, black 55%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 55%)' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={proxyImage(raid.raidBoss.image)}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-40"
+          />
+        </div>
+      )}
       {/* Pattern overlay */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        backgroundImage: patternMap[raid.pattern] || '',
-        pointerEvents: 'none',
-      }} />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ backgroundImage: patternMap[raid.pattern] || '' }}
+      />
       {/* Radial orb */}
-      <div style={{
-        position: 'absolute', right: -30, top: -30, width: 180, height: 180,
-        borderRadius: '50%',
-        background: `radial-gradient(circle,${raid.color}28 0%,transparent 70%)`,
-        pointerEvents: 'none',
-      }} />
+      <div
+        className="absolute -right-8 -top-8 w-44 h-44 rounded-full pointer-events-none"
+        style={{ background: `radial-gradient(circle,${raid.color}28 0%,transparent 70%)` }}
+      />
+
       {/* Content */}
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <ServerBadge server={raid.server.name} />
-            <span style={{ fontSize: 11, color: `${raid.color}cc`, fontWeight: 600, letterSpacing: '0.07em' }}>
+            <span
+              className="text-[11px] font-semibold tracking-[0.07em]"
+              style={{ color: `${raid.color}cc` }}
+            >
               S{raid.season} · {raid.type.name.toUpperCase()}
             </span>
-            {(raid.status === 'CURRENT' || raid.status === 'current') && (
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
-                background: 'rgba(52,211,153,0.15)', color: 'var(--green)',
-                border: '1px solid rgba(52,211,153,0.35)',
-                display: 'flex', alignItems: 'center', gap: 4,
-              }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+            {isLive && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green/15 text-green border border-green/35 inline-flex items-center gap-1">
+                <span className="w-[5px] h-[5px] rounded-full bg-green inline-block" />
                 LIVE
               </span>
             )}
           </div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em', margin: '0 0 5px' }}>
+          <h2 className="text-lg sm:text-xl font-bold tracking-[-0.02em] mb-1 break-words">
             {raid.raidBoss.name}
           </h2>
-          <p style={{ fontSize: 12, color: 'var(--muted2)', maxWidth: 400 }}>{raid.raidBoss.description}</p>
+          <p className="text-xs text-muted2 max-w-[480px]">
+            {raid.raidBoss.description}
+          </p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+
+        <div className="flex flex-col gap-1.5 sm:items-end sm:shrink-0 w-full sm:w-auto">
           {topPlayer && (
-            <div style={{
-              background: 'rgba(0,0,0,0.35)', border: `1px solid ${raid.color}30`,
-              borderRadius: 10, padding: '7px 13px', textAlign: 'right',
-            }}>
-              <div style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 3 }}>
-                {(raid.status === 'CURRENT' || raid.status === 'current') ? 'CURRENT LEADER' : 'FINAL RANK 1'}
+            <div
+              className="bg-black/35 rounded-lg px-3 py-2 sm:text-right border w-full sm:w-auto"
+              style={{ borderColor: `${raid.color}30` }}
+            >
+              <div className="text-[10px] text-muted tracking-[0.08em] font-semibold mb-0.5">
+                {isLive ? 'CURRENT LEADER' : 'FINAL RANK 1'}
               </div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{topPlayer.name}</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: raid.color, fontWeight: 700 }}>
+              <div className="font-bold text-sm">{topPlayer.name}</div>
+              <div
+                className="font-mono text-[13px] font-bold"
+                style={{ color: raid.color }}
+              >
                 {topPlayer.score.toLocaleString()} pts
               </div>
             </div>
           )}
-          <div style={{
-            background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border)',
-            borderRadius: 7, padding: '4px 10px', fontSize: 11, color: 'var(--muted)',
-            fontFamily: 'var(--mono)',
-          }}>
+          <div className="bg-black/25 border border-border rounded-md px-2.5 py-1 text-[11px] text-muted font-mono w-full sm:w-auto sm:text-right">
             {fmtDate(raid.startDate)} → {fmtDate(raid.endDate)}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            {participantCount} participants (guild)
           </div>
         </div>
       </div>

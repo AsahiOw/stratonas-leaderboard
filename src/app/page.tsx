@@ -10,17 +10,10 @@ const raidInclude = {
 } as const
 
 export default async function Home() {
-  const [raids, players] = await Promise.all([
-    prisma.raid.findMany({
-      include: raidInclude,
-      orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
-    }),
-    prisma.player.findMany({
-      where: { isGuildMember: true },
-      orderBy: { ign: 'asc' },
-      select: { id: true, ign: true, favouriteStudent: true },
-    }),
-  ])
+  const raids = await prisma.raid.findMany({
+    include: raidInclude,
+    orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
+  })
 
   return (
     <LeaderboardApp
@@ -29,7 +22,6 @@ export default async function Home() {
         startDate: r.startDate?.toISOString() ?? null,
         endDate: r.endDate?.toISOString() ?? null,
       }))}
-      initialPlayers={players}
     />
   )
 }

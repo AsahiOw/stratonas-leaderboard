@@ -5,27 +5,24 @@ interface Props { data: BarItem[]; color: string }
 export function BarChart({ data, color }: Props) {
   const max = Math.max(...data.map((d) => d.val), 1)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <div className="flex flex-col gap-3 sm:gap-2.5">
       {data.map((d) => (
-        <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 112, fontSize: 12, color: 'var(--muted2)',
-            textAlign: 'right', flexShrink: 0, fontWeight: 500,
-          }}>
+        <div
+          key={d.name}
+          className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2.5"
+        >
+          <div className="text-xs text-muted2 font-medium sm:w-28 sm:text-right sm:shrink-0 truncate">
             {d.name}
           </div>
-          <div style={{
-            flex: 1, background: 'var(--border)', borderRadius: 4, height: 20, overflow: 'hidden',
-          }}>
-            <div style={{
-              width: `${(d.val / max) * 100}%`, height: '100%',
-              background: `linear-gradient(to right,${color}99,${color})`,
-              borderRadius: 4, display: 'flex', alignItems: 'center', paddingLeft: 7,
-            }}>
-              <span style={{
-                fontFamily: 'var(--mono)', fontSize: 10, color: '#fff',
-                fontWeight: 700, whiteSpace: 'nowrap',
-              }}>
+          <div className="flex-1 bg-border rounded h-5 overflow-hidden">
+            <div
+              className="h-full rounded flex items-center pl-2"
+              style={{
+                width: `${(d.val / max) * 100}%`,
+                background: `linear-gradient(to right,${color}99,${color})`,
+              }}
+            >
+              <span className="font-mono text-[10px] text-white font-bold whitespace-nowrap">
                 {d.val.toLocaleString()}
               </span>
             </div>

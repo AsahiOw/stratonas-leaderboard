@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Space_Grotesk, Space_Mono } from 'next/font/google'
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
@@ -22,10 +22,16 @@ export const metadata: Metadata = {
   description: 'Stratonas Guild Leaderboard — Season 3',
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${spaceMono.variable}`}>
-      <body style={{ fontFamily: 'var(--font), sans-serif' }}>
+      <body className="font-sans bg-bg text-text min-h-screen antialiased">
         <SessionProvider>
           {children}
         </SessionProvider>

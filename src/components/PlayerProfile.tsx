@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Avatar } from '@/components/ui/Avatar'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { ServerBadge } from '@/components/ui/ServerBadge'
@@ -44,6 +45,25 @@ interface Props {
 
 export function PlayerProfile({ playerId, onClose }: Props) {
   const [player, setPlayer] = useState<PlayerData | null>(null)
+  // Portal into document.body so this overlay sits above any other modal
+  // (e.g. the full-rankings RaidDetailModal at z-[300]) and is not bounded
+  // by an ancestor that creates a containing block for fixed elements.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   useEffect(() => {
     fetch(`/api/players/${playerId}`)
@@ -51,11 +71,17 @@ export function PlayerProfile({ playerId, onClose }: Props) {
       .then(setPlayer)
   }, [playerId])
 
+  if (!mounted) return null
+
   if (!player) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-        <div style={{ color: 'var(--muted)', fontSize: 14 }}>Loading...</div>
-      </div>
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[400] bg-black/[0.78] flex items-center justify-center"
+        onClick={onClose}
+      >
+        <div className="text-muted text-sm">Loading...</div>
+      </div>,
+      document.body
     )
   }
 
@@ -71,31 +97,30 @@ export function PlayerProfile({ playerId, onClose }: Props) {
     { label: 'Best Rank',   val: bestRank ? `#${bestRank}` : '—', color: 'var(--gold)' },
   ]
 
-  return (
+  return createPortal(
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      className="fixed inset-0 z-[400] bg-black/[0.78] flex items-stretch sm:items-center justify-center p-0 sm:p-6"
       onClick={onClose}
     >
       <div
-        style={{
-          background: 'var(--card)', border: '1px solid var(--border2)', borderRadius: 18,
-          width: '100%', maxWidth: 600, maxHeight: '88vh', overflow: 'auto',
-          boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
-        }}
+        className="bg-card border-0 sm:border sm:border-border2 sm:rounded-[18px] w-full h-full sm:h-auto sm:max-w-[600px] sm:max-h-[88vh] overflow-auto shadow-[0_30px_80px_rgba(0,0,0,0.7)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div style={{ padding: '24px 24px 0', background: 'linear-gradient(to bottom,rgba(79,142,247,0.07),transparent)', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="px-5 sm:px-6 pt-5 sm:pt-6 border-b border-border bg-[linear-gradient(to_bottom,rgba(79,142,247,0.07),transparent)]">
+          <div className="flex justify-between items-start mb-4 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0">
               <Avatar initials={initials} color="var(--accent)" size={56} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' }}>{player.ign}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                  @{player.username} · {player.club} <span style={{ color: 'var(--border2)' }}>({player.clubID})</span>
+              <div className="min-w-0">
+                <div className="font-bold text-xl sm:text-[22px] tracking-[-0.02em] break-words">
+                  {player.ign}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                  Fav: <span style={{ color: 'var(--accent)' }}>{player.favouriteStudent}</span>
+                <div className="text-xs text-muted mt-0.5">
+                  @{player.username} · {player.club}{' '}
+                  <span className="text-border2">({player.clubID})</span>
+                </div>
+                <div className="text-[11px] text-muted mt-0.5">
+                  Fav: <span className="text-accent">{player.favouriteStudent}</span>
                   {' · '}UID: {player.userID}
                   {' · '}Joined {fmtDate(player.joinedDate)}
                 </div>
@@ -103,51 +128,71 @@ export function PlayerProfile({ playerId, onClose }: Props) {
             </div>
             <button
               onClick={onClose}
-              style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 20, padding: 4, lineHeight: 1 }}
+              aria-label="Close"
+              className="bg-transparent border-0 text-muted hover:text-text cursor-pointer text-xl leading-none w-9 h-9 inline-flex items-center justify-center rounded-md hover:bg-card2 transition-colors shrink-0"
             >
               ✕
             </button>
           </div>
 
           {/* Summary stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 20 }}>
+          <div className="grid grid-cols-2 gap-2.5 mb-5">
             {summaryStats.map((s) => (
-              <div key={s.label} style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 22, color: s.color }}>{s.val}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.3 }}>{s.label}</div>
+              <div
+                key={s.label}
+                className="bg-card2 border border-border rounded-xl p-3 text-center"
+              >
+                <div
+                  className="font-mono font-bold text-xl sm:text-[22px]"
+                  style={{ color: s.color }}
+                >
+                  {s.val}
+                </div>
+                <div className="text-[11px] text-muted mt-1 leading-tight">{s.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        <div style={{ padding: '20px 24px' }}>
+        <div className="px-5 sm:px-6 py-5">
           {/* Active raids */}
           {activeEntries.length > 0 && (
-            <div style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--green)', letterSpacing: '0.1em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
+            <div className="mb-5 sm:mb-6">
+              <div className="text-[11px] font-bold text-green tracking-[0.1em] mb-3 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green inline-block" />
                 ACTIVE RAIDS
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="flex flex-col gap-2.5">
                 {activeEntries.map((e) => (
-                  <div key={e.id} style={{
-                    background: `linear-gradient(to right,${e.raid.color}12,var(--card2))`,
-                    border: `1px solid ${e.raid.color}30`, borderRadius: 10, padding: '12px 16px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-                  }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, fontSize: 14 }}>{e.raid.raidBoss.name}</span>
-                        <span style={{ fontSize: 11, color: `${e.raid.color}cc` }}>S{e.raid.season}</span>
+                  <div
+                    key={e.id}
+                    className="rounded-xl px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border"
+                    style={{
+                      background: `linear-gradient(to right,${e.raid.color}12,var(--card2))`,
+                      borderColor: `${e.raid.color}30`,
+                    }}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="font-semibold text-sm">{e.raid.raidBoss.name}</span>
+                        <span
+                          className="text-[11px]"
+                          style={{ color: `${e.raid.color}cc` }}
+                        >
+                          S{e.raid.season}
+                        </span>
                         <ServerBadge server={e.raid.server.name} />
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
+                      <div className="text-[11px] text-muted font-mono">
                         {fmtDate(e.raid.startDate)} — {fmtDate(e.raid.endDate)}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:shrink-0">
                       <RankBadge rank={e.rank} />
-                      <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, color: e.raid.color, fontSize: 16 }}>
+                      <div
+                        className="font-mono font-bold text-base"
+                        style={{ color: e.raid.color }}
+                      >
                         {e.score.toLocaleString()}
                       </div>
                     </div>
@@ -160,29 +205,28 @@ export function PlayerProfile({ playerId, onClose }: Props) {
           {/* History */}
           {historyEntries.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.1em', marginBottom: 12 }}>
+              <div className="text-[11px] font-bold text-muted tracking-[0.1em] mb-3">
                 RAID HISTORY
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="flex flex-col gap-2">
                 {historyEntries.map((e) => (
-                  <div key={e.id} style={{
-                    background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 10,
-                    padding: '10px 16px', display: 'flex', alignItems: 'center',
-                    justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', opacity: 0.88,
-                  }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{e.raid.raidBoss.name}</span>
-                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>S{e.raid.season}</span>
+                  <div
+                    key={e.id}
+                    className="bg-card2 border border-border rounded-xl px-4 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between opacity-90"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <span className="font-semibold text-[13px]">{e.raid.raidBoss.name}</span>
+                        <span className="text-[11px] text-muted">S{e.raid.season}</span>
                         <ServerBadge server={e.raid.server.name} />
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
+                      <div className="text-[11px] text-muted font-mono">
                         {fmtDate(e.raid.startDate)} — {fmtDate(e.raid.endDate)}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:shrink-0">
                       <RankBadge rank={e.rank} size="sm" />
-                      <span style={{ fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--muted2)', fontSize: 14 }}>
+                      <span className="font-mono font-bold text-muted2 text-sm">
                         {e.score.toLocaleString()}
                       </span>
                     </div>
@@ -193,12 +237,13 @@ export function PlayerProfile({ playerId, onClose }: Props) {
           )}
 
           {player.entries.length === 0 && (
-            <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '24px 0', fontSize: 14 }}>
+            <div className="text-center text-muted py-6 text-sm">
               No raid history found.
             </div>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

@@ -11,12 +11,13 @@ export interface TableEntry {
   isGuild: boolean
   club?: string | null
   favouriteStudent?: string | null
+  playerId?: string
 }
 
 interface Props {
   players: TableEntry[]
   accent: string
-  onPlayerClick?: (name: string) => void
+  onPlayerClick?: (playerId: string) => void
   cap?: number
 }
 
@@ -26,81 +27,81 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
   const glow = `rgba(${hexToRgb(accent)},0.07)`
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
         <thead>
-          <tr style={{ borderBottom: '1px solid var(--border2)' }}>
-            {['RANK', 'PLAYER', 'SCORE'].map((h) => (
-              <th key={h} style={{
-                padding: '10px 14px',
-                textAlign: h === 'RANK' ? 'center' : h === 'SCORE' ? 'right' : 'left',
-                color: 'var(--muted)', fontSize: 11, fontWeight: 600,
-                letterSpacing: '0.08em', whiteSpace: 'nowrap',
-              }}>
-                {h}
-              </th>
-            ))}
+          <tr className="border-b border-border2">
+            <th className="sticky left-0 bg-card z-10 px-2 sm:px-3.5 py-2.5 text-center text-muted text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap w-12 sm:w-14">
+              RANK
+            </th>
+            <th className="px-2 sm:px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap">
+              PLAYER
+            </th>
+            <th className="px-2 sm:px-3.5 py-2.5 text-right text-muted text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap">
+              SCORE
+            </th>
           </tr>
         </thead>
         <tbody>
           {shown.map((p, i) => {
             const isHov = hov === i
             const initials = ((p.favouriteStudent || p.name).slice(0, 2)).toUpperCase()
+            const rowBg = isHov ? 'rgba(255,255,255,0.03)' : p.rank <= 3 ? glow : 'transparent'
             return (
               <tr
                 key={`${p.name}-${i}`}
                 onMouseEnter={() => setHov(i)}
                 onMouseLeave={() => setHov(null)}
-                style={{
-                  background: isHov ? 'rgba(255,255,255,0.03)' : p.rank <= 3 ? glow : 'transparent',
-                  borderBottom: '1px solid var(--border)',
-                  transition: 'background 0.15s', cursor: 'default',
-                }}
+                className="border-b border-border transition-colors"
+                style={{ background: rowBg }}
               >
-                <td style={{ padding: '12px 14px', textAlign: 'center', width: 56 }}>
+                <td
+                  className="sticky left-0 z-10 px-2 sm:px-3.5 py-3 text-center w-12 sm:w-14"
+                  style={{ background: rowBg }}
+                >
                   <RankBadge rank={p.rank} />
                 </td>
-                <td style={{ padding: '12px 14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <td className="px-2 sm:px-3.5 py-3">
+                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                     <Avatar initials={initials} color={accent} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      {p.isGuild
-                        ? (
-                          <button
-                            onClick={() => onPlayerClick?.(p.name)}
-                            style={{
-                              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                              fontWeight: 600, color: isHov ? accent : 'var(--text)',
-                              fontSize: 14, fontFamily: 'var(--font), Space Grotesk, sans-serif',
-                              transition: 'color 0.15s',
-                              textDecoration: isHov ? 'underline' : 'none',
-                              textDecorationColor: accent,
-                            }}
-                          >
-                            {p.name}
-                          </button>
-                        )
-                        : (
-                          <span style={{ fontWeight: 500, color: 'var(--muted2)', fontSize: 14 }}>{p.name}</span>
-                        )
-                      }
-                      {p.isGuild && (
-                        <span style={{
-                          fontSize: 10, padding: '1px 6px', borderRadius: 3,
-                          background: 'rgba(52,211,153,0.12)', color: 'var(--green)',
-                          border: '1px solid rgba(52,211,153,0.25)', fontWeight: 600, letterSpacing: '0.05em',
-                        }}>
-                          {p.club || 'GUILD'}
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                      {p.playerId ? (
+                        <button
+                          onClick={() => onPlayerClick?.(p.playerId!)}
+                          className={`bg-transparent border-0 cursor-pointer p-0 font-semibold text-sm font-sans transition-colors truncate max-w-[140px] sm:max-w-none ${
+                            isHov ? 'underline' : ''
+                          }`}
+                          style={{
+                            color: isHov
+                              ? p.isGuild ? accent : 'var(--muted)'
+                              : p.isGuild ? 'var(--text)' : 'var(--muted2)',
+                            textDecorationColor: p.isGuild ? accent : 'var(--muted)',
+                          }}
+                        >
+                          {p.name}
+                        </button>
+                      ) : (
+                        <span className="font-medium text-muted2 text-sm truncate max-w-[140px] sm:max-w-none">
+                          {p.name}
                         </span>
                       )}
+                      {p.isGuild ? (
+                        <span className="text-[10px] px-1.5 py-px rounded bg-green/[0.12] text-green border border-green/25 font-semibold tracking-[0.05em]">
+                          {p.club || 'GUILD'}
+                        </span>
+                      ) : p.club ? (
+                        <span className="text-[10px] px-1.5 py-px rounded bg-[rgba(255,255,255,0.05)] text-muted border border-border font-semibold tracking-[0.05em]">
+                          {p.club}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                  <span style={{
-                    fontFamily: 'var(--mono)', fontWeight: 700,
-                    color: p.isGuild ? accent : 'var(--muted2)', fontSize: 15,
-                  }}>
+                <td className="px-2 sm:px-3.5 py-3 text-right">
+                  <span
+                    className="font-mono font-bold text-[15px] tabular-nums"
+                    style={{ color: p.isGuild ? accent : 'var(--muted2)' }}
+                  >
                     {p.score.toLocaleString()}
                   </span>
                 </td>

@@ -31,7 +31,13 @@ html, body {
   min-height: 100vh;
 }
 
-::-webkit-scrollbar { width: 6px; }
+body {
+  font-family: var(--font), 'Space Grotesk', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--surface); }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 

@@ -18,6 +18,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       club,
       clubID,
       userID,
+      isGuildMember: body.isGuildMember ?? true,
     },
   })
   return NextResponse.json(player)

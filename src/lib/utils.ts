@@ -1,3 +1,8 @@
+export function proxyImage(url: string | null | undefined): string {
+  if (!url) return ''
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`
+}
+
 export function fmtDate(d: string | Date | null | undefined): string {
   if (!d) return '—'
   const date = typeof d === 'string' ? new Date(d + (d.includes('T') ? '' : 'T00:00:00')) : d

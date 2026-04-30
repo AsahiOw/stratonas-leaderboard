@@ -2,13 +2,7 @@ interface Props { message: string }
 
 export function Toast({ message }: Props) {
   return (
-    <div style={{
-      position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
-      background: 'var(--card2)', border: '1px solid var(--border2)',
-      borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 600,
-      color: 'var(--green)', boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-      zIndex: 500, whiteSpace: 'nowrap',
-    }}>
+    <div className="fixed bottom-7 left-1/2 -translate-x-1/2 bg-card2 border border-border2 rounded-lg px-5 py-2.5 text-[13px] font-semibold text-green shadow-[0_4px_16px_rgba(0,0,0,0.4)] z-[500] whitespace-nowrap">
       ✓ {message}
     </div>
   )

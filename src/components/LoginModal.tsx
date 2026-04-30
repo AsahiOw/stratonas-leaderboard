@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { StModal } from '@/components/ui/StModal'
-import { StField, inputStyle } from '@/components/ui/StField'
+import { StField, inputClass } from '@/components/ui/StField'
 
 interface Props {
   onLogin: () => void
@@ -33,37 +33,37 @@ export function LoginModal({ onLogin, onClose }: Props) {
       <form onSubmit={handleSubmit}>
         <StField label="EMAIL" span2>
           <input
-            style={inputStyle}
+            className={inputClass}
             type="email"
             placeholder="admin@stratonas.gg"
             value={email}
             onChange={(e) => { setEmail(e.target.value); setErr('') }}
             required
+            autoComplete="email"
           />
         </StField>
         <StField label="PASSWORD" span2>
           <input
-            style={inputStyle}
+            className={inputClass}
             type="password"
             placeholder="••••••••"
             value={password}
             onChange={(e) => { setPassword(e.target.value); setErr('') }}
             required
+            autoComplete="current-password"
           />
         </StField>
-        {err && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 12 }}>{err}</div>}
+        {err && (
+          <div className="text-red text-xs mb-3">{err}</div>
+        )}
         <button
           type="submit"
           disabled={loading}
-          style={{
-            width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8,
-            padding: 12, color: '#fff', fontWeight: 700, fontSize: 14,
-            cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1,
-          }}
+          className="w-full bg-accent rounded-lg py-3 text-white font-bold text-sm hover:bg-accent/90 transition-colors disabled:opacity-70 disabled:cursor-default"
         >
           {loading ? 'Logging in…' : 'Login'}
         </button>
-        <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 10 }}>
+        <div className="text-[11px] text-muted text-center mt-3">
           Demo: admin@stratonas.gg / admin123
         </div>
       </form>

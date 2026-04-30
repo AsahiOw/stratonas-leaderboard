@@ -24,6 +24,7 @@ export async function POST(req: Request) {
       club,
       clubID,
       userID,
+      isGuildMember: body.isGuildMember ?? true,
     },
   })
   return NextResponse.json(player, { status: 201 })
