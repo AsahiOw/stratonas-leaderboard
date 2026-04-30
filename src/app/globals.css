@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0d0d13;
+  --surface: #13131c;
+  --card: #1a1a26;
+  --card2: #1f1f2e;
+  --border: #272736;
+  --border2: #32324a;
+  --accent: #4f8ef7;
+  --accent2: #7c3aed;
+  --text: #e4e4f0;
+  --muted: #6b6b85;
+  --muted2: #9393aa;
+  --gold: #f0c040;
+  --green: #34d399;
+  --red: #f87171;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up { animation: fadeUp 0.25s ease forwards; }
+
+select option { background: #1a1a26; color: #e4e4f0; }
+
+/* Input/select base resets */
+input, select, textarea {
+  font-family: inherit;
+  color: var(--text);
+}
+
+input[type="color"] {
+  padding: 2px;
+  cursor: pointer;
+}
+
+button {
+  font-family: inherit;
+}
