@@ -14,15 +14,17 @@ type ServerFilter = 'all' | 'global' | 'jp'
 
 interface RaidData {
   id: string
-  name: string
-  episode?: string | null
-  season?: string | null
-  server: string
+  raidBossId: string
+  raidBoss: { id: string; name: string; description: string; image?: string | null }
+  season: number
+  typeId: string
+  type: { id: string; name: string }
+  serverId: string
+  server: { id: string; name: string }
   status: string
   color: string
   color2: string
   pattern: string
-  desc?: string | null
   startDate?: string | null
   endDate?: string | null
 }
@@ -75,7 +77,9 @@ export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
 
   function matchesServer(raid: RaidData): boolean {
     if (serverFilter === 'all') return true
-    return raid.server.toLowerCase() === serverFilter
+    if (serverFilter === 'global') return raid.server.name === 'Global'
+    if (serverFilter === 'jp') return raid.server.name === 'Japan'
+    return true
   }
 
   const currentRaids  = initialRaids.filter((r) => r.status === 'CURRENT'  && matchesServer(r))
@@ -121,7 +125,7 @@ export function LeaderboardApp({ initialRaids, initialPlayers }: Props) {
               </h1>
               <p style={{ color: 'var(--muted2)', fontSize: 14, marginTop: 8 }}>
                 {currentRaids.length} active raid{currentRaids.length !== 1 ? 's' : ''} · Showing top 10 per raid
-                {serverFilter !== 'all' ? ` · ${serverFilter.toUpperCase()} server` : ''}
+                {serverFilter !== 'all' ? ` · ${serverFilter === 'jp' ? 'JP' : 'Global'} server` : ''}
               </p>
             </div>
             {currentRaids.length === 0

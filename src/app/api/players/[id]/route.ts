@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+const raidInclude = { raidBoss: true, type: true, server: true } as const
+
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url)
   const ign = searchParams.get('ign')
@@ -11,7 +13,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     where: ign ? { ign } : { id: params.id },
     include: {
       entries: {
-        include: { raid: true },
+        include: { raid: { include: raidInclude } },
         orderBy: { score: 'desc' },
       },
     },

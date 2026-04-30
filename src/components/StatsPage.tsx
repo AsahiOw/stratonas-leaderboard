@@ -2,8 +2,6 @@
 import { useState, useEffect } from 'react'
 import { StatCard } from '@/components/ui/StatCard'
 import { BarChart } from '@/components/ui/BarChart'
-import { ServerBadge } from '@/components/ui/ServerBadge'
-import { StreakBadge } from '@/components/ui/StreakBadge'
 
 interface StatsData {
   topClub: { name: string; count: number }
@@ -13,7 +11,6 @@ interface StatsData {
   rank1JP: { name: string; playerId: string; raid: string } | null
   topByScore: { name: string; val: number }[]
   clubDist: { name: string; val: number }[]
-  liveStreaks: { name: string; playerId: string; streak: number; raid: string; server: string }[]
 }
 
 interface Props {
@@ -51,39 +48,10 @@ export function StatsPage({ onPlayerClick }: Props) {
         <BarChart data={stats.topByScore} color="var(--accent)" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        {/* Club distribution */}
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: 24 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>Club Distribution</div>
-          <BarChart data={stats.clubDist} color="#a78bfa" />
-        </div>
-
-        {/* Live streaks */}
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: 24 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>Live Streaks</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {stats.liveStreaks.length === 0 && (
-              <div style={{ color: 'var(--muted)', fontSize: 13 }}>No active streaks.</div>
-            )}
-            {stats.liveStreaks.map((s, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  onClick={() => onPlayerClick?.(s.playerId)}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                    fontWeight: 600, fontSize: 13, color: 'var(--text)',
-                    fontFamily: 'var(--font), Space Grotesk, sans-serif',
-                  }}
-                >
-                  {s.name}
-                </button>
-                <span style={{ fontSize: 11, color: 'var(--muted)', flex: 1 }}>{s.raid}</span>
-                <ServerBadge server={s.server} />
-                <StreakBadge streak={s.streak} />
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Club distribution */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: 24 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18 }}>Club Distribution</div>
+        <BarChart data={stats.clubDist} color="#a78bfa" />
       </div>
     </div>
   )

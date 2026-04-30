@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const players = await prisma.player.findMany({
+    where: { isGuildMember: true },
     orderBy: { ign: 'asc' },
     select: {
       id: true,
@@ -14,7 +15,6 @@ export async function GET() {
       club: true,
       clubID: true,
       userID: true,
-      status: true,
       joinedDate: true,
     },
   })

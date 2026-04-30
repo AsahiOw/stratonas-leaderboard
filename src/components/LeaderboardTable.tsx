@@ -2,18 +2,14 @@
 import { useState } from 'react'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { Avatar } from '@/components/ui/Avatar'
-import { StreakBadge } from '@/components/ui/StreakBadge'
-import { WinRate } from '@/components/ui/WinRate'
 import { hexToRgb } from '@/lib/utils'
 
 export interface TableEntry {
   rank: number
   name: string
   score: number
-  w: number
-  l: number
-  streak: number
   isGuild: boolean
+  club?: string | null
   favouriteStudent?: string | null
 }
 
@@ -23,8 +19,6 @@ interface Props {
   onPlayerClick?: (name: string) => void
   cap?: number
 }
-
-const LAST_ACTIVE = ['30m', '1h', '2h', '3h', '5h', '8h', '1d', '1d', '2d', '2d']
 
 export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props) {
   const [hov, setHov] = useState<number | null>(null)
@@ -36,10 +30,10 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border2)' }}>
-            {['RANK', 'PLAYER', 'SCORE', 'W/L', 'STREAK', 'LAST ACTIVE'].map((h) => (
+            {['RANK', 'PLAYER', 'SCORE'].map((h) => (
               <th key={h} style={{
                 padding: '10px 14px',
-                textAlign: h === 'RANK' ? 'center' : 'left',
+                textAlign: h === 'RANK' ? 'center' : h === 'SCORE' ? 'right' : 'left',
                 color: 'var(--muted)', fontSize: 11, fontWeight: 600,
                 letterSpacing: '0.08em', whiteSpace: 'nowrap',
               }}>
@@ -96,24 +90,19 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
                           background: 'rgba(52,211,153,0.12)', color: 'var(--green)',
                           border: '1px solid rgba(52,211,153,0.25)', fontWeight: 600, letterSpacing: '0.05em',
                         }}>
-                          GUILD
+                          {p.club || 'GUILD'}
                         </span>
                       )}
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: '12px 14px' }}>
+                <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                   <span style={{
                     fontFamily: 'var(--mono)', fontWeight: 700,
                     color: p.isGuild ? accent : 'var(--muted2)', fontSize: 15,
                   }}>
                     {p.score.toLocaleString()}
                   </span>
-                </td>
-                <td style={{ padding: '12px 14px' }}><WinRate w={p.w} l={p.l} /></td>
-                <td style={{ padding: '12px 14px' }}><StreakBadge streak={p.streak} /></td>
-                <td style={{ padding: '12px 14px', color: 'var(--muted)', fontSize: 12, fontFamily: 'var(--mono)' }}>
-                  {LAST_ACTIVE[i % LAST_ACTIVE.length]} ago
                 </td>
               </tr>
             )

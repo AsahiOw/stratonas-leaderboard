@@ -3,16 +3,14 @@ import { useState, useEffect } from 'react'
 import { Avatar } from '@/components/ui/Avatar'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { ServerBadge } from '@/components/ui/ServerBadge'
-import { StreakBadge } from '@/components/ui/StreakBadge'
-import { WinRate } from '@/components/ui/WinRate'
 import { fmtDate } from '@/lib/utils'
 
 interface RaidInfo {
   id: string
-  name: string
-  episode?: string | null
-  season?: string | null
-  server: string
+  raidBoss: { name: string; description: string; image?: string | null }
+  season: number
+  type: { name: string }
+  server: { name: string }
   status: string
   color: string
   color2: string
@@ -23,9 +21,6 @@ interface RaidInfo {
 interface EntryWithRaid {
   id: string
   score: number
-  wins: number
-  losses: number
-  streak: number
   rank: number
   raid: RaidInfo
 }
@@ -39,7 +34,6 @@ interface PlayerData {
   club?: string | null
   clubID?: string | null
   userID?: string | null
-  status: string
   entries: EntryWithRaid[]
 }
 
@@ -71,16 +65,10 @@ export function PlayerProfile({ playerId, onClose }: Props) {
 
   const totalScore = player.entries.reduce((s, e) => s + e.score, 0)
   const bestRank = player.entries.length ? Math.min(...player.entries.map((e) => e.rank)) : null
-  const totalW = player.entries.reduce((s, e) => s + e.wins, 0)
-  const totalL = player.entries.reduce((s, e) => s + e.losses, 0)
-  const winRate = totalW + totalL > 0 ? Math.round((totalW / (totalW + totalL)) * 100) : 0
-  const bestStreak = player.entries.length ? Math.max(...player.entries.map((e) => e.streak)) : 0
 
   const summaryStats = [
-    { label: 'Total Score',  val: totalScore.toLocaleString(), color: 'var(--accent)'  },
-    { label: 'Best Rank',    val: bestRank ? `#${bestRank}` : '—', color: 'var(--gold)' },
-    { label: 'Win Rate',     val: `${winRate}%`,                color: 'var(--green)'  },
-    { label: 'Best Streak',  val: bestStreak,                   color: 'var(--accent2)' },
+    { label: 'Total Score', val: totalScore.toLocaleString(), color: 'var(--accent)' },
+    { label: 'Best Rank',   val: bestRank ? `#${bestRank}` : '—', color: 'var(--gold)' },
   ]
 
   return (
@@ -122,7 +110,7 @@ export function PlayerProfile({ playerId, onClose }: Props) {
           </div>
 
           {/* Summary stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 20 }}>
             {summaryStats.map((s) => (
               <div key={s.label} style={{ background: 'var(--card2)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 22, color: s.color }}>{s.val}</div>
@@ -149,22 +137,18 @@ export function PlayerProfile({ playerId, onClose }: Props) {
                   }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, fontSize: 14 }}>{e.raid.name}</span>
-                        <span style={{ fontSize: 11, color: `${e.raid.color}cc` }}>{e.raid.episode}</span>
-                        <ServerBadge server={e.raid.server} />
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>{e.raid.raidBoss.name}</span>
+                        <span style={{ fontSize: 11, color: `${e.raid.color}cc` }}>S{e.raid.season}</span>
+                        <ServerBadge server={e.raid.server.name} />
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', marginBottom: 4 }}>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
                         {fmtDate(e.raid.startDate)} — {fmtDate(e.raid.endDate)}
                       </div>
-                      <WinRate w={e.wins} l={e.losses} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                       <RankBadge rank={e.rank} />
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, color: e.raid.color, fontSize: 16 }}>
-                          {e.score.toLocaleString()}
-                        </div>
-                        <div style={{ marginTop: 3 }}><StreakBadge streak={e.streak} /></div>
+                      <div style={{ fontFamily: 'var(--mono)', fontWeight: 700, color: e.raid.color, fontSize: 16 }}>
+                        {e.score.toLocaleString()}
                       </div>
                     </div>
                   </div>
@@ -188,14 +172,13 @@ export function PlayerProfile({ playerId, onClose }: Props) {
                   }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{e.raid.name}</span>
-                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{e.raid.episode}</span>
-                        <ServerBadge server={e.raid.server} />
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{e.raid.raidBoss.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>S{e.raid.season}</span>
+                        <ServerBadge server={e.raid.server.name} />
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', marginBottom: 2 }}>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
                         {fmtDate(e.raid.startDate)} — {fmtDate(e.raid.endDate)}
                       </div>
-                      <WinRate w={e.wins} l={e.losses} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                       <RankBadge rank={e.rank} size="sm" />

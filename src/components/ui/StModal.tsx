@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 
 interface Props {
   title: string
@@ -8,11 +9,18 @@ interface Props {
 }
 
 export function StModal({ title, onClose, children, wide }: Props) {
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
   return (
     <div
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-        zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, overflow: 'hidden',
       }}
       onClick={onClose}
     >
@@ -20,7 +28,8 @@ export function StModal({ title, onClose, children, wide }: Props) {
         style={{
           background: 'var(--card)', border: '1px solid var(--border2)', borderRadius: 16,
           padding: 26, width: '100%', maxWidth: wide ? 700 : 480,
-          maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.65)',
+          maxHeight: '90vh', overflow: 'auto', overscrollBehavior: 'contain',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.65)',
         }}
         onClick={(e) => e.stopPropagation()}
       >

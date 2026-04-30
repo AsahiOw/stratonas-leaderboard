@@ -9,15 +9,14 @@ const patternMap: Record<string, string> = {
 }
 
 interface RaidBannerRaid {
-  name: string
-  episode?: string | null
-  season?: string | null
-  server: string
+  raidBoss: { name: string; description: string; image?: string | null }
+  season: number
+  type: { name: string }
+  server: { name: string }
   status: string
   color: string
   color2: string
   pattern: string
-  desc?: string | null
   startDate?: Date | string | null
   endDate?: Date | string | null
 }
@@ -54,9 +53,9 @@ export function RaidBanner({ raid, topPlayer, participantCount }: Props) {
       <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-            <ServerBadge server={raid.server} />
+            <ServerBadge server={raid.server.name} />
             <span style={{ fontSize: 11, color: `${raid.color}cc`, fontWeight: 600, letterSpacing: '0.07em' }}>
-              {raid.season} · {raid.episode?.toUpperCase()}
+              S{raid.season} · {raid.type.name.toUpperCase()}
             </span>
             {(raid.status === 'CURRENT' || raid.status === 'current') && (
               <span style={{
@@ -71,9 +70,9 @@ export function RaidBanner({ raid, topPlayer, participantCount }: Props) {
             )}
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em', margin: '0 0 5px' }}>
-            {raid.name}
+            {raid.raidBoss.name}
           </h2>
-          <p style={{ fontSize: 12, color: 'var(--muted2)', maxWidth: 400 }}>{raid.desc}</p>
+          <p style={{ fontSize: 12, color: 'var(--muted2)', maxWidth: 400 }}>{raid.raidBoss.description}</p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
           {topPlayer && (

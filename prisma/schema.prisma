@@ -28,39 +28,51 @@ model Player {
   id               String       @id @default(cuid())
   ign              String       @unique
   username         String       @unique
+  isGuildMember    Boolean      @default(true)
   favouriteStudent String?
   joinedDate       DateTime     @default(now())
   club             String?
   clubID           String?
   userID           String?      @unique
-  status           PlayerStatus @default(ACTIVE)
   entries          RaidEntry[]
 }
 
-enum PlayerStatus {
-  ACTIVE
-  INACTIVE
+model RaidBoss {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String  @default("")
+  image       String?
+  raids       Raid[]
+}
+
+model RaidType {
+  id    String @id @default(cuid())
+  name  String @unique
+  raids Raid[]
+}
+
+model RaidServer {
+  id    String @id @default(cuid())
+  name  String @unique
+  raids Raid[]
 }
 
 model Raid {
-  id        String     @id @default(cuid())
-  name      String
-  episode   String?
-  season    String?
-  server    Server
-  status    RaidStatus @default(CURRENT)
-  color     String     @default("#4f8ef7")
-  color2    String     @default("#7c3aed")
-  pattern   String     @default("hex")
-  desc      String?
-  startDate DateTime?
-  endDate   DateTime?
-  entries   RaidEntry[]
-}
-
-enum Server {
-  GLOBAL
-  JP
+  id         String     @id @default(cuid())
+  raidBoss   RaidBoss   @relation(fields: [raidBossId], references: [id])
+  raidBossId String
+  season     Int
+  type       RaidType   @relation(fields: [typeId], references: [id])
+  typeId     String
+  server     RaidServer @relation(fields: [serverId], references: [id])
+  serverId   String
+  status     RaidStatus @default(CURRENT)
+  color      String     @default("#4f8ef7")
+  color2     String     @default("#7c3aed")
+  pattern    String     @default("hex")
+  startDate  DateTime?
+  endDate    DateTime?
+  entries    RaidEntry[]
 }
 
 enum RaidStatus {
@@ -75,9 +87,6 @@ model RaidEntry {
   raid      Raid     @relation(fields: [raidId], references: [id])
   raidId    String
   score     Int      @default(0)
-  wins      Int      @default(0)
-  losses    Int      @default(0)
-  streak    Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

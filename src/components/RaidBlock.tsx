@@ -6,15 +6,14 @@ import { RaidDetailModal } from '@/components/RaidDetailModal'
 
 interface Raid {
   id: string
-  name: string
-  episode?: string | null
-  season?: string | null
-  server: string
+  raidBoss: { name: string; description: string; image?: string | null }
+  season: number
+  type: { name: string }
+  server: { name: string }
   status: string
   color: string
   color2: string
   pattern: string
-  desc?: string | null
   startDate?: Date | string | null
   endDate?: Date | string | null
 }

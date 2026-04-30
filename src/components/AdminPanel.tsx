@@ -11,54 +11,106 @@ const STUDENTS = ['Hoshino','Shiroko','Yuuka','Aris','Natsu','Hibiki','Kayoko','
 interface Player {
   id: string; ign: string; username: string; favouriteStudent?: string | null
   joinedDate?: string | null; club?: string | null; clubID?: string | null
-  userID?: string | null; status: string
+  userID?: string | null
+}
+
+interface RaidBoss {
+  id: string; name: string; description: string; image?: string | null
+}
+
+interface RaidType {
+  id: string; name: string
+}
+
+interface RaidServer {
+  id: string; name: string
 }
 
 interface Raid {
-  id: string; name: string; episode?: string | null; season?: string | null
-  server: string; status: string; color: string; color2: string; pattern: string
-  desc?: string | null; startDate?: string | null; endDate?: string | null
+  id: string
+  raidBossId: string
+  raidBoss: RaidBoss
+  season: number
+  typeId: string
+  type: RaidType
+  serverId: string
+  server: RaidServer
+  status: string
+  color: string
+  color2: string
+  pattern: string
+  startDate?: string | null
+  endDate?: string | null
 }
 
 interface Entry {
-  id: string; score: number; wins: number; losses: number; streak: number
+  id: string; score: number
   createdAt: string; player: Player; raid: Raid
 }
 
-type Section = 'dashboard' | 'players' | 'raids' | 'entries' | 'settings'
+type Section = 'dashboard' | 'players' | 'raids' | 'bosses' | 'entries' | 'settings'
 
 const navItems = [
   { id: 'dashboard' as Section, label: 'Dashboard', icon: '◈' },
   { id: 'players'   as Section, label: 'Players',   icon: '◎' },
   { id: 'raids'     as Section, label: 'Raids',     icon: '⬡' },
+  { id: 'bosses'    as Section, label: 'Bosses',    icon: '◉' },
   { id: 'entries'   as Section, label: 'Entries',   icon: '⊞' },
   { id: 'settings'  as Section, label: 'Settings',  icon: '⊛' },
 ]
 
+const RAID_TYPES  = ['Total Assault', 'Grand Assault']
+const RAID_SERVERS = ['Global', 'Japan']
+
 export function AdminPanel() {
   const [sec, setSec] = useState<Section>('dashboard')
-  const [players, setPlayers] = useState<Player[]>([])
-  const [raids, setRaids] = useState<Raid[]>([])
-  const [entries, setEntries] = useState<Entry[]>([])
-  const [modal, setModal] = useState<string | null>(null)
-  const [editTarget, setEditTarget] = useState<Player | Raid | Entry | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [players, setPlayers]   = useState<Player[]>([])
+  const [raids, setRaids]       = useState<Raid[]>([])
+  const [bosses, setBosses]     = useState<RaidBoss[]>([])
+  const [raidTypes, setRaidTypes]     = useState<RaidType[]>([])
+  const [raidServers, setRaidServers] = useState<RaidServer[]>([])
+  const [entries, setEntries]   = useState<Entry[]>([])
+  const [modal, setModal]       = useState<string | null>(null)
+  const [editTarget, setEditTarget] = useState<Player | Raid | Entry | RaidBoss | null>(null)
+  const [toast, setToast]       = useState<string | null>(null)
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
-  const loadPlayers = useCallback(() => fetch('/api/players').then(r => r.json()).then(setPlayers), [])
+  const loadPlayers = useCallback(() => fetch('/api/admin/players').then(r => r.json()).then(setPlayers), [])
   const loadRaids   = useCallback(() => fetch('/api/raids').then(r => r.json()).then(setRaids), [])
+  const loadBosses  = useCallback(() => fetch('/api/raid-bosses').then(r => r.json()).then(setBosses), [])
   const loadEntries = useCallback(() => fetch('/api/admin/entries').then(r => r.json()).then(setEntries), [])
 
-  useEffect(() => { loadPlayers(); loadRaids(); loadEntries() }, [loadPlayers, loadRaids, loadEntries])
+  const loadLookups = useCallback(() => {
+    Promise.all([
+      fetch('/api/raid-bosses').then(r => r.json()),
+      fetch('/api/raids').then(r => r.json()),
+    ]).then(([b, raids]) => {
+      setBosses(b)
+      if (raids.length > 0) {
+        setRaidTypes([raids[0].type, ...raids
+          .map((r: Raid) => r.type)
+          .filter((t: RaidType, i: number, arr: RaidType[]) => arr.findIndex(x => x.id === t.id) === i)
+          .slice(1)])
+        setRaidServers([raids[0].server, ...raids
+          .map((r: Raid) => r.server)
+          .filter((s: RaidServer, i: number, arr: RaidServer[]) => arr.findIndex(x => x.id === s.id) === i)
+          .slice(1)])
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    loadPlayers(); loadRaids(); loadBosses(); loadEntries(); loadLookups()
+  }, [loadPlayers, loadRaids, loadBosses, loadEntries, loadLookups])
 
   // ── Player form ────────────────────────────────────────────────────────────
-  const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', joinedDate: '', club: '', clubID: '', userID: '', status: 'ACTIVE' }
+  const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', joinedDate: '', club: 'Guest', clubID: 'GUEST', userID: '' }
   const [pForm, setPForm] = useState(emptyP)
 
   function openAddPlayer() { setPForm(emptyP); setEditTarget(null); setModal('player') }
   function openEditPlayer(p: Player) {
-    setPForm({ ign: p.ign, username: p.username, favouriteStudent: p.favouriteStudent || 'Hoshino', joinedDate: p.joinedDate ? p.joinedDate.split('T')[0] : '', club: p.club || '', clubID: p.clubID || '', userID: p.userID || '', status: p.status })
+    setPForm({ ign: p.ign, username: p.username, favouriteStudent: p.favouriteStudent || 'Hoshino', joinedDate: p.joinedDate ? p.joinedDate.split('T')[0] : '', club: p.club || 'Guest', clubID: p.clubID || (p.club === 'Guest' ? 'GUEST' : ''), userID: p.userID || '' })
     setEditTarget(p); setModal('player')
   }
   async function deletePlayer(id: string) {
@@ -76,13 +128,55 @@ export function AdminPanel() {
     setModal(null); loadPlayers()
   }
 
+  // ── Raid Boss form ─────────────────────────────────────────────────────────
+  const emptyB = { name: '', description: '', image: '' }
+  const [bForm, setBForm] = useState(emptyB)
+
+  function openAddBoss() { setBForm(emptyB); setEditTarget(null); setModal('boss') }
+  function openEditBoss(b: RaidBoss) {
+    setBForm({ name: b.name, description: b.description, image: b.image || '' })
+    setEditTarget(b); setModal('boss')
+  }
+  async function deleteBoss(id: string) {
+    await fetch(`/api/admin/raid-bosses/${id}`, { method: 'DELETE' }); loadBosses(); showToast('Boss deleted.')
+  }
+  async function saveBoss(e: React.FormEvent) {
+    e.preventDefault()
+    const payload = { name: bForm.name, description: bForm.description, image: bForm.image || null }
+    if (editTarget) {
+      await fetch(`/api/admin/raid-bosses/${(editTarget as RaidBoss).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      showToast('Boss updated.')
+    } else {
+      await fetch('/api/admin/raid-bosses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      showToast('Boss added.')
+    }
+    setModal(null); loadBosses(); loadRaids()
+  }
+
   // ── Raid form ──────────────────────────────────────────────────────────────
-  const emptyR = { name: '', episode: '', season: 'Season 3', server: 'GLOBAL', status: 'CURRENT', color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex', desc: '', startDate: '', endDate: '' }
+  const emptyR = {
+    raidBossId: '', season: '3',
+    typeId: '', serverId: '',
+    status: 'CURRENT', color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex',
+    startDate: '', endDate: '',
+  }
   const [rForm, setRForm] = useState(emptyR)
 
-  function openAddRaid() { setRForm(emptyR); setEditTarget(null); setModal('raid') }
+  function openAddRaid() {
+    setRForm({ ...emptyR, raidBossId: bosses[0]?.id || '', typeId: raidTypes[0]?.id || '', serverId: raidServers[0]?.id || '' })
+    setEditTarget(null); setModal('raid')
+  }
   function openEditRaid(r: Raid) {
-    setRForm({ name: r.name, episode: r.episode || '', season: r.season || '', server: r.server, status: r.status, color: r.color, color2: r.color2, pattern: r.pattern, desc: r.desc || '', startDate: r.startDate ? r.startDate.split('T')[0] : '', endDate: r.endDate ? r.endDate.split('T')[0] : '' })
+    setRForm({
+      raidBossId: r.raidBossId,
+      season: String(r.season),
+      typeId: r.typeId,
+      serverId: r.serverId,
+      status: r.status,
+      color: r.color, color2: r.color2, pattern: r.pattern,
+      startDate: r.startDate ? r.startDate.split('T')[0] : '',
+      endDate: r.endDate ? r.endDate.split('T')[0] : '',
+    })
     setEditTarget(r); setModal('raid')
   }
   async function deleteRaid(id: string) {
@@ -101,12 +195,12 @@ export function AdminPanel() {
   }
 
   // ── Entry form ─────────────────────────────────────────────────────────────
-  const emptyE = { playerId: '', raidId: '', score: '', wins: '', losses: '', streak: '' }
+  const emptyE = { playerId: '', raidId: '', score: '' }
   const [eForm, setEForm] = useState(emptyE)
 
   function openAddEntry() { setEForm({ ...emptyE, raidId: raids[0]?.id || '', playerId: players[0]?.id || '' }); setEditTarget(null); setModal('entry') }
   function openEditEntry(en: Entry) {
-    setEForm({ playerId: en.player.id, raidId: en.raid.id, score: String(en.score), wins: String(en.wins), losses: String(en.losses), streak: String(en.streak) })
+    setEForm({ playerId: en.player.id, raidId: en.raid.id, score: String(en.score) })
     setEditTarget(en); setModal('entry')
   }
   async function deleteEntry(id: string) {
@@ -175,7 +269,9 @@ export function AdminPanel() {
                 <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < 9 && i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <div>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{e.player.ign}</span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>Entry — {e.raid.name} {e.raid.episode}</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
+                      Entry — {e.raid.raidBoss.name} S{e.raid.season}
+                    </span>
                   </div>
                   <div>
                     <span style={{ color: 'var(--green)', fontFamily: 'var(--mono)', fontSize: 13 }}>+{e.score.toLocaleString()}</span>
@@ -199,7 +295,7 @@ export function AdminPanel() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border2)', background: 'rgba(255,255,255,0.02)' }}>
-                      {['IGN','USERNAME','FAV STUDENT','CLUB / ID','USER ID','STATUS','ACTIONS'].map((h) => (
+                      {['IGN','USERNAME','FAV STUDENT','CLUB / ID','USER ID','ACTIONS'].map((h) => (
                         <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--muted)', fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -211,20 +307,10 @@ export function AdminPanel() {
                         <td style={{ padding: '11px 14px', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 12 }}>@{p.username}</td>
                         <td style={{ padding: '11px 14px', color: 'var(--muted2)', fontSize: 13 }}>{p.favouriteStudent}</td>
                         <td style={{ padding: '11px 14px' }}>
-                          <div style={{ fontSize: 13 }}>{p.club}</div>
-                          <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{p.clubID}</div>
+                          <div style={{ fontSize: 13 }}>{p.club || 'Guest'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>{p.clubID || (p.club === 'Guest' ? 'GUEST' : '—')}</div>
                         </td>
-                        <td style={{ padding: '11px 14px', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted2)' }}>{p.userID}</td>
-                        <td style={{ padding: '11px 14px' }}>
-                          <span style={{
-                            fontSize: 11, padding: '3px 8px', borderRadius: 4, fontWeight: 600,
-                            background: p.status === 'ACTIVE' ? 'rgba(52,211,153,0.15)' : 'rgba(107,107,133,0.2)',
-                            color: p.status === 'ACTIVE' ? 'var(--green)' : 'var(--muted)',
-                            border: `1px solid ${p.status === 'ACTIVE' ? 'rgba(52,211,153,0.3)' : 'var(--border2)'}`,
-                          }}>
-                            {p.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
+                        <td style={{ padding: '11px 14px', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted2)' }}>{p.userID || '—'}</td>
                         <td style={{ padding: '11px 14px' }}>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button onClick={() => openEditPlayer(p)} style={{ background: 'rgba(79,142,247,0.12)', border: '1px solid rgba(79,142,247,0.3)', borderRadius: 6, padding: '4px 10px', color: 'var(--accent)', fontSize: 12, cursor: 'pointer' }}>Edit</button>
@@ -254,9 +340,9 @@ export function AdminPanel() {
                     <div style={{ width: 3, height: 36, borderRadius: 2, background: r.color, boxShadow: `0 0 8px ${r.color}60`, flexShrink: 0 }} />
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700 }}>{r.name}</span>
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{r.episode} · {r.season}</span>
-                        <ServerBadge server={r.server} />
+                        <span style={{ fontWeight: 700 }}>{r.raidBoss.name}</span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>S{r.season} · {r.type.name}</span>
+                        <ServerBadge server={r.server.name} />
                         {r.status === 'CURRENT' && (
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(52,211,153,0.15)', color: 'var(--green)', border: '1px solid rgba(52,211,153,0.35)' }}>LIVE</span>
                         )}
@@ -269,6 +355,37 @@ export function AdminPanel() {
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button onClick={() => openEditRaid(r)} style={{ background: `${r.color}18`, border: `1px solid ${r.color}40`, borderRadius: 6, padding: '6px 12px', color: r.color, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Edit</button>
                     <button onClick={() => deleteRaid(r.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 6, padding: '6px 12px', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* BOSSES */}
+        {sec === 'bosses' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 18 }}>Raid Bosses <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 400 }}>({bosses.length})</span></div>
+              <button onClick={openAddBoss} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '9px 18px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Add Boss</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {bosses.map((b) => (
+                <div key={b.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    {b.image ? (
+                      <img src={b.image} alt={b.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }} />
+                    ) : (
+                      <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--card2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>◉</div>
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{b.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, maxWidth: 400 }}>{b.description || <span style={{ fontStyle: 'italic' }}>No description</span>}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => openEditBoss(b)} style={{ background: 'rgba(79,142,247,0.12)', border: '1px solid rgba(79,142,247,0.3)', borderRadius: 6, padding: '6px 12px', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Edit</button>
+                    <button onClick={() => deleteBoss(b.id)} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 6, padding: '6px 12px', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -297,8 +414,8 @@ export function AdminPanel() {
                     {entries.map((e, i) => (
                       <tr key={e.id} style={{ borderBottom: i < entries.length - 1 ? '1px solid var(--border)' : 'none' }}>
                         <td style={{ padding: '11px 14px', fontWeight: 600 }}>{e.player.ign}</td>
-                        <td style={{ padding: '11px 14px', color: 'var(--muted2)' }}>{e.raid.name} {e.raid.episode}</td>
-                        <td style={{ padding: '11px 14px' }}><ServerBadge server={e.raid.server} /></td>
+                        <td style={{ padding: '11px 14px', color: 'var(--muted2)' }}>{e.raid.raidBoss.name} S{e.raid.season}</td>
+                        <td style={{ padding: '11px 14px' }}><ServerBadge server={e.raid.server.name} /></td>
                         <td style={{ padding: '11px 14px', fontFamily: 'var(--mono)', color: 'var(--accent)', fontWeight: 600 }}>{e.score.toLocaleString()}</td>
                         <td style={{ padding: '11px 14px', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 12 }}>{new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</td>
                         <td style={{ padding: '11px 14px' }}>
@@ -340,18 +457,37 @@ export function AdminPanel() {
                 </select>
               </StField>
               <StField label="JOINED DATE"><input style={inputStyle} type="date" value={pForm.joinedDate} onChange={e => setPForm(f => ({ ...f, joinedDate: e.target.value }))} /></StField>
-              <StField label="CLUB"><input style={inputStyle} type="text" value={pForm.club} onChange={e => setPForm(f => ({ ...f, club: e.target.value }))} placeholder="e.g. Millennium" /></StField>
+              <StField label="CLUB"><input style={inputStyle} type="text" value={pForm.club} onChange={e => setPForm(f => ({ ...f, club: e.target.value }))} placeholder="Guest" /></StField>
               <StField label="CLUB ID"><input style={inputStyle} type="text" value={pForm.clubID} onChange={e => setPForm(f => ({ ...f, clubID: e.target.value }))} placeholder="e.g. MIL001" /></StField>
               <StField label="USER ID"><input style={inputStyle} type="text" value={pForm.userID} onChange={e => setPForm(f => ({ ...f, userID: e.target.value }))} placeholder="e.g. USR011" /></StField>
-              <StField label="STATUS">
-                <select style={inputStyle} value={pForm.status} onChange={e => setPForm(f => ({ ...f, status: e.target.value }))}>
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
-                </select>
-              </StField>
             </div>
             <button type="submit" style={{ width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 6 }}>
               {editTarget ? 'Save Changes' : 'Add Player'}
+            </button>
+          </form>
+        </StModal>
+      )}
+
+      {/* Boss modal */}
+      {modal === 'boss' && (
+        <StModal title={editTarget ? 'Edit Raid Boss' : 'Add Raid Boss'} onClose={() => setModal(null)} wide>
+          <form onSubmit={saveBoss}>
+            <StField label="BOSS NAME" span2>
+              <input style={inputStyle} type="text" value={bForm.name} onChange={e => setBForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Void Sanctum" required />
+            </StField>
+            <StField label="IMAGE URL" span2>
+              <input style={inputStyle} type="text" value={bForm.image} onChange={e => setBForm(f => ({ ...f, image: e.target.value }))} placeholder="https://... (optional)" />
+            </StField>
+            {bForm.image && (
+              <div style={{ marginBottom: 12 }}>
+                <img src={bForm.image} alt="Preview" style={{ height: 80, borderRadius: 8, border: '1px solid var(--border)', objectFit: 'cover' }} onError={e => (e.currentTarget.style.display = 'none')} />
+              </div>
+            )}
+            <StField label="DESCRIPTION" span2>
+              <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }} value={bForm.description} onChange={e => setBForm(f => ({ ...f, description: e.target.value }))} placeholder="Boss lore / description…" />
+            </StField>
+            <button type="submit" style={{ width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 6 }}>
+              {editTarget ? 'Save Changes' : 'Add Boss'}
             </button>
           </form>
         </StModal>
@@ -361,14 +497,28 @@ export function AdminPanel() {
       {modal === 'raid' && (
         <StModal title={editTarget ? 'Edit Raid' : 'Add Raid'} onClose={() => setModal(null)}>
           <form onSubmit={saveRaid}>
-            <StField label="RAID NAME" span2><input style={inputStyle} type="text" value={rForm.name} onChange={e => setRForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Void Sanctum" required /></StField>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-              <StField label="EPISODE"><input style={inputStyle} type="text" value={rForm.episode} onChange={e => setRForm(f => ({ ...f, episode: e.target.value }))} placeholder="e.g. Episode V" /></StField>
-              <StField label="SEASON"><input style={inputStyle} type="text" value={rForm.season} onChange={e => setRForm(f => ({ ...f, season: e.target.value }))} placeholder="e.g. Season 3" /></StField>
+              <StField label="RAID BOSS" span2>
+                <select style={inputStyle} value={rForm.raidBossId} onChange={e => setRForm(f => ({ ...f, raidBossId: e.target.value }))} required>
+                  <option value="">— Select Boss —</option>
+                  {bosses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </StField>
+              <StField label="SEASON">
+                <input style={inputStyle} type="number" min="1" value={rForm.season} onChange={e => setRForm(f => ({ ...f, season: e.target.value }))} placeholder="e.g. 3" required />
+              </StField>
+              <StField label="TYPE">
+                <select style={inputStyle} value={rForm.typeId} onChange={e => setRForm(f => ({ ...f, typeId: e.target.value }))} required>
+                  <option value="">— Select Type —</option>
+                  {raidTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {raidTypes.length === 0 && RAID_TYPES.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </StField>
               <StField label="SERVER">
-                <select style={inputStyle} value={rForm.server} onChange={e => setRForm(f => ({ ...f, server: e.target.value }))}>
-                  <option value="GLOBAL">Global</option>
-                  <option value="JP">JP</option>
+                <select style={inputStyle} value={rForm.serverId} onChange={e => setRForm(f => ({ ...f, serverId: e.target.value }))} required>
+                  <option value="">— Select Server —</option>
+                  {raidServers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {raidServers.length === 0 && RAID_SERVERS.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </StField>
               <StField label="STATUS">
@@ -388,11 +538,8 @@ export function AdminPanel() {
                 </select>
               </StField>
               <StField label="START DATE"><input style={inputStyle} type="date" value={rForm.startDate} onChange={e => setRForm(f => ({ ...f, startDate: e.target.value }))} required /></StField>
-              <StField label="END DATE" span2><input style={inputStyle} type="date" value={rForm.endDate} onChange={e => setRForm(f => ({ ...f, endDate: e.target.value }))} required /></StField>
+              <StField label="END DATE"><input style={inputStyle} type="date" value={rForm.endDate} onChange={e => setRForm(f => ({ ...f, endDate: e.target.value }))} required /></StField>
             </div>
-            <StField label="DESCRIPTION" span2>
-              <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 64 }} value={rForm.desc} onChange={e => setRForm(f => ({ ...f, desc: e.target.value }))} placeholder="Raid description…" />
-            </StField>
             <button type="submit" style={{ width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginTop: 6 }}>
               {editTarget ? 'Save Changes' : 'Add Raid'}
             </button>
@@ -412,15 +559,10 @@ export function AdminPanel() {
             </StField>
             <StField label="RAID" span2>
               <select style={inputStyle} value={eForm.raidId} onChange={e => setEForm(f => ({ ...f, raidId: e.target.value }))}>
-                {raids.map(r => <option key={r.id} value={r.id}>{r.name} — {r.episode} ({r.server})</option>)}
+                {raids.map(r => <option key={r.id} value={r.id}>{r.raidBoss.name} — S{r.season} ({r.server.name})</option>)}
               </select>
             </StField>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-              <StField label="SCORE"><input style={inputStyle} type="number" placeholder="e.g. 12500" value={eForm.score} onChange={e => setEForm(f => ({ ...f, score: e.target.value }))} required /></StField>
-              <StField label="WINS"><input style={inputStyle} type="number" placeholder="0" value={eForm.wins} onChange={e => setEForm(f => ({ ...f, wins: e.target.value }))} /></StField>
-              <StField label="LOSSES"><input style={inputStyle} type="number" placeholder="0" value={eForm.losses} onChange={e => setEForm(f => ({ ...f, losses: e.target.value }))} /></StField>
-              <StField label="STREAK"><input style={inputStyle} type="number" placeholder="0" value={eForm.streak} onChange={e => setEForm(f => ({ ...f, streak: e.target.value }))} /></StField>
-            </div>
+            <StField label="SCORE" span2><input style={inputStyle} type="number" placeholder="e.g. 12500" value={eForm.score} onChange={e => setEForm(f => ({ ...f, score: e.target.value }))} required /></StField>
             <button type="submit" style={{ width: '100%', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
               {editTarget ? 'Save Changes' : 'Add Entry'}
             </button>

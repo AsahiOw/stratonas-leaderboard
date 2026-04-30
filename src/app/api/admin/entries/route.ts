@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 
+const raidInclude = { raidBoss: true, type: true, server: true } as const
+
 export async function GET() {
   const guard = await requireAdmin()
   if (guard) return guard
   const entries = await prisma.raidEntry.findMany({
-    include: { player: true, raid: true },
+    include: { player: true, raid: { include: raidInclude } },
     orderBy: { createdAt: 'desc' },
     take: 50,
   })
@@ -19,19 +21,11 @@ export async function POST(req: Request) {
   const body = await req.json()
   const entry = await prisma.raidEntry.upsert({
     where: { playerId_raidId: { playerId: body.playerId, raidId: body.raidId } },
-    update: {
-      score: Number(body.score) || 0,
-      wins: Number(body.wins) || 0,
-      losses: Number(body.losses) || 0,
-      streak: Number(body.streak) || 0,
-    },
+    update: { score: Number(body.score) || 0 },
     create: {
       playerId: body.playerId,
-      raidId: body.raidId,
-      score: Number(body.score) || 0,
-      wins: Number(body.wins) || 0,
-      losses: Number(body.losses) || 0,
-      streak: Number(body.streak) || 0,
+      raidId:   body.raidId,
+      score:    Number(body.score) || 0,
     },
   })
   return NextResponse.json(entry, { status: 201 })

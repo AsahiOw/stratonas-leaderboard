@@ -13,10 +13,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     rank: i + 1,
     name: e.player.ign,
     score: e.score,
-    w: e.wins,
-    l: e.losses,
-    streak: e.streak,
-    isGuild: true,
+    isGuild: e.player.isGuildMember,
+    club: e.player.club,
     favouriteStudent: e.player.favouriteStudent,
     playerId: e.player.id,
   }))
