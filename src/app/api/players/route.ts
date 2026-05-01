@@ -12,6 +12,8 @@ export async function GET() {
       ign: true,
       username: true,
       favouriteStudent: true,
+      favouriteStudentId: true,
+      favouriteStudentData: true,
       club: true,
       clubID: true,
       userID: true,

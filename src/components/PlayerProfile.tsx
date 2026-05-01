@@ -31,6 +31,8 @@ interface PlayerData {
   ign: string
   username: string
   favouriteStudent?: string | null
+  favouriteStudentId?: number | null
+  favouriteStudentData?: { id: number; name: string; image: string } | null
   joinedDate?: string | null
   club?: string | null
   clubID?: string | null
@@ -85,7 +87,8 @@ export function PlayerProfile({ playerId, onClose }: Props) {
     )
   }
 
-  const initials = ((player.favouriteStudent || player.ign).slice(0, 2)).toUpperCase()
+  const favouriteStudentName = player.favouriteStudentData?.name || player.favouriteStudent
+  const initials = ((favouriteStudentName || player.ign).slice(0, 2)).toUpperCase()
   const activeEntries = player.entries.filter((e) => e.raid.isActive)
   const historyEntries = player.entries.filter((e) => !e.raid.isActive)
 
@@ -110,7 +113,13 @@ export function PlayerProfile({ playerId, onClose }: Props) {
         <div className="px-5 sm:px-6 pt-5 sm:pt-6 border-b border-border bg-[linear-gradient(to_bottom,rgba(79,142,247,0.07),transparent)]">
           <div className="flex justify-between items-start mb-4 gap-3">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0">
-              <Avatar initials={initials} color="var(--accent)" size={56} />
+              <Avatar
+                initials={initials}
+                color="var(--accent)"
+                size={56}
+                image={player.favouriteStudentData?.image}
+                alt={favouriteStudentName || player.ign}
+              />
               <div className="min-w-0">
                 <div className="font-bold text-xl sm:text-[22px] tracking-[-0.02em] break-words">
                   {player.ign}
@@ -120,7 +129,7 @@ export function PlayerProfile({ playerId, onClose }: Props) {
                   <span className="text-border2">({player.clubID})</span>
                 </div>
                 <div className="text-[11px] text-muted mt-0.5">
-                  Fav: <span className="text-accent">{player.favouriteStudent}</span>
+                  Fav: <span className="text-accent">{favouriteStudentName || '—'}</span>
                   {' · '}UID: {player.userID}
                   {' · '}Joined {fmtDate(player.joinedDate)}
                 </div>

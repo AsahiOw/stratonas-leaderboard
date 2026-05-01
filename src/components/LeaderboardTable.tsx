@@ -11,6 +11,7 @@ export interface TableEntry {
   isGuild: boolean
   club?: string | null
   favouriteStudent?: string | null
+  favouriteStudentImage?: string | null
   playerId?: string
 }
 
@@ -63,7 +64,7 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
                 </td>
                 <td className="px-2 sm:px-3.5 py-3">
                   <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-                    <Avatar initials={initials} color={accent} />
+                    <Avatar initials={initials} color={accent} image={p.favouriteStudentImage} alt={p.favouriteStudent || p.name} />
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
                       {p.playerId ? (
                         <button

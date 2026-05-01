@@ -30,15 +30,43 @@ model Player {
   username         String       @unique
   isGuildMember    Boolean      @default(true)
   favouriteStudent String?
+  favouriteStudentId Int?
+  favouriteStudentData Student? @relation(fields: [favouriteStudentId], references: [id], onDelete: SetNull)
   joinedDate       DateTime     @default(now())
   club             String?
   clubID           String?
   userID           String?      @unique
   entries          RaidEntry[]
+
+  @@index([favouriteStudentId])
+}
+
+model Student {
+  id          Int      @id
+  name        String
+  image       String
+  favoritedBy Player[]
+
+  @@index([name])
+}
+
+model StudentImportState {
+  id          String    @id @default("schaledb-students")
+  status      String    @default("idle")
+  total       Int       @default(0)
+  processed   Int       @default(0)
+  added       Int       @default(0)
+  skipped     Int       @default(0)
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model RaidBoss {
   id          String  @id @default(cuid())
+  schaleId    Int?    @unique
   name        String  @unique
   description String  @default("")
   image       String?
@@ -46,6 +74,20 @@ model RaidBoss {
   color2      String  @default("#7c3aed")
   pattern     String  @default("hex")
   raids       Raid[]
+}
+
+model RaidBossImportState {
+  id          String    @id @default("schaledb-raid-bosses")
+  status      String    @default("idle")
+  total       Int       @default(0)
+  processed   Int       @default(0)
+  added       Int       @default(0)
+  skipped     Int       @default(0)
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model RaidType {

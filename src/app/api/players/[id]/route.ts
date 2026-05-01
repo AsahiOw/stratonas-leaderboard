@@ -13,6 +13,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const player = await prisma.player.findUnique({
     where: ign ? { ign } : { id: params.id },
     include: {
+      favouriteStudentData: true,
       entries: {
         include: { raid: { include: raidInclude } },
         orderBy: { score: 'desc' },

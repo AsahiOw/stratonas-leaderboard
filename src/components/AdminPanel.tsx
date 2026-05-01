@@ -6,16 +6,25 @@ import { StField, inputClass } from '@/components/ui/StField'
 import { Toast } from '@/components/ui/Toast'
 import { fmtDate, proxyImage } from '@/lib/utils'
 
-const STUDENTS = ['Hoshino','Shiroko','Yuuka','Aris','Natsu','Hibiki','Kayoko','Neru','Haruna','Mutsuki','Serika','Nonomi','Karin','Haruka','Izumi','Ui','Mika','Sora','Toki','Ako']
-
 interface Player {
   id: string; ign: string; username: string; favouriteStudent?: string | null
+  favouriteStudentId?: number | null; favouriteStudentData?: Student | null
   joinedDate?: string | null; club?: string | null; clubID?: string | null
   userID?: string | null; isGuildMember: boolean
 }
 
+interface Student {
+  id: number; name: string; image: string
+}
+
+interface ImportState {
+  id: string; status: 'idle' | 'running' | 'completed' | 'failed' | string
+  total: number; processed: number; added: number; skipped: number
+  error?: string | null; startedAt?: string | null; completedAt?: string | null
+}
+
 interface RaidBoss {
-  id: string; name: string; description: string; image?: string | null
+  id: string; schaleId?: number | null; name: string; description: string; image?: string | null
   color: string; color2: string; pattern: string
 }
 
@@ -49,12 +58,13 @@ interface Entry {
   createdAt: string; player: Player; raid: Raid
 }
 
-type Section = 'dashboard' | 'players' | 'raids' | 'bosses' | 'entries' | 'settings'
-type ListSection = 'activity' | 'players' | 'raids' | 'bosses' | 'entries'
+type Section = 'dashboard' | 'players' | 'students' | 'raids' | 'bosses' | 'entries' | 'settings'
+type ListSection = 'activity' | 'players' | 'students' | 'raids' | 'bosses' | 'entries'
 
 const navItems: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '◈' },
   { id: 'players',   label: 'Players',   icon: '◎' },
+  { id: 'students',  label: 'Students',  icon: '◌' },
   { id: 'raids',     label: 'Raids',     icon: '⬡' },
   { id: 'bosses',    label: 'Bosses',    icon: '◉' },
   { id: 'entries',   label: 'Entries',   icon: '⊞' },
@@ -83,17 +93,23 @@ export function AdminPanel() {
   const [sec, setSec] = useState<Section>('dashboard')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [players, setPlayers]   = useState<Player[]>([])
+  const [students, setStudents] = useState<Student[]>([])
   const [raids, setRaids]       = useState<Raid[]>([])
   const [bosses, setBosses]     = useState<RaidBoss[]>([])
   const [raidTypes, setRaidTypes]     = useState<RaidType[]>([])
   const [raidServers, setRaidServers] = useState<RaidServer[]>([])
   const [entries, setEntries]   = useState<Entry[]>([])
   const [modal, setModal]       = useState<string | null>(null)
-  const [editTarget, setEditTarget] = useState<Player | Raid | Entry | RaidBoss | null>(null)
+  const [editTarget, setEditTarget] = useState<Player | Student | Raid | Entry | RaidBoss | null>(null)
   const [toast, setToast]       = useState<string | null>(null)
+  const [importState, setImportState] = useState<ImportState | null>(null)
+  const [showImportProgress, setShowImportProgress] = useState(false)
+  const [bossImportState, setBossImportState] = useState<ImportState | null>(null)
+  const [showBossImportProgress, setShowBossImportProgress] = useState(false)
   const [search, setSearch] = useState<Record<ListSection, string>>({
     activity: '',
     players: '',
+    students: '',
     raids: '',
     bosses: '',
     entries: '',
@@ -101,6 +117,7 @@ export function AdminPanel() {
   const [visibleRows, setVisibleRows] = useState<Record<ListSection, number>>({
     activity: INITIAL_VISIBLE_ROWS,
     players: INITIAL_VISIBLE_ROWS,
+    students: INITIAL_VISIBLE_ROWS,
     raids: INITIAL_VISIBLE_ROWS,
     bosses: INITIAL_VISIBLE_ROWS,
     entries: INITIAL_VISIBLE_ROWS,
@@ -109,9 +126,20 @@ export function AdminPanel() {
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   const loadPlayers = useCallback(() => fetch('/api/admin/players').then(r => r.json()).then(setPlayers), [])
+  const loadStudents = useCallback(() => fetch('/api/admin/students').then(r => r.json()).then(setStudents), [])
   const loadRaids   = useCallback(() => fetch('/api/raids').then(r => r.json()).then(setRaids), [])
   const loadBosses  = useCallback(() => fetch('/api/raid-bosses').then(r => r.json()).then(setBosses), [])
   const loadEntries = useCallback(() => fetch('/api/admin/entries').then(r => r.json()).then(setEntries), [])
+  const loadImportStatus = useCallback(() => fetch('/api/admin/students/import/status').then(r => r.json()).then(setImportState), [])
+  const loadBossImportStatus = useCallback(() => fetch('/api/admin/raid-bosses/import/status').then(r => r.json()).then(setBossImportState), [])
+  const loadRaidLookups = useCallback(() => {
+    fetch('/api/admin/raid-lookups')
+      .then(r => r.json())
+      .then((data: { types: RaidType[]; servers: RaidServer[] }) => {
+        setRaidTypes(data.types)
+        setRaidServers(data.servers)
+      })
+  }, [])
 
   const loadLookups = useCallback(() => {
     Promise.all([
@@ -133,8 +161,38 @@ export function AdminPanel() {
   }, [])
 
   useEffect(() => {
-    loadPlayers(); loadRaids(); loadBosses(); loadEntries(); loadLookups()
-  }, [loadPlayers, loadRaids, loadBosses, loadEntries, loadLookups])
+    loadPlayers(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus()
+  }, [loadPlayers, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus])
+
+  useEffect(() => {
+    if (!showImportProgress || importState?.status !== 'running') return
+    const timer = window.setInterval(() => {
+      loadImportStatus()
+      loadStudents()
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [showImportProgress, importState?.status, loadImportStatus, loadStudents])
+
+  useEffect(() => {
+    if (!showBossImportProgress || bossImportState?.status !== 'running') return
+    const timer = window.setInterval(() => {
+      loadBossImportStatus()
+      loadBosses()
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [showBossImportProgress, bossImportState?.status, loadBossImportStatus, loadBosses])
+
+  useEffect(() => {
+    if (importState?.status !== 'completed') return
+    loadStudents()
+    loadPlayers()
+  }, [importState?.status, loadPlayers, loadStudents])
+
+  useEffect(() => {
+    if (bossImportState?.status !== 'completed') return
+    loadBosses()
+    loadRaids()
+  }, [bossImportState?.status, loadBosses, loadRaids])
 
   // Lock body scroll while the mobile sidebar drawer is open.
   useEffect(() => {
@@ -145,14 +203,31 @@ export function AdminPanel() {
   }, [drawerOpen])
 
   // ── Player form ────────────────────────────────────────────────────────────
-  const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', joinedDate: '', club: 'Guest', clubID: 'GUEST', userID: '' }
+  const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', favouriteStudentId: '', joinedDate: '', club: 'Guest', clubID: 'GUEST', userID: '' }
   const [pForm, setPForm] = useState(emptyP)
   const [isGuest, setIsGuest] = useState(true)
 
-  function openAddPlayer() { setPForm(emptyP); setIsGuest(true); setEditTarget(null); setModal('player') }
+  function openAddPlayer() {
+    const firstStudent = students[0]
+    setPForm({
+      ...emptyP,
+      favouriteStudent: firstStudent?.name || 'Hoshino',
+      favouriteStudentId: firstStudent ? String(firstStudent.id) : '',
+    })
+    setIsGuest(true); setEditTarget(null); setModal('player')
+  }
   function openEditPlayer(p: Player) {
     const guest = !p.isGuildMember
-    setPForm({ ign: p.ign, username: p.username, favouriteStudent: p.favouriteStudent || 'Hoshino', joinedDate: p.joinedDate ? p.joinedDate.split('T')[0] : '', club: p.club || 'Guest', clubID: p.clubID || (guest ? 'GUEST' : ''), userID: p.userID || '' })
+    setPForm({
+      ign: p.ign,
+      username: p.username,
+      favouriteStudent: p.favouriteStudentData?.name || p.favouriteStudent || 'Hoshino',
+      favouriteStudentId: p.favouriteStudentId ? String(p.favouriteStudentId) : '',
+      joinedDate: p.joinedDate ? p.joinedDate.split('T')[0] : '',
+      club: p.club || 'Guest',
+      clubID: p.clubID || (guest ? 'GUEST' : ''),
+      userID: p.userID || '',
+    })
     setIsGuest(guest); setEditTarget(p); setModal('player')
   }
   async function deletePlayer(id: string) {
@@ -171,6 +246,51 @@ export function AdminPanel() {
       showToast('Player added.')
     }
     setModal(null); loadPlayers()
+  }
+
+  // ── Student form/import ─────────────────────────────────────────────────────
+  const emptyS = { id: '', name: '', image: '' }
+  const [sForm, setSForm] = useState(emptyS)
+
+  function openAddStudent() { setSForm(emptyS); setEditTarget(null); setModal('student') }
+  function openEditStudent(s: Student) {
+    setSForm({ id: String(s.id), name: s.name, image: s.image })
+    setEditTarget(s); setModal('student')
+  }
+  async function deleteStudent(id: number) {
+    await fetch(`/api/admin/students/${id}`, { method: 'DELETE' })
+    loadStudents(); loadPlayers(); showToast('Student deleted.')
+  }
+  async function saveStudent(e: React.FormEvent) {
+    e.preventDefault()
+    const payload = { id: Number(sForm.id), name: sForm.name, image: sForm.image }
+    const res = editTarget
+      ? await fetch(`/api/admin/students/${(editTarget as Student).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      : await fetch('/api/admin/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not save student.' }))
+      showToast(body.error || 'Could not save student.')
+      return
+    }
+    showToast(editTarget ? 'Student updated.' : 'Student added.')
+    setModal(null); loadStudents(); loadPlayers()
+  }
+  async function startStudentImport() {
+    const res = await fetch('/api/admin/students/import', { method: 'POST' })
+    const body = await res.json().catch(() => null)
+    if (res.status === 409) {
+      alert('Student import is already running. Please wait until it finishes.')
+      if (body?.state) setImportState(body.state)
+      setShowImportProgress(true)
+      return
+    }
+    if (!res.ok) {
+      showToast(body?.error || 'Could not start student import.')
+      return
+    }
+    setImportState(body)
+    setShowImportProgress(true)
+    showToast('Student import started.')
   }
 
   // ── Raid Boss form ─────────────────────────────────────────────────────────
@@ -210,6 +330,23 @@ export function AdminPanel() {
       showToast('Boss added.')
     }
     setModal(null); loadBosses(); loadRaids()
+  }
+  async function startRaidBossImport() {
+    const res = await fetch('/api/admin/raid-bosses/import', { method: 'POST' })
+    const body = await res.json().catch(() => null)
+    if (res.status === 409) {
+      alert('Raid boss import is already running. Please wait until it finishes.')
+      if (body?.state) setBossImportState(body.state)
+      setShowBossImportProgress(true)
+      return
+    }
+    if (!res.ok) {
+      showToast(body?.error || 'Could not start raid boss import.')
+      return
+    }
+    setBossImportState(body)
+    setShowBossImportProgress(true)
+    showToast('Raid boss import started.')
   }
 
   // ── Raid form ──────────────────────────────────────────────────────────────
@@ -279,6 +416,7 @@ export function AdminPanel() {
   const normalizedSearch = {
     activity: search.activity.trim().toLowerCase(),
     players: search.players.trim().toLowerCase(),
+    students: search.students.trim().toLowerCase(),
     raids: search.raids.trim().toLowerCase(),
     bosses: search.bosses.trim().toLowerCase(),
     entries: search.entries.trim().toLowerCase(),
@@ -292,14 +430,17 @@ export function AdminPanel() {
   }
 
   const filteredPlayers = players.filter((p) => searchable([
-    p.ign, p.username, p.favouriteStudent, p.club, p.clubID, p.userID, p.isGuildMember ? 'guild' : 'guest',
+    p.ign, p.username, p.favouriteStudentData?.name, p.favouriteStudent, p.club, p.clubID, p.userID, p.isGuildMember ? 'guild' : 'guest',
   ], normalizedSearch.players))
+  const filteredStudents = students.filter((s) => searchable([
+    s.id, s.name, s.image,
+  ], normalizedSearch.students))
   const filteredRaids = raids.filter((r) => searchable([
     r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name,
     r.pattern, r.startDate, r.endDate,
   ], normalizedSearch.raids))
   const filteredBosses = bosses.filter((b) => searchable([
-    b.name, b.description, b.image, b.color, b.color2, b.pattern,
+    b.schaleId, b.name, b.description, b.image, b.color, b.color2, b.pattern,
   ], normalizedSearch.bosses))
   const filteredEntries = entries.filter((e) => searchable([
     e.player.ign, e.player.username, e.player.club, e.player.clubID, e.player.userID,
@@ -313,6 +454,7 @@ export function AdminPanel() {
 
   const visibleActivity = filteredActivity.slice(0, visibleRows.activity)
   const visiblePlayers = filteredPlayers.slice(0, visibleRows.players)
+  const visibleStudents = filteredStudents.slice(0, visibleRows.students)
   const visibleRaids = filteredRaids.slice(0, visibleRows.raids)
   const visibleBosses = filteredBosses.slice(0, visibleRows.bosses)
   const visibleEntries = filteredEntries.slice(0, visibleRows.entries)
@@ -509,7 +651,7 @@ export function AdminPanel() {
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
                     <div>
                       <div className="text-[10px] text-muted tracking-[0.06em] uppercase">Fav</div>
-                      <div className="text-muted2">{p.favouriteStudent || '—'}</div>
+                      <div className="text-muted2">{p.favouriteStudentData?.name || p.favouriteStudent || '—'}</div>
                     </div>
                     <div>
                       <div className="text-[10px] text-muted tracking-[0.06em] uppercase">Club</div>
@@ -553,7 +695,7 @@ export function AdminPanel() {
                       >
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{p.ign}</td>
                         <td className="px-3.5 py-2.5 text-muted font-mono text-xs whitespace-nowrap">@{p.username}</td>
-                        <td className="px-3.5 py-2.5 text-muted2 text-[13px]">{p.favouriteStudent}</td>
+                        <td className="px-3.5 py-2.5 text-muted2 text-[13px]">{p.favouriteStudentData?.name || p.favouriteStudent || '—'}</td>
                         <td className="px-3.5 py-2.5">
                           <div className="text-[13px]">{p.club || 'Guest'}</div>
                           <div className="text-[11px] text-muted font-mono">{p.clubID || (p.club === 'Guest' ? 'GUEST' : '—')}</div>
@@ -577,6 +719,106 @@ export function AdminPanel() {
               </div>
             </div>
             {renderShowMore('players', filteredPlayers.length, visiblePlayers.length)}
+          </div>
+        )}
+
+        {/* STUDENTS */}
+        {sec === 'students' && (
+          <div>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
+              <div className="font-bold text-lg">
+                Students <span className="text-[13px] text-muted font-normal">({students.length})</span>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button onClick={startStudentImport} className={addBtnClass}>Import / Update from SchaleDB</button>
+                <button onClick={openAddStudent} className={addBtnClass}>+ Add Student</button>
+              </div>
+            </div>
+            {importState?.status === 'running' && (
+              <div className="mb-3 bg-accent/[0.08] border border-accent/25 rounded-xl px-4 py-3 text-[13px] text-muted2">
+                Import running: {importState.processed.toLocaleString()} / {importState.total ? importState.total.toLocaleString() : '...'} processed
+              </div>
+            )}
+            {renderListControls('students', students.length, filteredStudents.length, visibleStudents.length, 'Search students by id, name, or image URL...')}
+
+            {/* Card list (mobile) */}
+            <div className="sm:hidden flex flex-col gap-2.5">
+              {visibleStudents.map((s) => (
+                <div key={s.id} className="bg-card border border-border rounded-xl p-3.5">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={proxyImage(s.image)}
+                        alt={s.name}
+                        className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
+                        onError={e => (e.currentTarget.style.display = 'none')}
+                      />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm break-words">{s.name}</div>
+                        <div className="text-[11px] text-muted font-mono">ID {s.id}</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button onClick={() => openEditStudent(s)} className={editBtnClass}>Edit</button>
+                      <button onClick={() => deleteStudent(s.id)} className={delBtnClass}>Delete</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {filteredStudents.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">
+                  {students.length === 0 ? 'No students yet.' : 'No students match your search.'}
+                </div>
+              )}
+            </div>
+
+            {/* Table (sm+) */}
+            <div className="hidden sm:block bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border2 bg-white/[0.02]">
+                      {['IMAGE','ID','NAME','IMAGE URL','ACTIONS'].map((h) => (
+                        <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleStudents.map((s, i) => (
+                      <tr key={s.id} className={i < visibleStudents.length - 1 ? 'border-b border-border' : ''}>
+                        <td className="px-3.5 py-2.5">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={proxyImage(s.image)}
+                            alt={s.name}
+                            className="w-11 h-11 rounded-lg object-cover border border-border"
+                            onError={e => (e.currentTarget.style.display = 'none')}
+                          />
+                        </td>
+                        <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">{s.id}</td>
+                        <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{s.name}</td>
+                        <td className="px-3.5 py-2.5 text-muted text-xs max-w-[360px] truncate">{s.image}</td>
+                        <td className="px-3.5 py-2.5">
+                          <div className="flex gap-1.5">
+                            <button onClick={() => openEditStudent(s)} className={editBtnClass}>Edit</button>
+                            <button onClick={() => deleteStudent(s.id)} className={delBtnClass}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredStudents.length === 0 && (
+                  <div className="text-center text-muted text-sm py-8">
+                    {students.length === 0 ? 'No students yet.' : 'No students match your search.'}
+                  </div>
+                )}
+              </div>
+            </div>
+            {renderShowMore('students', filteredStudents.length, visibleStudents.length)}
           </div>
         )}
 
@@ -650,12 +892,20 @@ export function AdminPanel() {
         {/* BOSSES */}
         {sec === 'bosses' && (
           <div>
-            <div className="flex justify-between items-center gap-3 mb-5">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
               <div className="font-bold text-lg">
                 Raid Bosses <span className="text-[13px] text-muted font-normal">({bosses.length})</span>
               </div>
-              <button onClick={openAddBoss} className={addBtnClass}>+ Add Boss</button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button onClick={startRaidBossImport} className={addBtnClass}>Import / Update from SchaleDB</button>
+                <button onClick={openAddBoss} className={addBtnClass}>+ Add Boss</button>
+              </div>
             </div>
+            {bossImportState?.status === 'running' && (
+              <div className="mb-3 bg-accent/[0.08] border border-accent/25 rounded-xl px-4 py-3 text-[13px] text-muted2">
+                Import running: {bossImportState.processed.toLocaleString()} / {bossImportState.total ? bossImportState.total.toLocaleString() : '...'} processed
+              </div>
+            )}
             {renderListControls('bosses', bosses.length, filteredBosses.length, visibleBosses.length, 'Search bosses by name, description, or image URL...')}
             <div className="flex flex-col gap-2.5">
               {visibleBosses.map((b) => (
@@ -677,7 +927,14 @@ export function AdminPanel() {
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className="font-bold text-sm break-words">{b.name}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="font-bold text-sm break-words">{b.name}</div>
+                        {b.schaleId && (
+                          <span className="text-[10px] text-muted font-mono border border-border rounded px-1.5 py-px">
+                            ID {b.schaleId}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted mt-0.5 max-w-[480px]">
                         {b.description || <span className="italic">No description</span>}
                       </div>
@@ -826,8 +1083,20 @@ export function AdminPanel() {
                 <input className={inputClass} type="text" value={pForm.username} onChange={e => setPForm(f => ({ ...f, username: e.target.value }))} placeholder="@handle" required />
               </StField>
               <StField label="FAVOURITE STUDENT (AVATAR)">
-                <select className={inputClass} value={pForm.favouriteStudent} onChange={e => setPForm(f => ({ ...f, favouriteStudent: e.target.value }))}>
-                  {STUDENTS.map(s => <option key={s}>{s}</option>)}
+                <select
+                  className={inputClass}
+                  value={pForm.favouriteStudentId}
+                  onChange={e => {
+                    const student = students.find(s => String(s.id) === e.target.value)
+                    setPForm(f => ({
+                      ...f,
+                      favouriteStudentId: e.target.value,
+                      favouriteStudent: student?.name || f.favouriteStudent,
+                    }))
+                  }}
+                >
+                  <option value="">— Select Student —</option>
+                  {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </StField>
               <StField label="JOINED DATE">
@@ -870,12 +1139,123 @@ export function AdminPanel() {
         </StModal>
       )}
 
+      {/* Student modal */}
+      {modal === 'student' && (
+        <StModal title={editTarget ? 'Edit Student' : 'Add Student'} onClose={() => setModal(null)} extraWide>
+          <form onSubmit={saveStudent}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <StField label="STUDENT ID">
+                <input
+                  className={inputClass}
+                  type="number"
+                  min="1"
+                  value={sForm.id}
+                  onChange={e => setSForm(f => ({ ...f, id: e.target.value }))}
+                  placeholder="e.g. 10000"
+                  disabled={Boolean(editTarget)}
+                  required
+                />
+              </StField>
+              <StField label="NAME">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.name}
+                  onChange={e => setSForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Student name"
+                  required
+                />
+              </StField>
+            </div>
+            <StField label="IMAGE URL" span2>
+              <input
+                className={inputClass}
+                type="url"
+                value={sForm.image}
+                onChange={e => setSForm(f => ({ ...f, image: e.target.value }))}
+                placeholder="https://schaledb.com/images/student/collection/10000.webp"
+              />
+            </StField>
+            {sForm.image && (
+              <div className="mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={proxyImage(sForm.image)}
+                  alt="Preview"
+                  className="h-24 w-24 rounded-xl border border-border object-cover"
+                  onError={e => (e.currentTarget.style.display = 'none')}
+                />
+              </div>
+            )}
+            <button type="submit" className={submitBtnClass}>
+              {editTarget ? 'Save Changes' : 'Add Student'}
+            </button>
+          </form>
+        </StModal>
+      )}
+
+      {/* Student import progress */}
+      {showImportProgress && importState && (
+        <StModal
+          title="Student Import"
+          onClose={() => {
+            if (importState.status !== 'running') setShowImportProgress(false)
+          }}
+        >
+          <div className="space-y-4">
+            <div className="text-sm text-muted2">
+              {importState.status === 'running'
+                ? importState.total > 0 ? 'Importing students from SchaleDB...' : 'Fetching student data from SchaleDB...'
+                : importState.status === 'completed'
+                  ? 'Student import completed.'
+                  : importState.status === 'failed'
+                    ? 'Student import failed.'
+                    : 'Student import is idle.'}
+            </div>
+            <div>
+              <div className="h-3 rounded-full bg-bg border border-border overflow-hidden">
+                <div
+                  className="h-full bg-accent transition-all"
+                  style={{
+                    width: `${importState.total > 0 ? Math.min(100, Math.round((importState.processed / importState.total) * 100)) : 8}%`,
+                  }}
+                />
+              </div>
+              <div className="flex justify-between mt-2 text-[12px] text-muted">
+                <span>{importState.processed.toLocaleString()} / {importState.total ? importState.total.toLocaleString() : '...'} processed</span>
+                <span>{importState.total > 0 ? `${Math.round((importState.processed / importState.total) * 100)}%` : 'Starting'}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-card2 border border-border rounded-xl p-3">
+                <div className="text-[11px] text-muted tracking-[0.08em] font-semibold">ADDED</div>
+                <div className="font-mono text-xl text-green font-bold">{importState.added.toLocaleString()}</div>
+              </div>
+              <div className="bg-card2 border border-border rounded-xl p-3">
+                <div className="text-[11px] text-muted tracking-[0.08em] font-semibold">SKIPPED</div>
+                <div className="font-mono text-xl text-muted2 font-bold">{importState.skipped.toLocaleString()}</div>
+              </div>
+            </div>
+            {importState.error && (
+              <div className="bg-red/10 border border-red/25 rounded-xl p-3 text-sm text-red">
+                {importState.error}
+              </div>
+            )}
+            {importState.status !== 'running' && (
+              <button type="button" className={submitBtnClass} onClick={() => setShowImportProgress(false)}>
+                Close
+              </button>
+            )}
+          </div>
+        </StModal>
+      )}
+
       {/* Boss modal */}
       {modal === 'boss' && (
         <StModal title={editTarget ? 'Edit Raid Boss' : 'Add Raid Boss'} onClose={() => setModal(null)} extraWide>
           <form onSubmit={saveBoss}>
             <StField label="BOSS NAME" span2>
-              <input className={inputClass} type="text" value={bForm.name} onChange={e => setBForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Void Sanctum" required />
+              <input className={inputClass} type="text" value={bForm.name} onChange={e => setBForm(f => ({ ...f, name: e.target.value }))} placeholder="Raid boss name" required />
             </StField>
             <StField label="IMAGE URL" span2>
               <input className={inputClass} type="text" value={bForm.image} onChange={e => setBForm(f => ({ ...f, image: e.target.value }))} placeholder="https://... (optional)" />
@@ -919,6 +1299,62 @@ export function AdminPanel() {
               {editTarget ? 'Save Changes' : 'Add Boss'}
             </button>
           </form>
+        </StModal>
+      )}
+
+      {/* Raid boss import progress */}
+      {showBossImportProgress && bossImportState && (
+        <StModal
+          title="Raid Boss Import"
+          onClose={() => {
+            if (bossImportState.status !== 'running') setShowBossImportProgress(false)
+          }}
+        >
+          <div className="space-y-4">
+            <div className="text-sm text-muted2">
+              {bossImportState.status === 'running'
+                ? bossImportState.total > 0 ? 'Importing raid bosses from SchaleDB...' : 'Fetching raid data from SchaleDB...'
+                : bossImportState.status === 'completed'
+                  ? 'Raid boss import completed.'
+                  : bossImportState.status === 'failed'
+                    ? 'Raid boss import failed.'
+                    : 'Raid boss import is idle.'}
+            </div>
+            <div>
+              <div className="h-3 rounded-full bg-bg border border-border overflow-hidden">
+                <div
+                  className="h-full bg-accent transition-all"
+                  style={{
+                    width: `${bossImportState.total > 0 ? Math.min(100, Math.round((bossImportState.processed / bossImportState.total) * 100)) : 8}%`,
+                  }}
+                />
+              </div>
+              <div className="flex justify-between mt-2 text-[12px] text-muted">
+                <span>{bossImportState.processed.toLocaleString()} / {bossImportState.total ? bossImportState.total.toLocaleString() : '...'} processed</span>
+                <span>{bossImportState.total > 0 ? `${Math.round((bossImportState.processed / bossImportState.total) * 100)}%` : 'Starting'}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-card2 border border-border rounded-xl p-3">
+                <div className="text-[11px] text-muted tracking-[0.08em] font-semibold">ADDED</div>
+                <div className="font-mono text-xl text-green font-bold">{bossImportState.added.toLocaleString()}</div>
+              </div>
+              <div className="bg-card2 border border-border rounded-xl p-3">
+                <div className="text-[11px] text-muted tracking-[0.08em] font-semibold">SKIPPED</div>
+                <div className="font-mono text-xl text-muted2 font-bold">{bossImportState.skipped.toLocaleString()}</div>
+              </div>
+            </div>
+            {bossImportState.error && (
+              <div className="bg-red/10 border border-red/25 rounded-xl p-3 text-sm text-red">
+                {bossImportState.error}
+              </div>
+            )}
+            {bossImportState.status !== 'running' && (
+              <button type="button" className={submitBtnClass} onClick={() => setShowBossImportProgress(false)}>
+                Close
+              </button>
+            )}
+          </div>
         </StModal>
       )}
 

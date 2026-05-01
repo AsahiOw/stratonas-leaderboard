@@ -26,7 +26,7 @@ docker-compose up --build
 
 On first run the app will:
 1. Run Prisma migrations
-2. Seed the database with 1 admin user, 10 players, 6 raids, and all entries
+2. Start with an empty database
 
 The app will be available at **http://localhost:3000**
 
@@ -35,13 +35,6 @@ Development PostgreSQL data is stored in:
 ```text
 ./Development_data/docker-postgres
 ```
-
-### 3. Login
-Click **⊙ Admin Login** in the navbar:
-- Email: `admin@stratonas.gg`
-- Password: `admin123`
-
----
 
 ## Development (No Docker)
 
@@ -65,14 +58,24 @@ npm run postgres:start
 # Run migrations
 npx prisma migrate deploy
 
-# Seed the database
-npm run db:seed
-
 # Start dev server
 npm run dev:local
 ```
 
 App runs at http://localhost:3000
+
+### Create an Admin User
+
+After migrations are applied, create an admin explicitly:
+
+```powershell
+$env:ADMIN_EMAIL="admin@example.com"
+$env:ADMIN_PASSWORD="choose-a-strong-password"
+$env:ADMIN_NAME="Admin"
+npm run admin:create
+```
+
+Then use those credentials from **Admin Login** in the navbar.
 
 Local no-Docker PostgreSQL data is stored in:
 
@@ -93,7 +96,6 @@ If PostgreSQL is not installed locally yet, you can still avoid rebuilding the a
 ```bash
 npm run db:docker:start
 npx prisma migrate deploy
-npm run db:seed
 npm run dev:local
 ```
 

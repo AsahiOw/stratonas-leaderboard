@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { resolveRaidServer, resolveRaidType } from '@/lib/raid-lookups'
 
 const raidInclude = {
   raidBoss: true,
@@ -13,13 +14,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (guard) return guard
   const body = await req.json()
   const boss = await prisma.raidBoss.findUnique({ where: { id: body.raidBossId } })
+  const type = await resolveRaidType(body.typeId)
+  const server = await resolveRaidServer(body.serverId)
+  if (!boss || !type || !server) {
+    return NextResponse.json({ error: 'Raid boss, type, and server are required' }, { status: 400 })
+  }
   const raid = await prisma.raid.update({
     where: { id: params.id },
     data: {
       raidBossId: body.raidBossId,
       season:     Number(body.season) || 1,
-      typeId:     body.typeId,
-      serverId:   body.serverId,
+      typeId:     type.id,
+      serverId:   server.id,
       color:      boss?.color  || '#4f8ef7',
       color2:     boss?.color2 || '#7c3aed',
       pattern:    boss?.pattern || 'hex',

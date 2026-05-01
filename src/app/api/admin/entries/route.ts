@@ -8,7 +8,7 @@ export async function GET() {
   const guard = await requireAdmin()
   if (guard) return guard
   const entries = await prisma.raidEntry.findMany({
-    include: { player: true, raid: { include: raidInclude } },
+    include: { player: { include: { favouriteStudentData: true } }, raid: { include: raidInclude } },
     orderBy: { createdAt: 'desc' },
     take: 50,
   })

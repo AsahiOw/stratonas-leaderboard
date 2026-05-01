@@ -7,6 +7,7 @@ const ALLOWED_HOSTS = [
   'res.cloudinary.com',
   'cdn.discordapp.com',
   'media.discordapp.net',
+  'schaledb.com',
 ]
 
 function resolveDriveUrl(url: string): string {

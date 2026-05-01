@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const entries = await prisma.raidEntry.findMany({
     where: { raidId: params.id },
-    include: { player: true },
+    include: { player: { include: { favouriteStudentData: true } } },
     orderBy: { score: 'desc' },
   })
   const ranked = entries.map((e, i) => ({
@@ -16,6 +16,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     isGuild: e.player.isGuildMember,
     club: e.player.club,
     favouriteStudent: e.player.favouriteStudent,
+    favouriteStudentImage: e.player.favouriteStudentData?.image || null,
     playerId: e.player.id,
   }))
   return NextResponse.json(ranked)

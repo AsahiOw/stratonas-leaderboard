@@ -63,9 +63,6 @@ export function LoginModal({ onLogin, onClose }: Props) {
         >
           {loading ? 'Logging in…' : 'Login'}
         </button>
-        <div className="text-[11px] text-muted text-center mt-3">
-          Demo: admin@stratonas.gg / admin123
-        </div>
       </form>
     </StModal>
   )
