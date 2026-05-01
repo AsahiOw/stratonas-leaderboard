@@ -84,6 +84,9 @@ interface Props {
 }
 
 const sectionClass = 'bg-card border border-border rounded-2xl p-4 sm:p-5'
+const INITIAL_VISIBLE_ROWS = 10
+const SHOW_MORE_ROWS = 50
+type PagedSection = 'currentRaidLeaders' | 'topPlayers' | 'clubStandings' | 'raidBreakdown'
 
 function fmtNum(n: number) {
   return n.toLocaleString()
@@ -107,6 +110,12 @@ function EmptyBlock({ children }: { children: React.ReactNode }) {
 
 export function StatsPage({ onPlayerClick }: Props) {
   const [stats, setStats] = useState<StatsData | null>(null)
+  const [visibleRows, setVisibleRows] = useState<Record<PagedSection, number>>({
+    currentRaidLeaders: INITIAL_VISIBLE_ROWS,
+    topPlayers: INITIAL_VISIBLE_ROWS,
+    clubStandings: INITIAL_VISIBLE_ROWS,
+    raidBreakdown: INITIAL_VISIBLE_ROWS,
+  })
 
   useEffect(() => {
     fetch('/api/stats').then((r) => r.json()).then(setStats)
@@ -114,6 +123,39 @@ export function StatsPage({ onPlayerClick }: Props) {
 
   if (!stats) {
     return <div className="text-center text-muted py-16">Loading stats...</div>
+  }
+
+  const visibleCurrentRaidLeaders = stats.currentRaidLeaders.slice(0, visibleRows.currentRaidLeaders)
+  const visibleTopPlayers = stats.topPlayers.slice(0, visibleRows.topPlayers)
+  const visibleClubStandings = stats.clubStandings.slice(0, visibleRows.clubStandings)
+  const visibleRaidBreakdown = stats.raidBreakdown.slice(0, visibleRows.raidBreakdown)
+
+  function showMore(section: PagedSection) {
+    setVisibleRows((prev) => ({ ...prev, [section]: prev[section] + SHOW_MORE_ROWS }))
+  }
+
+  function PageSummary({ shown, total }: { shown: number; total: number }) {
+    if (total <= INITIAL_VISIBLE_ROWS) return null
+    return (
+      <div className="text-[12px] text-muted mb-3">
+        Showing {Math.min(shown, total)} of {total}
+      </div>
+    )
+  }
+
+  function ShowMoreButton({ section, shown, total }: { section: PagedSection; shown: number; total: number }) {
+    if (shown >= total) return null
+    return (
+      <div className="flex justify-center mt-4">
+        <button
+          type="button"
+          onClick={() => showMore(section)}
+          className="w-full sm:w-auto bg-card2 border border-border rounded-lg px-4 py-2 text-sm font-semibold text-muted2 hover:text-text hover:border-border2 transition-colors"
+        >
+          Show more
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -137,44 +179,48 @@ export function StatsPage({ onPlayerClick }: Props) {
         {stats.currentRaidLeaders.length === 0 ? (
           <EmptyBlock>No active raids right now.</EmptyBlock>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {stats.currentRaidLeaders.map((raid) => (
-              <div
-                key={raid.id}
-                className="border rounded-xl p-4 bg-bg/40"
-                style={{ borderColor: `${raid.color}35` }}
-              >
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="min-w-0">
-                    <div className="font-bold text-base break-words">{raid.boss}</div>
-                    <div className="flex items-center gap-2 flex-wrap text-xs text-muted mt-1">
-                      <span>S{raid.season} · {raid.type}</span>
-                      <ServerBadge server={raid.server} />
+          <>
+            <PageSummary shown={visibleCurrentRaidLeaders.length} total={stats.currentRaidLeaders.length} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {visibleCurrentRaidLeaders.map((raid) => (
+                <div
+                  key={raid.id}
+                  className="border rounded-xl p-4 bg-bg/40"
+                  style={{ borderColor: `${raid.color}35` }}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-base break-words">{raid.boss}</div>
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-muted mt-1">
+                        <span>S{raid.season} · {raid.type}</span>
+                        <ServerBadge server={raid.server} />
+                      </div>
+                    </div>
+                    <div
+                      className="font-mono text-[12px] rounded-md px-2 py-1 border shrink-0"
+                      style={{ color: raid.color, borderColor: `${raid.color}45`, background: `${raid.color}12` }}
+                    >
+                      {fmtNum(raid.entryCount)} entries
                     </div>
                   </div>
-                  <div
-                    className="font-mono text-[12px] rounded-md px-2 py-1 border shrink-0"
-                    style={{ color: raid.color, borderColor: `${raid.color}45`, background: `${raid.color}12` }}
-                  >
-                    {fmtNum(raid.entryCount)} entries
-                  </div>
+                  {raid.topPlayer ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] text-muted uppercase tracking-[0.08em]">Leader</div>
+                        <PlayerButton name={raid.topPlayer.name} playerId={raid.topPlayer.playerId} onPlayerClick={onPlayerClick} />
+                      </div>
+                      <div className="font-mono font-bold text-lg" style={{ color: raid.color }}>
+                        {fmtNum(raid.topPlayer.score)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted py-2">No entries yet</div>
+                  )}
                 </div>
-                {raid.topPlayer ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-[11px] text-muted uppercase tracking-[0.08em]">Leader</div>
-                      <PlayerButton name={raid.topPlayer.name} playerId={raid.topPlayer.playerId} onPlayerClick={onPlayerClick} />
-                    </div>
-                    <div className="font-mono font-bold text-lg" style={{ color: raid.color }}>
-                      {fmtNum(raid.topPlayer.score)}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted py-2">No entries yet</div>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <ShowMoreButton section="currentRaidLeaders" shown={visibleCurrentRaidLeaders.length} total={stats.currentRaidLeaders.length} />
+          </>
         )}
       </section>
 
@@ -226,8 +272,8 @@ export function StatsPage({ onPlayerClick }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {stats.topPlayers.map((player, index) => (
-                  <tr key={player.playerId} className={index < stats.topPlayers.length - 1 ? 'border-b border-border' : ''}>
+                {visibleTopPlayers.map((player, index) => (
+                  <tr key={player.playerId} className={index < visibleTopPlayers.length - 1 ? 'border-b border-border' : ''}>
                     <td className="px-3 py-3 font-mono text-muted2">#{player.rank}</td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       <PlayerButton name={player.name} playerId={player.playerId} onPlayerClick={onPlayerClick} />
@@ -242,6 +288,8 @@ export function StatsPage({ onPlayerClick }: Props) {
                 ))}
               </tbody>
             </table>
+            <PageSummary shown={visibleTopPlayers.length} total={stats.topPlayers.length} />
+            <ShowMoreButton section="topPlayers" shown={visibleTopPlayers.length} total={stats.topPlayers.length} />
           </div>
         )}
       </section>
@@ -264,8 +312,8 @@ export function StatsPage({ onPlayerClick }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {stats.clubStandings.map((club, index) => (
-                  <tr key={club.name} className={index < stats.clubStandings.length - 1 ? 'border-b border-border' : ''}>
+                {visibleClubStandings.map((club, index) => (
+                  <tr key={club.name} className={index < visibleClubStandings.length - 1 ? 'border-b border-border' : ''}>
                     <td className="px-3 py-3 font-mono text-muted2">#{club.rank}</td>
                     <td className="px-3 py-3 font-semibold whitespace-nowrap">{club.name}</td>
                     <td className="px-3 py-3 font-mono font-bold text-accent">{fmtNum(club.totalScore)}</td>
@@ -276,6 +324,8 @@ export function StatsPage({ onPlayerClick }: Props) {
                 ))}
               </tbody>
             </table>
+            <PageSummary shown={visibleClubStandings.length} total={stats.clubStandings.length} />
+            <ShowMoreButton section="clubStandings" shown={visibleClubStandings.length} total={stats.clubStandings.length} />
           </div>
         )}
       </section>
@@ -298,8 +348,8 @@ export function StatsPage({ onPlayerClick }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {stats.raidBreakdown.map((raid, index) => (
-                  <tr key={raid.id} className={index < stats.raidBreakdown.length - 1 ? 'border-b border-border' : ''}>
+                {visibleRaidBreakdown.map((raid, index) => (
+                  <tr key={raid.id} className={index < visibleRaidBreakdown.length - 1 ? 'border-b border-border' : ''}>
                     <td className="px-3 py-3">
                       <div className="font-semibold whitespace-nowrap">{raid.boss} S{raid.season}</div>
                       <div className="text-[11px] text-muted">{raid.type} · {raid.isActive ? 'Live' : 'Archived'}</div>
@@ -326,6 +376,8 @@ export function StatsPage({ onPlayerClick }: Props) {
                 ))}
               </tbody>
             </table>
+            <PageSummary shown={visibleRaidBreakdown.length} total={stats.raidBreakdown.length} />
+            <ShowMoreButton section="raidBreakdown" shown={visibleRaidBreakdown.length} total={stats.raidBreakdown.length} />
           </div>
         )}
       </section>

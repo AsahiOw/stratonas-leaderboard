@@ -42,6 +42,12 @@ export function LeaderboardApp({ initialRaids }: Props) {
   const [showLogin, setShowLogin] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
   const [raidEntries, setRaidEntries] = useState<Record<string, TableEntry[]>>({})
+  const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
+    leaderboard: true,
+    previous: false,
+    stats: false,
+    admin: false,
+  })
 
   useEffect(() => {
     initialRaids.forEach((raid) => {
@@ -52,6 +58,10 @@ export function LeaderboardApp({ initialRaids }: Props) {
         })
     })
   }, [initialRaids])
+
+  useEffect(() => {
+    setVisitedTabs((prev) => prev[tab] ? prev : { ...prev, [tab]: true })
+  }, [tab])
 
   function handleLoginClick() {
     if (isAdmin) {
@@ -160,8 +170,8 @@ export function LeaderboardApp({ initialRaids }: Props) {
         )}
 
         {/* STATS */}
-        {tab === 'stats' && (
-          <div className="pt-7">
+        {visitedTabs.stats && (
+          <div className={`pt-7 ${tab === 'stats' ? '' : 'hidden'}`}>
             <div className="mb-5">
               <div className="text-[11px] font-bold text-muted tracking-[0.14em] mb-1.5">◈ SEASON OVERVIEW</div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Statistics</h2>
@@ -184,7 +194,11 @@ export function LeaderboardApp({ initialRaids }: Props) {
             </button>
           </div>
         )}
-        {tab === 'admin' && isAdmin && <AdminPanel />}
+        {visitedTabs.admin && isAdmin && (
+          <div className={tab === 'admin' ? '' : 'hidden'}>
+            <AdminPanel />
+          </div>
+        )}
       </div>
 
       {showLogin && <LoginModal onLogin={handleLogin} onClose={() => setShowLogin(false)} />}
