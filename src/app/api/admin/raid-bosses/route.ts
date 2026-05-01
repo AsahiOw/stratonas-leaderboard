@@ -18,6 +18,9 @@ export async function POST(req: Request) {
       name:        body.name,
       description: body.description || '',
       image:       body.image || null,
+      color:       body.color  || '#4f8ef7',
+      color2:      body.color2 || '#7c3aed',
+      pattern:     body.pattern || 'hex',
     },
   })
   return NextResponse.json(boss, { status: 201 })

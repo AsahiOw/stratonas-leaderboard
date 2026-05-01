@@ -12,6 +12,17 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       name:        body.name,
       description: body.description || '',
       image:       body.image || null,
+      color:       body.color  || '#4f8ef7',
+      color2:      body.color2 || '#7c3aed',
+      pattern:     body.pattern || 'hex',
+    },
+  })
+  await prisma.raid.updateMany({
+    where: { raidBossId: params.id },
+    data: {
+      color:   boss.color,
+      color2:  boss.color2,
+      pattern: boss.pattern,
     },
   })
   return NextResponse.json(boss)

@@ -7,6 +7,7 @@ interface Props {
   onClose: () => void
   children: React.ReactNode
   wide?: boolean
+  extraWide?: boolean
   /**
    * Render a near-full-screen dialog on desktop (mobile is already
    * full-screen). Body becomes a flex column so children can use
@@ -15,7 +16,7 @@ interface Props {
   fullScreen?: boolean
 }
 
-export function StModal({ title, onClose, children, wide, fullScreen }: Props) {
+export function StModal({ title, onClose, children, wide, extraWide, fullScreen }: Props) {
   // Portal the modal to `document.body` so it overlays the entire viewport
   // regardless of where it is mounted in the React tree. Without this,
   // ancestors that create a containing block for fixed elements (anything
@@ -45,6 +46,8 @@ export function StModal({ title, onClose, children, wide, fullScreen }: Props) {
   if (fullScreen) {
     dialogSizeClass =
       'sm:w-[95vw] sm:max-w-[1200px] sm:h-[92vh] sm:max-h-[95vh]'
+  } else if (extraWide) {
+    dialogSizeClass = 'sm:w-[85vw] sm:max-w-[860px] sm:h-auto sm:max-h-[90vh]'
   } else if (wide) {
     dialogSizeClass = 'sm:w-auto sm:max-w-[700px] sm:h-auto sm:max-h-[90vh]'
   } else {

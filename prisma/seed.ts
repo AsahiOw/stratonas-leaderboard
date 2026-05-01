@@ -117,17 +117,17 @@ async function main() {
 
   // ── Raid bosses ──────────────────────────────────────────────────────────────
   const bossesData = [
-    { name: 'Void Sanctum',  description: 'Navigate the collapsed dimensions of the Void, where reality fractures with every step.' },
-    { name: 'Crimson Forge', description: 'Conquer the molten stronghold at the heart of Mount Igaris before it erupts.' },
-    { name: 'Abyssal Keep',  description: 'Breach the ancient keep that stands between the mortal realm and the Abyss.' },
-    { name: 'Shadow Realm',  description: 'The inaugural raid that started it all — the original Shadow incursion.' },
+    { name: 'Void Sanctum',  description: 'Navigate the collapsed dimensions of the Void, where reality fractures with every step.', color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex' },
+    { name: 'Crimson Forge', description: 'Conquer the molten stronghold at the heart of Mount Igaris before it erupts.', color: '#f87171', color2: '#f59e0b', pattern: 'grid' },
+    { name: 'Abyssal Keep',  description: 'Breach the ancient keep that stands between the mortal realm and the Abyss.', color: '#a78bfa', color2: '#34d399', pattern: 'diamond' },
+    { name: 'Shadow Realm',  description: 'The inaugural raid that started it all — the original Shadow incursion.', color: '#6ee7b7', color2: '#0ea5e9', pattern: 'dot' },
   ]
   const bossMap: Record<string, string> = {}
   for (const b of bossesData) {
     const boss = await prisma.raidBoss.upsert({
       where: { name: b.name },
-      update: { description: b.description },
-      create: { name: b.name, description: b.description },
+      update: { description: b.description, color: b.color, color2: b.color2, pattern: b.pattern },
+      create: b,
     })
     bossMap[b.name] = boss.id
   }

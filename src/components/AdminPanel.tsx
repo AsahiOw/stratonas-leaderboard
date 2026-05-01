@@ -16,6 +16,7 @@ interface Player {
 
 interface RaidBoss {
   id: string; name: string; description: string; image?: string | null
+  color: string; color2: string; pattern: string
 }
 
 interface RaidType {
@@ -49,6 +50,7 @@ interface Entry {
 }
 
 type Section = 'dashboard' | 'players' | 'raids' | 'bosses' | 'entries' | 'settings'
+type ListSection = 'activity' | 'players' | 'raids' | 'bosses' | 'entries'
 
 const navItems: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '◈' },
@@ -70,6 +72,12 @@ const submitBtnClass =
   'w-full bg-accent rounded-lg py-3 text-white font-bold text-sm cursor-pointer mt-1.5 hover:bg-accent/90 transition-colors'
 const addBtnClass =
   'bg-accent rounded-lg px-4 py-2 text-white font-semibold text-[13px] cursor-pointer hover:bg-accent/90 transition-colors whitespace-nowrap'
+const searchInputClass =
+  'w-full bg-bg border border-border rounded-lg px-3.5 py-2.5 text-sm text-text outline-none transition-colors placeholder:text-muted focus:border-accent/60'
+const showMoreBtnClass =
+  'w-full sm:w-auto bg-card2 border border-border rounded-lg px-4 py-2 text-sm font-semibold text-muted2 hover:text-text hover:border-border2 transition-colors'
+const INITIAL_VISIBLE_ROWS = 10
+const SHOW_MORE_ROWS = 50
 
 export function AdminPanel() {
   const [sec, setSec] = useState<Section>('dashboard')
@@ -83,6 +91,20 @@ export function AdminPanel() {
   const [modal, setModal]       = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<Player | Raid | Entry | RaidBoss | null>(null)
   const [toast, setToast]       = useState<string | null>(null)
+  const [search, setSearch] = useState<Record<ListSection, string>>({
+    activity: '',
+    players: '',
+    raids: '',
+    bosses: '',
+    entries: '',
+  })
+  const [visibleRows, setVisibleRows] = useState<Record<ListSection, number>>({
+    activity: INITIAL_VISIBLE_ROWS,
+    players: INITIAL_VISIBLE_ROWS,
+    raids: INITIAL_VISIBLE_ROWS,
+    bosses: INITIAL_VISIBLE_ROWS,
+    entries: INITIAL_VISIBLE_ROWS,
+  })
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
@@ -152,12 +174,19 @@ export function AdminPanel() {
   }
 
   // ── Raid Boss form ─────────────────────────────────────────────────────────
-  const emptyB = { name: '', description: '', image: '' }
+  const emptyB = { name: '', description: '', image: '', color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex' }
   const [bForm, setBForm] = useState(emptyB)
 
   function openAddBoss() { setBForm(emptyB); setEditTarget(null); setModal('boss') }
   function openEditBoss(b: RaidBoss) {
-    setBForm({ name: b.name, description: b.description, image: b.image || '' })
+    setBForm({
+      name: b.name,
+      description: b.description,
+      image: b.image || '',
+      color: b.color || '#4f8ef7',
+      color2: b.color2 || '#7c3aed',
+      pattern: b.pattern || 'hex',
+    })
     setEditTarget(b); setModal('boss')
   }
   async function deleteBoss(id: string) {
@@ -165,7 +194,14 @@ export function AdminPanel() {
   }
   async function saveBoss(e: React.FormEvent) {
     e.preventDefault()
-    const payload = { name: bForm.name, description: bForm.description, image: bForm.image || null }
+    const payload = {
+      name: bForm.name,
+      description: bForm.description,
+      image: bForm.image || null,
+      color: bForm.color,
+      color2: bForm.color2,
+      pattern: bForm.pattern,
+    }
     if (editTarget) {
       await fetch(`/api/admin/raid-bosses/${(editTarget as RaidBoss).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       showToast('Boss updated.')
@@ -180,7 +216,7 @@ export function AdminPanel() {
   const emptyR = {
     raidBossId: '', season: '3',
     typeId: '', serverId: '',
-    status: 'CURRENT', color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex',
+    status: 'CURRENT',
     startDate: '', endDate: '',
   }
   const [rForm, setRForm] = useState(emptyR)
@@ -196,7 +232,6 @@ export function AdminPanel() {
       typeId: r.typeId,
       serverId: r.serverId,
       status: r.status,
-      color: r.color, color2: r.color2, pattern: r.pattern,
       startDate: r.startDate ? r.startDate.split('T')[0] : '',
       endDate: r.endDate ? r.endDate.split('T')[0] : '',
     })
@@ -243,10 +278,93 @@ export function AdminPanel() {
 
   const activeRaidCount = raids.filter(r => r.status === 'CURRENT').length
   const currentNav = navItems.find((n) => n.id === sec)
+  const normalizedSearch = {
+    activity: search.activity.trim().toLowerCase(),
+    players: search.players.trim().toLowerCase(),
+    raids: search.raids.trim().toLowerCase(),
+    bosses: search.bosses.trim().toLowerCase(),
+    entries: search.entries.trim().toLowerCase(),
+  }
+
+  function searchable(values: Array<string | number | boolean | null | undefined>, query: string) {
+    if (!query) return true
+    return values
+      .filter((value) => value !== null && value !== undefined)
+      .some((value) => String(value).toLowerCase().includes(query))
+  }
+
+  const filteredPlayers = players.filter((p) => searchable([
+    p.ign, p.username, p.favouriteStudent, p.club, p.clubID, p.userID, p.isGuildMember ? 'guild' : 'guest',
+  ], normalizedSearch.players))
+  const filteredRaids = raids.filter((r) => searchable([
+    r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name, r.status,
+    r.pattern, r.startDate, r.endDate,
+  ], normalizedSearch.raids))
+  const filteredBosses = bosses.filter((b) => searchable([
+    b.name, b.description, b.image, b.color, b.color2, b.pattern,
+  ], normalizedSearch.bosses))
+  const filteredEntries = entries.filter((e) => searchable([
+    e.player.ign, e.player.username, e.player.club, e.player.clubID, e.player.userID,
+    e.raid.raidBoss.name, e.raid.season, e.raid.type.name, e.raid.server.name, e.raid.status,
+    e.score, e.createdAt,
+  ], normalizedSearch.entries))
+  const filteredActivity = entries.filter((e) => searchable([
+    e.player.ign, e.player.username, e.raid.raidBoss.name, e.raid.season, e.raid.server.name,
+    e.score, e.createdAt,
+  ], normalizedSearch.activity))
+
+  const visibleActivity = filteredActivity.slice(0, visibleRows.activity)
+  const visiblePlayers = filteredPlayers.slice(0, visibleRows.players)
+  const visibleRaids = filteredRaids.slice(0, visibleRows.raids)
+  const visibleBosses = filteredBosses.slice(0, visibleRows.bosses)
+  const visibleEntries = filteredEntries.slice(0, visibleRows.entries)
 
   function selectSection(s: Section) {
     setSec(s)
     setDrawerOpen(false)
+  }
+
+  function updateSearch(section: ListSection, value: string) {
+    setSearch((prev) => ({ ...prev, [section]: value }))
+    setVisibleRows((prev) => ({ ...prev, [section]: INITIAL_VISIBLE_ROWS }))
+  }
+
+  function showMore(section: ListSection) {
+    setVisibleRows((prev) => ({ ...prev, [section]: prev[section] + SHOW_MORE_ROWS }))
+  }
+
+  function renderListControls(section: ListSection, total: number, filtered: number, visible: number, placeholder: string) {
+    return (
+      <>
+        <div className="mb-3">
+          <input
+            className={searchInputClass}
+            type="search"
+            value={search[section]}
+            onChange={(e) => updateSearch(section, e.target.value)}
+            placeholder={placeholder}
+            aria-label={`Search ${section}`}
+          />
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 text-[12px] text-muted">
+          <span>
+            Showing {Math.min(visible, filtered)} of {filtered}
+            {filtered !== total ? ` filtered from ${total}` : ''}
+          </span>
+        </div>
+      </>
+    )
+  }
+
+  function renderShowMore(section: ListSection, filtered: number, visible: number) {
+    if (visible >= filtered) return null
+    return (
+      <div className="flex justify-center mt-3">
+        <button type="button" onClick={() => showMore(section)} className={showMoreBtnClass}>
+          Show more
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -333,11 +451,12 @@ export function AdminPanel() {
             </div>
             <div className="bg-card border border-border rounded-xl px-5 py-4">
               <div className="text-[13px] font-semibold mb-3">Recent Activity</div>
-              {entries.slice(0, 10).map((e, i) => (
+              {renderListControls('activity', entries.length, filteredActivity.length, visibleActivity.length, 'Search activity by player, raid, server, score, or date...')}
+              {visibleActivity.map((e, i) => (
                 <div
                   key={e.id}
                   className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 py-2 ${
-                    i < 9 && i < entries.length - 1 ? 'border-b border-border' : ''
+                    i < visibleActivity.length - 1 ? 'border-b border-border' : ''
                   }`}
                 >
                   <div className="min-w-0">
@@ -354,6 +473,12 @@ export function AdminPanel() {
                   </div>
                 </div>
               ))}
+              {filteredActivity.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">
+                  {entries.length === 0 ? 'No recent activity yet.' : 'No activity matches your search.'}
+                </div>
+              )}
+              {renderShowMore('activity', filteredActivity.length, visibleActivity.length)}
             </div>
           </div>
         )}
@@ -367,10 +492,11 @@ export function AdminPanel() {
               </div>
               <button onClick={openAddPlayer} className={addBtnClass}>+ Add Player</button>
             </div>
+            {renderListControls('players', players.length, filteredPlayers.length, visiblePlayers.length, 'Search players by IGN, username, club, ID, or status...')}
 
             {/* Card list (mobile) */}
             <div className="sm:hidden flex flex-col gap-2.5">
-              {players.map((p) => (
+              {visiblePlayers.map((p) => (
                 <div key={p.id} className="bg-card border border-border rounded-xl p-3.5">
                   <div className="flex justify-between items-start gap-3 mb-2">
                     <div className="min-w-0">
@@ -401,8 +527,10 @@ export function AdminPanel() {
                   </div>
                 </div>
               ))}
-              {players.length === 0 && (
-                <div className="text-center text-muted text-sm py-8">No players yet.</div>
+              {filteredPlayers.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">
+                  {players.length === 0 ? 'No players yet.' : 'No players match your search.'}
+                </div>
               )}
             </div>
 
@@ -420,10 +548,10 @@ export function AdminPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {players.map((p, i) => (
+                    {visiblePlayers.map((p, i) => (
                       <tr
                         key={p.id}
-                        className={i < players.length - 1 ? 'border-b border-border' : ''}
+                        className={i < visiblePlayers.length - 1 ? 'border-b border-border' : ''}
                       >
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{p.ign}</td>
                         <td className="px-3.5 py-2.5 text-muted font-mono text-xs whitespace-nowrap">@{p.username}</td>
@@ -443,8 +571,14 @@ export function AdminPanel() {
                     ))}
                   </tbody>
                 </table>
+                {filteredPlayers.length === 0 && (
+                  <div className="text-center text-muted text-sm py-8">
+                    {players.length === 0 ? 'No players yet.' : 'No players match your search.'}
+                  </div>
+                )}
               </div>
             </div>
+            {renderShowMore('players', filteredPlayers.length, visiblePlayers.length)}
           </div>
         )}
 
@@ -455,8 +589,9 @@ export function AdminPanel() {
               <div className="font-bold text-lg">Raids</div>
               <button onClick={openAddRaid} className={addBtnClass}>+ Add Raid</button>
             </div>
+            {renderListControls('raids', raids.length, filteredRaids.length, visibleRaids.length, 'Search raids by boss, season, type, server, status, or date...')}
             <div className="flex flex-col gap-2.5">
-              {raids.map((r) => (
+              {visibleRaids.map((r) => (
                 <div
                   key={r.id}
                   className="bg-card border rounded-xl px-4 py-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
@@ -504,7 +639,13 @@ export function AdminPanel() {
                   </div>
                 </div>
               ))}
+              {filteredRaids.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">
+                  {raids.length === 0 ? 'No raids yet.' : 'No raids match your search.'}
+                </div>
+              )}
             </div>
+            {renderShowMore('raids', filteredRaids.length, visibleRaids.length)}
           </div>
         )}
 
@@ -517,8 +658,9 @@ export function AdminPanel() {
               </div>
               <button onClick={openAddBoss} className={addBtnClass}>+ Add Boss</button>
             </div>
+            {renderListControls('bosses', bosses.length, filteredBosses.length, visibleBosses.length, 'Search bosses by name, description, or image URL...')}
             <div className="flex flex-col gap-2.5">
-              {bosses.map((b) => (
+              {visibleBosses.map((b) => (
                 <div
                   key={b.id}
                   className="bg-card border border-border rounded-xl px-4 py-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
@@ -527,7 +669,7 @@ export function AdminPanel() {
                     {b.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={b.image}
+                        src={proxyImage(b.image)}
                         alt={b.name}
                         className="w-11 h-11 rounded-lg object-cover border border-border shrink-0"
                       />
@@ -544,12 +686,30 @@ export function AdminPanel() {
                     </div>
                   </div>
                   <div className="flex gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 mr-1">
+                      <span
+                        className="w-5 h-5 rounded border border-border"
+                        style={{ background: b.color }}
+                        title="Primary color"
+                      />
+                      <span
+                        className="w-5 h-5 rounded border border-border"
+                        style={{ background: b.color2 }}
+                        title="Secondary color"
+                      />
+                    </div>
                     <button onClick={() => openEditBoss(b)} className={editBtnClass}>Edit</button>
                     <button onClick={() => deleteBoss(b.id)} className={delBtnClass}>Delete</button>
                   </div>
                 </div>
               ))}
+              {filteredBosses.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">
+                  {bosses.length === 0 ? 'No raid bosses yet.' : 'No raid bosses match your search.'}
+                </div>
+              )}
             </div>
+            {renderShowMore('bosses', filteredBosses.length, visibleBosses.length)}
           </div>
         )}
 
@@ -560,10 +720,11 @@ export function AdminPanel() {
               <div className="font-bold text-lg">Entries</div>
               <button onClick={openAddEntry} className={addBtnClass}>+ Add Entry</button>
             </div>
+            {renderListControls('entries', entries.length, filteredEntries.length, visibleEntries.length, 'Search entries by player, raid, server, score, or date...')}
 
             {/* Card list (mobile) */}
             <div className="sm:hidden flex flex-col gap-2.5">
-              {entries.map((e) => (
+              {visibleEntries.map((e) => (
                 <div key={e.id} className="bg-card border border-border rounded-xl p-3.5">
                   <div className="flex justify-between items-start gap-3 mb-2">
                     <div className="min-w-0">
@@ -590,8 +751,10 @@ export function AdminPanel() {
                   </div>
                 </div>
               ))}
-              {entries.length === 0 && (
-                <div className="text-center text-muted text-sm py-8">No entries yet.</div>
+              {filteredEntries.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">
+                  {entries.length === 0 ? 'No entries yet.' : 'No entries match your search.'}
+                </div>
               )}
             </div>
 
@@ -609,10 +772,10 @@ export function AdminPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {entries.map((e, i) => (
+                    {visibleEntries.map((e, i) => (
                       <tr
                         key={e.id}
-                        className={i < entries.length - 1 ? 'border-b border-border' : ''}
+                        className={i < visibleEntries.length - 1 ? 'border-b border-border' : ''}
                       >
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{e.player.ign}</td>
                         <td className="px-3.5 py-2.5 text-muted2">{e.raid.raidBoss.name} S{e.raid.season}</td>
@@ -631,8 +794,14 @@ export function AdminPanel() {
                     ))}
                   </tbody>
                 </table>
+                {filteredEntries.length === 0 && (
+                  <div className="text-center text-muted text-sm py-8">
+                    {entries.length === 0 ? 'No entries yet.' : 'No entries match your search.'}
+                  </div>
+                )}
               </div>
             </div>
+            {renderShowMore('entries', filteredEntries.length, visibleEntries.length)}
           </div>
         )}
 
@@ -649,7 +818,7 @@ export function AdminPanel() {
 
       {/* Player modal */}
       {modal === 'player' && (
-        <StModal title={editTarget ? 'Edit Player' : 'Add Player'} onClose={() => setModal(null)} wide>
+        <StModal title={editTarget ? 'Edit Player' : 'Add Player'} onClose={() => setModal(null)} extraWide>
           <form onSubmit={savePlayer}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <StField label="IGN">
@@ -705,7 +874,7 @@ export function AdminPanel() {
 
       {/* Boss modal */}
       {modal === 'boss' && (
-        <StModal title={editTarget ? 'Edit Raid Boss' : 'Add Raid Boss'} onClose={() => setModal(null)} wide>
+        <StModal title={editTarget ? 'Edit Raid Boss' : 'Add Raid Boss'} onClose={() => setModal(null)} extraWide>
           <form onSubmit={saveBoss}>
             <StField label="BOSS NAME" span2>
               <input className={inputClass} type="text" value={bForm.name} onChange={e => setBForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Void Sanctum" required />
@@ -724,6 +893,22 @@ export function AdminPanel() {
                 />
               </div>
             )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <StField label="PRIMARY COLOR">
+                <input className={`${inputClass} h-11`} type="color" value={bForm.color} onChange={e => setBForm(f => ({ ...f, color: e.target.value }))} />
+              </StField>
+              <StField label="SECONDARY COLOR">
+                <input className={`${inputClass} h-11`} type="color" value={bForm.color2} onChange={e => setBForm(f => ({ ...f, color2: e.target.value }))} />
+              </StField>
+              <StField label="PATTERN" span2>
+                <select className={inputClass} value={bForm.pattern} onChange={e => setBForm(f => ({ ...f, pattern: e.target.value }))}>
+                  <option value="hex">Hexagons</option>
+                  <option value="grid">Grid</option>
+                  <option value="diamond">Diamond</option>
+                  <option value="dot">Dots</option>
+                </select>
+              </StField>
+            </div>
             <StField label="DESCRIPTION" span2>
               <textarea
                 className={`${inputClass} min-h-20 resize-y`}
@@ -741,7 +926,7 @@ export function AdminPanel() {
 
       {/* Raid modal */}
       {modal === 'raid' && (
-        <StModal title={editTarget ? 'Edit Raid' : 'Add Raid'} onClose={() => setModal(null)}>
+        <StModal title={editTarget ? 'Edit Raid' : 'Add Raid'} onClose={() => setModal(null)} extraWide>
           <form onSubmit={saveRaid}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <StField label="RAID BOSS" span2>
@@ -773,20 +958,6 @@ export function AdminPanel() {
                   <option value="PREVIOUS">Previous (Archived)</option>
                 </select>
               </StField>
-              <StField label="PRIMARY COLOR">
-                <input className={`${inputClass} h-11`} type="color" value={rForm.color} onChange={e => setRForm(f => ({ ...f, color: e.target.value }))} />
-              </StField>
-              <StField label="SECONDARY COLOR">
-                <input className={`${inputClass} h-11`} type="color" value={rForm.color2} onChange={e => setRForm(f => ({ ...f, color2: e.target.value }))} />
-              </StField>
-              <StField label="PATTERN">
-                <select className={inputClass} value={rForm.pattern} onChange={e => setRForm(f => ({ ...f, pattern: e.target.value }))}>
-                  <option value="hex">Hexagons</option>
-                  <option value="grid">Grid</option>
-                  <option value="diamond">Diamond</option>
-                  <option value="dot">Dots</option>
-                </select>
-              </StField>
               <StField label="START DATE">
                 <input className={inputClass} type="date" value={rForm.startDate} onChange={e => setRForm(f => ({ ...f, startDate: e.target.value }))} required />
               </StField>
@@ -803,7 +974,7 @@ export function AdminPanel() {
 
       {/* Entry modal */}
       {modal === 'entry' && (
-        <StModal title={editTarget ? 'Edit Entry' : 'Add Entry'} onClose={() => setModal(null)}>
+        <StModal title={editTarget ? 'Edit Entry' : 'Add Entry'} onClose={() => setModal(null)} extraWide>
           <form onSubmit={saveEntry}>
             <StField label="PLAYER" span2>
               <select className={inputClass} value={eForm.playerId} onChange={e => setEForm(f => ({ ...f, playerId: e.target.value }))} required>

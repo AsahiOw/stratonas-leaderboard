@@ -13,6 +13,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const guard = await requireAdmin()
   if (guard) return guard
   const body = await req.json()
+  const boss = await prisma.raidBoss.findUnique({ where: { id: body.raidBossId } })
   const raid = await prisma.raid.update({
     where: { id: params.id },
     data: {
@@ -21,9 +22,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       typeId:     body.typeId,
       serverId:   body.serverId,
       status:     body.status === 'PREVIOUS' ? RaidStatus.PREVIOUS : RaidStatus.CURRENT,
-      color:      body.color  || '#4f8ef7',
-      color2:     body.color2 || '#7c3aed',
-      pattern:    body.pattern || 'hex',
+      color:      boss?.color  || '#4f8ef7',
+      color2:     boss?.color2 || '#7c3aed',
+      pattern:    boss?.pattern || 'hex',
       startDate:  body.startDate ? new Date(body.startDate) : null,
       endDate:    body.endDate   ? new Date(body.endDate)   : null,
     },
