@@ -53,13 +53,13 @@ export function Navbar({
         <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-14">
           {/* Logo */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[15px] font-bold bg-gradient-to-br from-accent2 to-accent">
-              S
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/icons/icon.gif"
+              alt=""
+              className="w-8 h-8 rounded-full object-cover border border-border"
+            />
             <span className="font-bold text-lg tracking-tight">Stratonas</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent/15 text-accent border border-accent/30 tracking-[0.08em] ml-0.5">
-              S3
-            </span>
           </div>
 
           {/* Desktop tabs */}

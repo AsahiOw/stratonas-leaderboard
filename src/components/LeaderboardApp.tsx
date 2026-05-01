@@ -101,17 +101,20 @@ export function LeaderboardApp({ initialRaids }: Props) {
         {/* LEADERBOARD */}
         {tab === 'leaderboard' && (
           <div>
-            <div className="text-center py-8 sm:py-9 bg-[radial-gradient(ellipse_70%_260px_at_50%_0,_rgba(79,142,247,0.07),_transparent)]">
-              <div className="text-[11px] font-bold text-accent tracking-[0.14em] mb-2">
-                ◈ SEASON 3 · ACTIVE RAIDS
+            <div
+              className="relative overflow-hidden rounded-2xl border border-border mt-5 mb-5 min-h-[180px] sm:min-h-[220px] flex items-end justify-center text-center bg-cover bg-center"
+              style={{ backgroundImage: 'url(/assets/images/banner.gif)' }}
+            >
+              <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.18),rgba(13,13,19,0.82))]" />
+              <div className="relative px-4 pb-3 sm:pb-4">
+                <h1 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-[-0.03em] leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.75)]">
+                  Stratonas <span className="text-accent">Leaderboard</span>
+                </h1>
+                <p className="text-muted2 text-sm mt-2 px-2 drop-shadow-[0_1px_8px_rgba(0,0,0,0.75)]">
+                  {currentRaids.length} active raid{currentRaids.length !== 1 ? 's' : ''}
+                  {serverFilter !== 'all' ? ` · ${serverFilter === 'jp' ? 'JP' : 'Global'} server` : ''}
+                </p>
               </div>
-              <h1 className="text-2xl sm:text-3xl md:text-[32px] font-bold tracking-[-0.03em] leading-tight">
-                Stratonas <span className="text-accent">Leaderboard</span>
-              </h1>
-              <p className="text-muted2 text-sm mt-2 px-2">
-                {currentRaids.length} active raid{currentRaids.length !== 1 ? 's' : ''}
-                {serverFilter !== 'all' ? ` · ${serverFilter === 'jp' ? 'JP' : 'Global'} server` : ''}
-              </p>
             </div>
             {currentRaids.length === 0 ? (
               <div className="text-center text-muted py-16 text-sm">No active raids for this server filter.</div>
