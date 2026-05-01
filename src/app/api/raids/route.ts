@@ -8,6 +8,7 @@ const raidInclude = {
   raidBoss: true,
   type: true,
   server: true,
+  terrain: true,
 } as const
 
 export async function GET() {

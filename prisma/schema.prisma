@@ -35,10 +35,21 @@ model Player {
   joinedDate       DateTime     @default(now())
   club             String?
   clubID           String?
+  clubId           String?
+  clubData         Club?        @relation(fields: [clubId], references: [id], onDelete: SetNull)
   userID           String?      @unique
   entries          RaidEntry[]
 
   @@index([favouriteStudentId])
+  @@index([clubId])
+}
+
+model Club {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  players   Player[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Student {
@@ -102,6 +113,12 @@ model RaidServer {
   raids Raid[]
 }
 
+model RaidTerrain {
+  id    String @id @default(cuid())
+  name  String @unique
+  raids Raid[]
+}
+
 model Raid {
   id         String     @id @default(cuid())
   raidBoss   RaidBoss   @relation(fields: [raidBossId], references: [id])
@@ -111,6 +128,8 @@ model Raid {
   typeId     String
   server     RaidServer @relation(fields: [serverId], references: [id])
   serverId   String
+  terrain    RaidTerrain @relation(fields: [terrainId], references: [id])
+  terrainId  String
   color      String     @default("#4f8ef7")
   color2     String     @default("#7c3aed")
   pattern    String     @default("hex")

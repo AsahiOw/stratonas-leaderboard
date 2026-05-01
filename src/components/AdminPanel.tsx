@@ -6,10 +6,16 @@ import { StField, inputClass } from '@/components/ui/StField'
 import { Toast } from '@/components/ui/Toast'
 import { fmtDate, proxyImage } from '@/lib/utils'
 
+interface Club {
+  id: string; name: string; createdAt?: string; updatedAt?: string
+  _count?: { players: number }
+}
+
 interface Player {
   id: string; ign: string; username: string; favouriteStudent?: string | null
   favouriteStudentId?: number | null; favouriteStudentData?: Student | null
   joinedDate?: string | null; club?: string | null; clubID?: string | null
+  clubId?: string | null; clubData?: Club | null
   userID?: string | null; isGuildMember: boolean
 }
 
@@ -36,6 +42,10 @@ interface RaidServer {
   id: string; name: string
 }
 
+interface RaidTerrain {
+  id: string; name: string
+}
+
 interface Raid {
   id: string
   raidBossId: string
@@ -45,6 +55,8 @@ interface Raid {
   type: RaidType
   serverId: string
   server: RaidServer
+  terrainId: string
+  terrain: RaidTerrain
   isActive: boolean
   color: string
   color2: string
@@ -58,16 +70,32 @@ interface Entry {
   createdAt: string; player: Player; raid: Raid
 }
 
-type Section = 'dashboard' | 'players' | 'students' | 'raids' | 'bosses' | 'entries' | 'settings'
-type ListSection = 'activity' | 'players' | 'students' | 'raids' | 'bosses' | 'entries'
+interface XlsxImportResult {
+  raid: { id: string; title: string; created: boolean }
+  rowsRead: number
+  rowsImported: number
+  playersCreated: number
+  playersUpdated: number
+  clubsCreated: number
+  clubsReused: number
+  entriesCreated: number
+  entriesUpdated: number
+  skippedRows: Array<{ row: number; reason: string }>
+  unmatchedFavoriteStudents: string[]
+}
+
+type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries' | 'import' | 'settings'
+type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries'
 
 const navItems: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '◈' },
   { id: 'players',   label: 'Players',   icon: '◎' },
+  { id: 'clubs',     label: 'Clubs',     icon: '◇' },
   { id: 'students',  label: 'Students',  icon: '◌' },
   { id: 'raids',     label: 'Raids',     icon: '⬡' },
   { id: 'bosses',    label: 'Bosses',    icon: '◉' },
   { id: 'entries',   label: 'Entries',   icon: '⊞' },
+  { id: 'import',    label: 'Import',    icon: '⇪' },
   { id: 'settings',  label: 'Settings',  icon: '⊛' },
 ]
 
@@ -93,22 +121,33 @@ export function AdminPanel() {
   const [sec, setSec] = useState<Section>('dashboard')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [players, setPlayers]   = useState<Player[]>([])
+  const [clubs, setClubs]       = useState<Club[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [raids, setRaids]       = useState<Raid[]>([])
   const [bosses, setBosses]     = useState<RaidBoss[]>([])
   const [raidTypes, setRaidTypes]     = useState<RaidType[]>([])
   const [raidServers, setRaidServers] = useState<RaidServer[]>([])
+  const [raidTerrains, setRaidTerrains] = useState<RaidTerrain[]>([])
   const [entries, setEntries]   = useState<Entry[]>([])
   const [modal, setModal]       = useState<string | null>(null)
-  const [editTarget, setEditTarget] = useState<Player | Student | Raid | Entry | RaidBoss | null>(null)
+  const [editTarget, setEditTarget] = useState<Player | Club | Student | Raid | Entry | RaidBoss | null>(null)
   const [toast, setToast]       = useState<string | null>(null)
+  const [xlsxImportResult, setXlsxImportResult] = useState<XlsxImportResult | null>(null)
+  const [xlsxImporting, setXlsxImporting] = useState(false)
   const [importState, setImportState] = useState<ImportState | null>(null)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [bossImportState, setBossImportState] = useState<ImportState | null>(null)
   const [showBossImportProgress, setShowBossImportProgress] = useState(false)
+  const [xlsxForm, setXlsxForm] = useState({
+    server: '',
+    startDate: '',
+    endDate: '',
+  })
+  const [xlsxFile, setXlsxFile] = useState<File | null>(null)
   const [search, setSearch] = useState<Record<ListSection, string>>({
     activity: '',
     players: '',
+    clubs: '',
     students: '',
     raids: '',
     bosses: '',
@@ -117,6 +156,7 @@ export function AdminPanel() {
   const [visibleRows, setVisibleRows] = useState<Record<ListSection, number>>({
     activity: INITIAL_VISIBLE_ROWS,
     players: INITIAL_VISIBLE_ROWS,
+    clubs: INITIAL_VISIBLE_ROWS,
     students: INITIAL_VISIBLE_ROWS,
     raids: INITIAL_VISIBLE_ROWS,
     bosses: INITIAL_VISIBLE_ROWS,
@@ -126,6 +166,7 @@ export function AdminPanel() {
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   const loadPlayers = useCallback(() => fetch('/api/admin/players').then(r => r.json()).then(setPlayers), [])
+  const loadClubs = useCallback(() => fetch('/api/admin/clubs').then(r => r.json()).then(setClubs), [])
   const loadStudents = useCallback(() => fetch('/api/admin/students').then(r => r.json()).then(setStudents), [])
   const loadRaids   = useCallback(() => fetch('/api/raids').then(r => r.json()).then(setRaids), [])
   const loadBosses  = useCallback(() => fetch('/api/raid-bosses').then(r => r.json()).then(setBosses), [])
@@ -135,9 +176,10 @@ export function AdminPanel() {
   const loadRaidLookups = useCallback(() => {
     fetch('/api/admin/raid-lookups')
       .then(r => r.json())
-      .then((data: { types: RaidType[]; servers: RaidServer[] }) => {
+      .then((data: { types: RaidType[]; servers: RaidServer[]; terrains: RaidTerrain[] }) => {
         setRaidTypes(data.types)
         setRaidServers(data.servers)
+        setRaidTerrains(data.terrains)
       })
   }, [])
 
@@ -156,13 +198,17 @@ export function AdminPanel() {
           .map((r: Raid) => r.server)
           .filter((s: RaidServer, i: number, arr: RaidServer[]) => arr.findIndex(x => x.id === s.id) === i)
           .slice(1)])
+        setRaidTerrains([raids[0].terrain, ...raids
+          .map((r: Raid) => r.terrain)
+          .filter((t: RaidTerrain, i: number, arr: RaidTerrain[]) => arr.findIndex(x => x.id === t.id) === i)
+          .slice(1)])
       }
     })
   }, [])
 
   useEffect(() => {
-    loadPlayers(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus()
-  }, [loadPlayers, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus])
+    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus()
+  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus])
 
   useEffect(() => {
     if (!showImportProgress || importState?.status !== 'running') return
@@ -201,6 +247,11 @@ export function AdminPanel() {
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
   }, [drawerOpen])
+
+  useEffect(() => {
+    if (xlsxForm.server || raidServers.length === 0) return
+    setXlsxForm((form) => ({ ...form, server: raidServers[0].id }))
+  }, [raidServers, xlsxForm.server])
 
   // ── Player form ────────────────────────────────────────────────────────────
   const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', favouriteStudentId: '', joinedDate: '', club: 'Guest', clubID: 'GUEST', userID: '' }
@@ -245,7 +296,40 @@ export function AdminPanel() {
       await fetch('/api/admin/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       showToast('Player added.')
     }
-    setModal(null); loadPlayers()
+    setModal(null); loadPlayers(); loadClubs()
+  }
+
+  // ── Club form ──────────────────────────────────────────────────────────────
+  const emptyC = { name: '' }
+  const [cForm, setCForm] = useState(emptyC)
+
+  function openAddClub() { setCForm(emptyC); setEditTarget(null); setModal('club') }
+  function openEditClub(c: Club) {
+    setCForm({ name: c.name })
+    setEditTarget(c); setModal('club')
+  }
+  async function deleteClub(id: string) {
+    const res = await fetch(`/api/admin/clubs/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not delete club.' }))
+      showToast(body.error || 'Could not delete club.')
+      return
+    }
+    loadClubs(); loadPlayers(); showToast('Club deleted.')
+  }
+  async function saveClub(e: React.FormEvent) {
+    e.preventDefault()
+    const payload = { name: cForm.name }
+    const res = editTarget
+      ? await fetch(`/api/admin/clubs/${(editTarget as Club).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      : await fetch('/api/admin/clubs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not save club.' }))
+      showToast(body.error || 'Could not save club.')
+      return
+    }
+    showToast(editTarget ? 'Club updated.' : 'Club added.')
+    setModal(null); loadClubs(); loadPlayers()
   }
 
   // ── Student form/import ─────────────────────────────────────────────────────
@@ -352,13 +436,13 @@ export function AdminPanel() {
   // ── Raid form ──────────────────────────────────────────────────────────────
   const emptyR = {
     raidBossId: '', season: '3',
-    typeId: '', serverId: '',
+    typeId: '', serverId: '', terrainId: '',
     startDate: '', endDate: '',
   }
   const [rForm, setRForm] = useState(emptyR)
 
   function openAddRaid() {
-    setRForm({ ...emptyR, raidBossId: bosses[0]?.id || '', typeId: raidTypes[0]?.id || '', serverId: raidServers[0]?.id || '' })
+    setRForm({ ...emptyR, raidBossId: bosses[0]?.id || '', typeId: raidTypes[0]?.id || '', serverId: raidServers[0]?.id || '', terrainId: raidTerrains[0]?.id || '' })
     setEditTarget(null); setModal('raid')
   }
   function openEditRaid(r: Raid) {
@@ -367,6 +451,7 @@ export function AdminPanel() {
       season: String(r.season),
       typeId: r.typeId,
       serverId: r.serverId,
+      terrainId: r.terrainId,
       startDate: r.startDate ? r.startDate.split('T')[0] : '',
       endDate: r.endDate ? r.endDate.split('T')[0] : '',
     })
@@ -411,11 +496,42 @@ export function AdminPanel() {
     setModal(null); loadEntries()
   }
 
-  const activeRaidCount = raids.filter(r => r.isActive).length
+  // ── XLSX import ────────────────────────────────────────────────────────────
+  async function submitXlsxImport(e: React.FormEvent) {
+    e.preventDefault()
+    if (!xlsxFile) {
+      showToast('Choose an XLSX file first.')
+      return
+    }
+
+    setXlsxImporting(true)
+    setXlsxImportResult(null)
+    const form = new FormData()
+    form.append('file', xlsxFile)
+    form.append('server', xlsxForm.server)
+    form.append('startDate', xlsxForm.startDate)
+    form.append('endDate', xlsxForm.endDate)
+
+    const res = await fetch('/api/admin/import/xlsx', { method: 'POST', body: form })
+    const body = await res.json().catch(() => null)
+    setXlsxImporting(false)
+
+    if (!res.ok) {
+      showToast(body?.error || 'Could not import XLSX.')
+      return
+    }
+
+    setXlsxImportResult(body)
+    showToast('XLSX import completed.')
+    loadPlayers(); loadClubs(); loadRaids(); loadBosses(); loadEntries(); loadRaidLookups()
+  }
+
+  const latestRaidCount = raids.filter(r => r.isActive).length
   const currentNav = navItems.find((n) => n.id === sec)
   const normalizedSearch = {
     activity: search.activity.trim().toLowerCase(),
     players: search.players.trim().toLowerCase(),
+    clubs: search.clubs.trim().toLowerCase(),
     students: search.students.trim().toLowerCase(),
     raids: search.raids.trim().toLowerCase(),
     bosses: search.bosses.trim().toLowerCase(),
@@ -432,11 +548,14 @@ export function AdminPanel() {
   const filteredPlayers = players.filter((p) => searchable([
     p.ign, p.username, p.favouriteStudentData?.name, p.favouriteStudent, p.club, p.clubID, p.userID, p.isGuildMember ? 'guild' : 'guest',
   ], normalizedSearch.players))
+  const filteredClubs = clubs.filter((c) => searchable([
+    c.name, c._count?.players,
+  ], normalizedSearch.clubs))
   const filteredStudents = students.filter((s) => searchable([
     s.id, s.name, s.image,
   ], normalizedSearch.students))
   const filteredRaids = raids.filter((r) => searchable([
-    r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name,
+    r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name, r.terrain.name,
     r.pattern, r.startDate, r.endDate,
   ], normalizedSearch.raids))
   const filteredBosses = bosses.filter((b) => searchable([
@@ -444,16 +563,17 @@ export function AdminPanel() {
   ], normalizedSearch.bosses))
   const filteredEntries = entries.filter((e) => searchable([
     e.player.ign, e.player.username, e.player.club, e.player.clubID, e.player.userID,
-    e.raid.raidBoss.name, e.raid.season, e.raid.type.name, e.raid.server.name,
+    e.raid.raidBoss.name, e.raid.season, e.raid.type.name, e.raid.server.name, e.raid.terrain.name,
     e.score, e.createdAt,
   ], normalizedSearch.entries))
   const filteredActivity = entries.filter((e) => searchable([
-    e.player.ign, e.player.username, e.raid.raidBoss.name, e.raid.season, e.raid.server.name,
+    e.player.ign, e.player.username, e.raid.raidBoss.name, e.raid.season, e.raid.server.name, e.raid.terrain.name,
     e.score, e.createdAt,
   ], normalizedSearch.activity))
 
   const visibleActivity = filteredActivity.slice(0, visibleRows.activity)
   const visiblePlayers = filteredPlayers.slice(0, visibleRows.players)
+  const visibleClubs = filteredClubs.slice(0, visibleRows.clubs)
   const visibleStudents = filteredStudents.slice(0, visibleRows.students)
   const visibleRaids = filteredRaids.slice(0, visibleRows.raids)
   const visibleBosses = filteredBosses.slice(0, visibleRows.bosses)
@@ -577,10 +697,11 @@ export function AdminPanel() {
         {sec === 'dashboard' && (
           <div>
             <div className="font-bold text-lg mb-5">Dashboard</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               {[
                 { l: 'Total Players', v: players.length,  c: 'var(--accent)' },
-                { l: 'Active Raids',  v: activeRaidCount, c: 'var(--green)'  },
+                { l: 'Clubs',         v: clubs.length,    c: 'var(--gold)'   },
+                { l: 'Latest Raids',  v: latestRaidCount, c: 'var(--green)'  },
                 { l: 'Total Entries', v: entries.length,  c: '#a78bfa'       },
               ].map((d) => (
                 <div key={d.l} className="bg-card border border-border rounded-xl px-5 py-4">
@@ -722,6 +843,55 @@ export function AdminPanel() {
           </div>
         )}
 
+        {/* CLUBS */}
+        {sec === 'clubs' && (
+          <div>
+            <div className="flex justify-between items-center gap-3 mb-5">
+              <div className="font-bold text-lg">
+                Clubs <span className="text-[13px] text-muted font-normal">({clubs.length})</span>
+              </div>
+              <button onClick={openAddClub} className={addBtnClass}>+ Add Club</button>
+            </div>
+            {renderListControls('clubs', clubs.length, filteredClubs.length, visibleClubs.length, 'Search clubs by name or player count...')}
+
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border2 bg-white/[0.02]">
+                      {['NAME','PLAYERS','ACTIONS'].map((h) => (
+                        <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleClubs.map((c, i) => (
+                      <tr key={c.id} className={i < visibleClubs.length - 1 ? 'border-b border-border' : ''}>
+                        <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{c.name}</td>
+                        <td className="px-3.5 py-2.5 font-mono text-muted2">{c._count?.players || 0}</td>
+                        <td className="px-3.5 py-2.5">
+                          <div className="flex gap-1.5">
+                            <button onClick={() => openEditClub(c)} className={editBtnClass}>Edit</button>
+                            <button onClick={() => deleteClub(c.id)} className={delBtnClass}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredClubs.length === 0 && (
+                  <div className="text-center text-muted text-sm py-8">
+                    {clubs.length === 0 ? 'No clubs yet.' : 'No clubs match your search.'}
+                  </div>
+                )}
+              </div>
+            </div>
+            {renderShowMore('clubs', filteredClubs.length, visibleClubs.length)}
+          </div>
+        )}
+
         {/* STUDENTS */}
         {sec === 'students' && (
           <div>
@@ -829,7 +999,7 @@ export function AdminPanel() {
               <div className="font-bold text-lg">Raids</div>
               <button onClick={openAddRaid} className={addBtnClass}>+ Add Raid</button>
             </div>
-            {renderListControls('raids', raids.length, filteredRaids.length, visibleRaids.length, 'Search raids by boss, season, type, server, or date...')}
+            {renderListControls('raids', raids.length, filteredRaids.length, visibleRaids.length, 'Search raids by boss, season, type, terrain, server, or date...')}
             <div className="flex flex-col gap-2.5">
               {visibleRaids.map((r) => (
                 <div
@@ -845,11 +1015,11 @@ export function AdminPanel() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold break-words">{r.raidBoss.name}</span>
-                        <span className="text-xs text-muted">S{r.season} · {r.type.name}</span>
+                        <span className="text-xs text-muted">S{r.season} · {r.type.name} · {r.terrain.name}</span>
                         <ServerBadge server={r.server.name} />
                         {r.isActive && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green/15 text-green border border-green/35">
-                            LIVE
+                            LATEST
                           </span>
                         )}
                       </div>
@@ -975,7 +1145,7 @@ export function AdminPanel() {
               <div className="font-bold text-lg">Entries</div>
               <button onClick={openAddEntry} className={addBtnClass}>+ Add Entry</button>
             </div>
-            {renderListControls('entries', entries.length, filteredEntries.length, visibleEntries.length, 'Search entries by player, raid, server, score, or date...')}
+            {renderListControls('entries', entries.length, filteredEntries.length, visibleEntries.length, 'Search entries by player, raid, terrain, server, score, or date...')}
 
             {/* Card list (mobile) */}
             <div className="sm:hidden flex flex-col gap-2.5">
@@ -985,7 +1155,7 @@ export function AdminPanel() {
                     <div className="min-w-0">
                       <div className="font-semibold text-sm break-words">{e.player.ign}</div>
                       <div className="text-[11px] text-muted2 mt-0.5 break-words">
-                        {e.raid.raidBoss.name} S{e.raid.season}
+                        {e.raid.raidBoss.name} S{e.raid.season} · {e.raid.terrain.name}
                       </div>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
@@ -1033,7 +1203,7 @@ export function AdminPanel() {
                         className={i < visibleEntries.length - 1 ? 'border-b border-border' : ''}
                       >
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{e.player.ign}</td>
-                        <td className="px-3.5 py-2.5 text-muted2">{e.raid.raidBoss.name} S{e.raid.season}</td>
+                        <td className="px-3.5 py-2.5 text-muted2">{e.raid.raidBoss.name} S{e.raid.season} · {e.raid.terrain.name}</td>
                         <td className="px-3.5 py-2.5"><ServerBadge server={e.raid.server.name} /></td>
                         <td className="px-3.5 py-2.5 font-mono text-accent font-semibold">{e.score.toLocaleString()}</td>
                         <td className="px-3.5 py-2.5 text-muted font-mono text-xs whitespace-nowrap">
@@ -1057,6 +1227,118 @@ export function AdminPanel() {
               </div>
             </div>
             {renderShowMore('entries', filteredEntries.length, visibleEntries.length)}
+          </div>
+        )}
+
+        {/* IMPORT */}
+        {sec === 'import' && (
+          <div>
+            <div className="mb-5">
+              <div className="font-bold text-lg">Import</div>
+              <div className="text-[13px] text-muted mt-1">
+                Upload an XLSX with a Members sheet. The filename provides raid type, season, and boss.
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl px-4 py-4 sm:px-5 sm:py-5">
+              <form onSubmit={submitXlsxImport}>
+                <StField label="XLSX FILE" span2>
+                  <input
+                    className={inputClass}
+                    type="file"
+                    accept=".xlsx"
+                    onChange={(e) => setXlsxFile(e.target.files?.[0] || null)}
+                    required
+                  />
+                </StField>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4">
+                  <StField label="SERVER">
+                    <select
+                      className={inputClass}
+                      value={xlsxForm.server}
+                      onChange={(e) => setXlsxForm((form) => ({ ...form, server: e.target.value }))}
+                      required
+                    >
+                      <option value="">— Select Server —</option>
+                      {raidServers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {raidServers.length === 0 && RAID_SERVERS.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </StField>
+                  <StField label="START DATE">
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={xlsxForm.startDate}
+                      onChange={(e) => setXlsxForm((form) => ({ ...form, startDate: e.target.value }))}
+                      required
+                    />
+                  </StField>
+                  <StField label="END DATE">
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={xlsxForm.endDate}
+                      onChange={(e) => setXlsxForm((form) => ({ ...form, endDate: e.target.value }))}
+                      required
+                    />
+                  </StField>
+                </div>
+                <button type="submit" className={submitBtnClass} disabled={xlsxImporting}>
+                  {xlsxImporting ? 'Importing...' : 'Import XLSX'}
+                </button>
+              </form>
+            </div>
+
+            {xlsxImportResult && (
+              <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                  <div>
+                    <div className="font-bold text-[15px]">{xlsxImportResult.raid.title}</div>
+                    <div className="text-xs text-muted">
+                      Raid {xlsxImportResult.raid.created ? 'created' : 'reused'} · {xlsxImportResult.rowsImported} of {xlsxImportResult.rowsRead} rows imported
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    ['Players Created', xlsxImportResult.playersCreated],
+                    ['Players Updated', xlsxImportResult.playersUpdated],
+                    ['Clubs Created', xlsxImportResult.clubsCreated],
+                    ['Clubs Reused', xlsxImportResult.clubsReused],
+                    ['Entries Created', xlsxImportResult.entriesCreated],
+                    ['Entries Updated', xlsxImportResult.entriesUpdated],
+                    ['Skipped Rows', xlsxImportResult.skippedRows.length],
+                    ['Unmatched Fav', xlsxImportResult.unmatchedFavoriteStudents.length],
+                  ].map(([label, value]) => (
+                    <div key={label} className="bg-card2 border border-border rounded-lg p-3">
+                      <div className="text-[10px] text-muted tracking-[0.08em] font-semibold uppercase">{label}</div>
+                      <div className="font-mono text-lg text-text font-bold">{value}</div>
+                    </div>
+                  ))}
+                </div>
+                {xlsxImportResult.unmatchedFavoriteStudents.length > 0 && (
+                  <div className="mt-4 bg-bg border border-border rounded-lg p-3">
+                    <div className="text-[11px] font-semibold text-muted tracking-[0.08em] mb-2">UNMATCHED FAVORITE STUDENTS</div>
+                    <div className="text-xs text-muted2 break-words">
+                      {xlsxImportResult.unmatchedFavoriteStudents.join(', ')}
+                    </div>
+                  </div>
+                )}
+                {xlsxImportResult.skippedRows.length > 0 && (
+                  <div className="mt-3 bg-bg border border-border rounded-lg p-3">
+                    <div className="text-[11px] font-semibold text-muted tracking-[0.08em] mb-2">SKIPPED ROWS</div>
+                    <div className="space-y-1 text-xs text-muted2">
+                      {xlsxImportResult.skippedRows.slice(0, 8).map((row) => (
+                        <div key={row.row}>Row {row.row}: {row.reason}</div>
+                      ))}
+                      {xlsxImportResult.skippedRows.length > 8 && (
+                        <div>+ {xlsxImportResult.skippedRows.length - 8} more</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1134,6 +1416,27 @@ export function AdminPanel() {
             </div>
             <button type="submit" className={submitBtnClass}>
               {editTarget ? 'Save Changes' : 'Add Player'}
+            </button>
+          </form>
+        </StModal>
+      )}
+
+      {/* Club modal */}
+      {modal === 'club' && (
+        <StModal title={editTarget ? 'Edit Club' : 'Add Club'} onClose={() => setModal(null)}>
+          <form onSubmit={saveClub}>
+            <StField label="CLUB NAME" span2>
+              <input
+                className={inputClass}
+                type="text"
+                value={cForm.name}
+                onChange={e => setCForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Club name"
+                required
+              />
+            </StField>
+            <button type="submit" className={submitBtnClass}>
+              {editTarget ? 'Save Changes' : 'Add Club'}
             </button>
           </form>
         </StModal>
@@ -1386,6 +1689,12 @@ export function AdminPanel() {
                   {raidServers.length === 0 && RAID_SERVERS.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </StField>
+              <StField label="TERRAIN">
+                <select className={inputClass} value={rForm.terrainId} onChange={e => setRForm(f => ({ ...f, terrainId: e.target.value }))} required>
+                  <option value="">— Select Terrain —</option>
+                  {raidTerrains.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </StField>
               <StField label="START DATE">
                 <input className={inputClass} type="date" value={rForm.startDate} onChange={e => setRForm(f => ({ ...f, startDate: e.target.value }))} required />
               </StField>
@@ -1412,7 +1721,7 @@ export function AdminPanel() {
             </StField>
             <StField label="RAID" span2>
               <select className={inputClass} value={eForm.raidId} onChange={e => setEForm(f => ({ ...f, raidId: e.target.value }))}>
-                {raids.map(r => <option key={r.id} value={r.id}>{r.raidBoss.name} — S{r.season} ({r.server.name})</option>)}
+                {raids.map(r => <option key={r.id} value={r.id}>{r.raidBoss.name} — S{r.season} {r.terrain.name} ({r.server.name})</option>)}
               </select>
             </StField>
             <StField label="SCORE" span2>

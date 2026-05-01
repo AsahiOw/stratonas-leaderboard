@@ -10,6 +10,7 @@ interface Raid {
   season: number
   type: { name: string }
   server: { name: string }
+  terrain: { name: string }
   isActive: boolean
   color: string
   color2: string

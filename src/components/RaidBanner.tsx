@@ -13,6 +13,7 @@ interface RaidBannerRaid {
   season: number
   type: { name: string }
   server: { name: string }
+  terrain: { name: string }
   isActive: boolean
   color: string
   color2: string
@@ -71,14 +72,8 @@ export function RaidBanner({ raid, topPlayer }: Props) {
               className="text-[11px] font-semibold tracking-[0.07em]"
               style={{ color: `${raid.color}cc` }}
             >
-              S{raid.season} · {raid.type.name.toUpperCase()}
+              S{raid.season} · {raid.type.name.toUpperCase()} · {raid.terrain.name.toUpperCase()}
             </span>
-            {raid.isActive && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green/15 text-green border border-green/35 inline-flex items-center gap-1">
-                <span className="w-[5px] h-[5px] rounded-full bg-green inline-block" />
-                LIVE
-              </span>
-            )}
           </div>
           <h2 className="text-lg sm:text-xl font-bold tracking-[-0.02em] mb-1 break-words">
             {raid.raidBoss.name}
@@ -95,7 +90,7 @@ export function RaidBanner({ raid, topPlayer }: Props) {
               style={{ borderColor: `${raid.color}30` }}
             >
               <div className="text-[10px] text-muted tracking-[0.08em] font-semibold mb-0.5">
-                {raid.isActive ? 'CURRENT LEADER' : 'FINAL RANK 1'}
+                RANK 1
               </div>
               <div className="font-bold text-sm">{topPlayer.name}</div>
               <div

@@ -10,12 +10,13 @@ interface ChartItem {
   val: number
 }
 
-interface CurrentRaidLeader {
+interface LatestRaidLeader {
   id: string
   boss: string
   season: number
   type: string
   server: string
+  terrain: string
   color: string
   entryCount: number
   topPlayer: { name: string; playerId: string; score: number } | null
@@ -48,6 +49,7 @@ interface RaidBreakdown {
   season: number
   type: string
   server: string
+  terrain: string
   isActive: boolean
   color: string
   startDate?: string | null
@@ -63,12 +65,12 @@ interface StatsData {
   snapshot: {
     totalPlayers: number
     totalEntries: number
-    activeRaids: number
+    latestRaids: number
     completedRaids: number
     uniqueClubs: number
     averageEntriesPerRaid: number
   }
-  currentRaidLeaders: CurrentRaidLeader[]
+  currentRaidLeaders: LatestRaidLeader[]
   topPlayers: TopPlayer[]
   clubStandings: ClubStanding[]
   raidBreakdown: RaidBreakdown[]
@@ -163,8 +165,8 @@ export function StatsPage({ onPlayerClick }: Props) {
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">
         <StatCard icon="◎" label="Players" value={fmtNum(stats.snapshot.totalPlayers)} sub="Registered players" color="var(--accent)" />
         <StatCard icon="⊞" label="Entries" value={fmtNum(stats.snapshot.totalEntries)} sub="Submitted scores" color="var(--green)" />
-        <StatCard icon="⬡" label="Active Raids" value={fmtNum(stats.snapshot.activeRaids)} sub="Currently live" color="#f87171" />
-        <StatCard icon="◈" label="Completed" value={fmtNum(stats.snapshot.completedRaids)} sub="Archived raids" color="#a78bfa" />
+        <StatCard icon="⬡" label="Latest Raids" value={fmtNum(stats.snapshot.latestRaids)} sub="Shown on leaderboard" color="#f87171" />
+        <StatCard icon="◈" label="Archived" value={fmtNum(stats.snapshot.completedRaids)} sub="Previous results" color="#a78bfa" />
         <StatCard icon="◉" label="Clubs" value={fmtNum(stats.snapshot.uniqueClubs)} sub="Including guests" color="var(--gold)" />
         <StatCard icon="▦" label="Avg Entries" value={fmtNum(stats.snapshot.averageEntriesPerRaid)} sub="Per raid" color="#38bdf8" />
       </div>
@@ -172,12 +174,12 @@ export function StatsPage({ onPlayerClick }: Props) {
       <section className={`${sectionClass} mb-5`}>
         <div className="flex items-end justify-between gap-3 mb-4">
           <div>
-            <div className="font-bold text-[15px]">Current Raid Leaders</div>
-            <div className="text-xs text-muted mt-1">Live raid leaders and participation at a glance</div>
+            <div className="font-bold text-[15px]">Latest Raid Leaders</div>
+            <div className="text-xs text-muted mt-1">Most recent raid results by server</div>
           </div>
         </div>
         {stats.currentRaidLeaders.length === 0 ? (
-          <EmptyBlock>No active raids right now.</EmptyBlock>
+          <EmptyBlock>No latest raid results yet.</EmptyBlock>
         ) : (
           <>
             <PageSummary shown={visibleCurrentRaidLeaders.length} total={stats.currentRaidLeaders.length} />
@@ -192,7 +194,7 @@ export function StatsPage({ onPlayerClick }: Props) {
                     <div className="min-w-0">
                       <div className="font-bold text-base break-words">{raid.boss}</div>
                       <div className="flex items-center gap-2 flex-wrap text-xs text-muted mt-1">
-                        <span>S{raid.season} · {raid.type}</span>
+                        <span>S{raid.season} · {raid.type} · {raid.terrain}</span>
                         <ServerBadge server={raid.server} />
                       </div>
                     </div>
@@ -236,7 +238,7 @@ export function StatsPage({ onPlayerClick }: Props) {
         </section>
         <section className={sectionClass}>
           <div className="font-bold text-[15px] mb-1">Entries by Raid</div>
-          <div className="text-xs text-muted mb-4">Most active raid boards</div>
+          <div className="text-xs text-muted mb-4">Raid boards with the most entries</div>
           {stats.charts.entriesByRaid.length > 0 ? (
             <BarChart data={stats.charts.entriesByRaid} color="var(--green)" />
           ) : (
@@ -352,7 +354,7 @@ export function StatsPage({ onPlayerClick }: Props) {
                   <tr key={raid.id} className={index < visibleRaidBreakdown.length - 1 ? 'border-b border-border' : ''}>
                     <td className="px-3 py-3">
                       <div className="font-semibold whitespace-nowrap">{raid.boss} S{raid.season}</div>
-                      <div className="text-[11px] text-muted">{raid.type} · {raid.isActive ? 'Live' : 'Archived'}</div>
+                      <div className="text-[11px] text-muted">{raid.type} · {raid.terrain} · {raid.isActive ? 'Latest' : 'Archived'}</div>
                     </td>
                     <td className="px-3 py-3"><ServerBadge server={raid.server} /></td>
                     <td className="px-3 py-3 text-muted font-mono text-[11px] whitespace-nowrap">

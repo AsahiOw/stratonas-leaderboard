@@ -240,5 +240,7 @@ src/
 | Method | Path | Description |
 |--------|------|-------------|
 | POST/PUT/DELETE | `/api/admin/players` `/api/admin/players/[id]` | Player CRUD |
+| POST/PUT/DELETE | `/api/admin/clubs` `/api/admin/clubs/[id]` | Club CRUD |
 | POST/PUT/DELETE | `/api/admin/raids` `/api/admin/raids/[id]` | Raid CRUD |
 | POST/PUT/DELETE | `/api/admin/entries` `/api/admin/entries/[id]` | Entry CRUD |
+| POST | `/api/admin/import/xlsx` | Import Top 50 raid entries from XLSX |

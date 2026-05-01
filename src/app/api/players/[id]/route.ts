@@ -4,7 +4,7 @@ import { getActiveRaidIds } from '@/lib/raid-activity'
 
 export const dynamic = 'force-dynamic'
 
-const raidInclude = { raidBoss: true, type: true, server: true } as const
+const raidInclude = { raidBoss: true, type: true, server: true, terrain: true } as const
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url)
@@ -14,6 +14,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     where: ign ? { ign } : { id: params.id },
     include: {
       favouriteStudentData: true,
+      clubData: true,
       entries: {
         include: { raid: { include: raidInclude } },
         orderBy: { score: 'desc' },
@@ -23,7 +24,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   if (!player) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const raids = await prisma.raid.findMany({ select: { id: true, serverId: true, startDate: true } })
+  const raids = await prisma.raid.findMany({ select: { id: true, serverId: true, startDate: true, endDate: true } })
   const activeRaidIds = getActiveRaidIds(raids)
 
   // Compute per-raid ranks

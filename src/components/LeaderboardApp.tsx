@@ -21,6 +21,8 @@ interface RaidData {
   type: { id: string; name: string }
   serverId: string
   server: { id: string; name: string }
+  terrainId: string
+  terrain: { id: string; name: string }
   isActive: boolean
   color: string
   color2: string
@@ -83,7 +85,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
     return true
   }
 
-  const currentRaids = initialRaids.filter((r) => r.isActive && matchesServer(r))
+  const latestRaids = initialRaids.filter((r) => r.isActive && matchesServer(r))
   const previousRaids = initialRaids.filter((r) => !r.isActive && matchesServer(r))
   const previousCount = initialRaids.filter((r) => !r.isActive).length
 
@@ -121,15 +123,15 @@ export function LeaderboardApp({ initialRaids }: Props) {
                   Stratonas <span className="text-accent">Leaderboard</span>
                 </h1>
                 <p className="text-muted2 text-sm mt-2 px-2 drop-shadow-[0_1px_8px_rgba(0,0,0,0.75)]">
-                  {currentRaids.length} active raid{currentRaids.length !== 1 ? 's' : ''}
+                  {latestRaids.length} latest raid{latestRaids.length !== 1 ? 's' : ''}
                   {serverFilter !== 'all' ? ` · ${serverFilter === 'jp' ? 'JP' : 'Global'} server` : ''}
                 </p>
               </div>
             </div>
-            {currentRaids.length === 0 ? (
-              <div className="text-center text-muted py-16 text-sm">No active raids for this server filter.</div>
+            {latestRaids.length === 0 ? (
+              <div className="text-center text-muted py-16 text-sm">No completed raid results for this server filter.</div>
             ) : (
-              currentRaids.map((r) => (
+              latestRaids.map((r) => (
                 <RaidBlock
                   key={r.id}
                   raid={r}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { normalizeStudentId } from '@/lib/students'
+import { resolveClub } from '@/lib/clubs'
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const guard = await requireAdmin()
   if (guard) return guard
@@ -9,6 +10,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const club = body.club?.trim() || 'Guest'
   const clubID = body.clubID?.trim() || (club === 'Guest' ? 'GUEST' : null)
   const userID = body.userID?.trim() || `AUTO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
+  const clubData = await resolveClub(club)
   const favouriteStudentId = normalizeStudentId(body.favouriteStudentId)
   const favouriteStudentData = favouriteStudentId
     ? await prisma.student.findUnique({ where: { id: favouriteStudentId } })
@@ -23,6 +25,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       joinedDate: body.joinedDate ? new Date(body.joinedDate) : undefined,
       club,
       clubID,
+      clubId: clubData?.id || null,
       userID,
       isGuildMember: body.isGuildMember ?? true,
     },

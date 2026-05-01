@@ -11,6 +11,7 @@ interface Raid {
   season: number
   type: { name: string }
   server: { name: string }
+  terrain: { name: string }
   color: string
   startDate?: Date | string | null
   endDate?: Date | string | null
@@ -48,7 +49,7 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onTo
         <div className="flex items-center gap-2 flex-wrap">
           <ServerBadge server={raid.server.name} />
           <span className="text-xs text-muted">
-            {raid.type.name} · {fmtDate(raid.startDate)} — {fmtDate(raid.endDate)}
+            {raid.type.name} · {raid.terrain.name} · {fmtDate(raid.startDate)} — {fmtDate(raid.endDate)}
           </span>
           <span className="text-xs text-muted2 ml-auto sm:ml-0">
             <span className="font-mono text-text">{filteredFull.length}</span> entries

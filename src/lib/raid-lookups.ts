@@ -38,3 +38,13 @@ export async function resolveRaidServer(value: unknown) {
     data: { id: slugId('raidserver', raw), name: raw },
   })
 }
+
+export async function resolveRaidTerrain(value: unknown) {
+  const raw = typeof value === 'string' ? value.trim() : ''
+  if (!raw) return null
+
+  const existingById = await prisma.raidTerrain.findUnique({ where: { id: raw } })
+  if (existingById) return existingById
+
+  return prisma.raidTerrain.findUnique({ where: { name: raw } })
+}

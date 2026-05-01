@@ -12,6 +12,7 @@ interface RaidInfo {
   season: number
   type: { name: string }
   server: { name: string }
+  terrain: { name: string }
   isActive: boolean
   color: string
   color2: string
@@ -89,7 +90,7 @@ export function PlayerProfile({ playerId, onClose }: Props) {
 
   const favouriteStudentName = player.favouriteStudentData?.name || player.favouriteStudent
   const initials = ((favouriteStudentName || player.ign).slice(0, 2)).toUpperCase()
-  const activeEntries = player.entries.filter((e) => e.raid.isActive)
+  const latestEntries = player.entries.filter((e) => e.raid.isActive)
   const historyEntries = player.entries.filter((e) => !e.raid.isActive)
 
   const totalScore = player.entries.reduce((s, e) => s + e.score, 0)
@@ -164,15 +165,15 @@ export function PlayerProfile({ playerId, onClose }: Props) {
         </div>
 
         <div className="px-5 sm:px-6 py-5">
-          {/* Active raids */}
-          {activeEntries.length > 0 && (
+          {/* Latest raids */}
+          {latestEntries.length > 0 && (
             <div className="mb-5 sm:mb-6">
               <div className="text-[11px] font-bold text-green tracking-[0.1em] mb-3 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-green inline-block" />
-                ACTIVE RAIDS
+                LATEST RAID RESULTS
               </div>
               <div className="flex flex-col gap-2.5">
-                {activeEntries.map((e) => (
+                {latestEntries.map((e) => (
                   <div
                     key={e.id}
                     className="rounded-xl px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border"
@@ -188,7 +189,7 @@ export function PlayerProfile({ playerId, onClose }: Props) {
                           className="text-[11px]"
                           style={{ color: `${e.raid.color}cc` }}
                         >
-                          S{e.raid.season}
+                          S{e.raid.season} · {e.raid.terrain.name}
                         </span>
                         <ServerBadge server={e.raid.server.name} />
                       </div>
@@ -226,7 +227,7 @@ export function PlayerProfile({ playerId, onClose }: Props) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <span className="font-semibold text-[13px]">{e.raid.raidBoss.name}</span>
-                        <span className="text-[11px] text-muted">S{e.raid.season}</span>
+                        <span className="text-[11px] text-muted">S{e.raid.season} · {e.raid.terrain.name}</span>
                         <ServerBadge server={e.raid.server.name} />
                       </div>
                       <div className="text-[11px] text-muted font-mono">

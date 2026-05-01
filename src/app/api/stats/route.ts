@@ -4,7 +4,7 @@ import { withRaidActivity } from '@/lib/raid-activity'
 
 export const dynamic = 'force-dynamic'
 
-const raidInclude = { raidBoss: true, type: true, server: true } as const
+const raidInclude = { raidBoss: true, type: true, server: true, terrain: true } as const
 
 function clubName(club?: string | null) {
   const trimmed = club?.trim()
@@ -158,6 +158,7 @@ export async function GET() {
       season: raid.season,
       type: raid.type.name,
       server: raid.server.name,
+      terrain: raid.terrain.name,
       isActive: raid.isActive,
       color: raid.color,
       startDate: raid.startDate,
@@ -180,6 +181,7 @@ export async function GET() {
       season: raid.season,
       type: raid.type,
       server: raid.server,
+      terrain: raid.terrain,
       color: raid.color,
       entryCount: raid.entryCount,
       topPlayer: raid.topPlayer,
@@ -201,7 +203,7 @@ export async function GET() {
     snapshot: {
       totalPlayers: players.length,
       totalEntries: entries.length,
-      activeRaids: raidBreakdown.filter((raid) => raid.isActive).length,
+      latestRaids: raidBreakdown.filter((raid) => raid.isActive).length,
       completedRaids: raidBreakdown.filter((raid) => !raid.isActive).length,
       uniqueClubs: clubs.size,
       averageEntriesPerRaid: avg(entries.length, raids.length),

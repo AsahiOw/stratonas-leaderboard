@@ -16,6 +16,8 @@ export async function GET() {
       favouriteStudentData: true,
       club: true,
       clubID: true,
+      clubId: true,
+      clubData: true,
       userID: true,
       joinedDate: true,
     },

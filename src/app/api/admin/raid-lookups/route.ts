@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 
 const DEFAULT_TYPES = ['Total Assault', 'Grand Assault']
 const DEFAULT_SERVERS = ['Global', 'Japan']
+const DEFAULT_TERRAINS = ['Urban', 'Indoor', 'Outdoor']
 
 function lookupId(prefix: string, name: string): string {
   return `${prefix}_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
@@ -26,12 +27,18 @@ export async function GET() {
       update: {},
       create: { id: lookupId('raidserver', name), name },
     })),
+    ...DEFAULT_TERRAINS.map((name) => prisma.raidTerrain.upsert({
+      where: { name },
+      update: {},
+      create: { id: lookupId('raidterrain', name), name },
+    })),
   ])
 
-  const [types, servers] = await Promise.all([
+  const [types, servers, terrains] = await Promise.all([
     prisma.raidType.findMany({ orderBy: { name: 'asc' } }),
     prisma.raidServer.findMany({ orderBy: { name: 'asc' } }),
+    prisma.raidTerrain.findMany({ orderBy: { name: 'asc' } }),
   ])
 
-  return NextResponse.json({ types, servers })
+  return NextResponse.json({ types, servers, terrains })
 }
