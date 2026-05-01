@@ -36,7 +36,7 @@ interface Raid {
   type: RaidType
   serverId: string
   server: RaidServer
-  status: string
+  isActive: boolean
   color: string
   color2: string
   pattern: string
@@ -216,7 +216,6 @@ export function AdminPanel() {
   const emptyR = {
     raidBossId: '', season: '3',
     typeId: '', serverId: '',
-    status: 'CURRENT',
     startDate: '', endDate: '',
   }
   const [rForm, setRForm] = useState(emptyR)
@@ -231,7 +230,6 @@ export function AdminPanel() {
       season: String(r.season),
       typeId: r.typeId,
       serverId: r.serverId,
-      status: r.status,
       startDate: r.startDate ? r.startDate.split('T')[0] : '',
       endDate: r.endDate ? r.endDate.split('T')[0] : '',
     })
@@ -276,7 +274,7 @@ export function AdminPanel() {
     setModal(null); loadEntries()
   }
 
-  const activeRaidCount = raids.filter(r => r.status === 'CURRENT').length
+  const activeRaidCount = raids.filter(r => r.isActive).length
   const currentNav = navItems.find((n) => n.id === sec)
   const normalizedSearch = {
     activity: search.activity.trim().toLowerCase(),
@@ -297,7 +295,7 @@ export function AdminPanel() {
     p.ign, p.username, p.favouriteStudent, p.club, p.clubID, p.userID, p.isGuildMember ? 'guild' : 'guest',
   ], normalizedSearch.players))
   const filteredRaids = raids.filter((r) => searchable([
-    r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name, r.status,
+    r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name,
     r.pattern, r.startDate, r.endDate,
   ], normalizedSearch.raids))
   const filteredBosses = bosses.filter((b) => searchable([
@@ -305,7 +303,7 @@ export function AdminPanel() {
   ], normalizedSearch.bosses))
   const filteredEntries = entries.filter((e) => searchable([
     e.player.ign, e.player.username, e.player.club, e.player.clubID, e.player.userID,
-    e.raid.raidBoss.name, e.raid.season, e.raid.type.name, e.raid.server.name, e.raid.status,
+    e.raid.raidBoss.name, e.raid.season, e.raid.type.name, e.raid.server.name,
     e.score, e.createdAt,
   ], normalizedSearch.entries))
   const filteredActivity = entries.filter((e) => searchable([
@@ -589,7 +587,7 @@ export function AdminPanel() {
               <div className="font-bold text-lg">Raids</div>
               <button onClick={openAddRaid} className={addBtnClass}>+ Add Raid</button>
             </div>
-            {renderListControls('raids', raids.length, filteredRaids.length, visibleRaids.length, 'Search raids by boss, season, type, server, status, or date...')}
+            {renderListControls('raids', raids.length, filteredRaids.length, visibleRaids.length, 'Search raids by boss, season, type, server, or date...')}
             <div className="flex flex-col gap-2.5">
               {visibleRaids.map((r) => (
                 <div
@@ -607,7 +605,7 @@ export function AdminPanel() {
                         <span className="font-bold break-words">{r.raidBoss.name}</span>
                         <span className="text-xs text-muted">S{r.season} · {r.type.name}</span>
                         <ServerBadge server={r.server.name} />
-                        {r.status === 'CURRENT' && (
+                        {r.isActive && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green/15 text-green border border-green/35">
                             LIVE
                           </span>
@@ -950,12 +948,6 @@ export function AdminPanel() {
                   <option value="">— Select Server —</option>
                   {raidServers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   {raidServers.length === 0 && RAID_SERVERS.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </StField>
-              <StField label="STATUS">
-                <select className={inputClass} value={rForm.status} onChange={e => setRForm(f => ({ ...f, status: e.target.value }))}>
-                  <option value="CURRENT">Current (Live)</option>
-                  <option value="PREVIOUS">Previous (Archived)</option>
                 </select>
               </StField>
               <StField label="START DATE">

@@ -13,7 +13,7 @@ interface RaidBannerRaid {
   season: number
   type: { name: string }
   server: { name: string }
-  status: string
+  isActive: boolean
   color: string
   color2: string
   pattern: string
@@ -29,8 +29,6 @@ interface Props {
 }
 
 export function RaidBanner({ raid, topPlayer }: Props) {
-  const isLive = raid.status === 'CURRENT' || raid.status === 'current'
-
   return (
     <div
       className="relative overflow-hidden rounded-t-xl border border-b-0 px-4 py-4 sm:px-5 sm:py-5"
@@ -75,7 +73,7 @@ export function RaidBanner({ raid, topPlayer }: Props) {
             >
               S{raid.season} · {raid.type.name.toUpperCase()}
             </span>
-            {isLive && (
+            {raid.isActive && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green/15 text-green border border-green/35 inline-flex items-center gap-1">
                 <span className="w-[5px] h-[5px] rounded-full bg-green inline-block" />
                 LIVE
@@ -97,7 +95,7 @@ export function RaidBanner({ raid, topPlayer }: Props) {
               style={{ borderColor: `${raid.color}30` }}
             >
               <div className="text-[10px] text-muted tracking-[0.08em] font-semibold mb-0.5">
-                {isLive ? 'CURRENT LEADER' : 'FINAL RANK 1'}
+                {raid.isActive ? 'CURRENT LEADER' : 'FINAL RANK 1'}
               </div>
               <div className="font-bold text-sm">{topPlayer.name}</div>
               <div

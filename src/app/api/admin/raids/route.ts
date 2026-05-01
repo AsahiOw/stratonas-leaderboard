@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
-import { RaidStatus } from '@prisma/client'
+import { withRaidActivity } from '@/lib/raid-activity'
 
 const raidInclude = {
   raidBoss: true,
@@ -14,9 +14,9 @@ export async function GET() {
   if (guard) return guard
   const raids = await prisma.raid.findMany({
     include: raidInclude,
-    orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
+    orderBy: [{ startDate: 'asc' }, { season: 'asc' }],
   })
-  return NextResponse.json(raids)
+  return NextResponse.json(withRaidActivity(raids))
 }
 
 export async function POST(req: Request) {
@@ -30,7 +30,6 @@ export async function POST(req: Request) {
       season:     Number(body.season) || 1,
       typeId:     body.typeId,
       serverId:   body.serverId,
-      status:     body.status === 'PREVIOUS' ? RaidStatus.PREVIOUS : RaidStatus.CURRENT,
       color:      boss?.color  || '#4f8ef7',
       color2:     boss?.color2 || '#7c3aed',
       pattern:    boss?.pattern || 'hex',

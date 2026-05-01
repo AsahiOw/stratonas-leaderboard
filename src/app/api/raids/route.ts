@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { withRaidActivity } from '@/lib/raid-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ const raidInclude = {
 export async function GET() {
   const raids = await prisma.raid.findMany({
     include: raidInclude,
-    orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
+    orderBy: [{ startDate: 'asc' }, { season: 'asc' }],
   })
-  return NextResponse.json(raids)
+  return NextResponse.json(withRaidActivity(raids))
 }

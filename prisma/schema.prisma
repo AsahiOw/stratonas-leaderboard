@@ -69,18 +69,12 @@ model Raid {
   typeId     String
   server     RaidServer @relation(fields: [serverId], references: [id])
   serverId   String
-  status     RaidStatus @default(CURRENT)
   color      String     @default("#4f8ef7")
   color2     String     @default("#7c3aed")
   pattern    String     @default("hex")
   startDate  DateTime?
   endDate    DateTime?
   entries    RaidEntry[]
-}
-
-enum RaidStatus {
-  CURRENT
-  PREVIOUS
 }
 
 model RaidEntry {

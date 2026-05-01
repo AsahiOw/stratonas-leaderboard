@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getActiveRaidIds } from '@/lib/raid-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   if (!player) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  const raids = await prisma.raid.findMany({ select: { id: true, serverId: true, startDate: true } })
+  const activeRaidIds = getActiveRaidIds(raids)
+
   // Compute per-raid ranks
   const entriesWithRank = await Promise.all(
     player.entries.map(async (entry) => {
@@ -29,7 +33,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         orderBy: { score: 'desc' },
       })
       const rank = raidEntries.findIndex((e) => e.playerId === player.id) + 1
-      return { ...entry, rank }
+      return { ...entry, rank, raid: { ...entry.raid, isActive: activeRaidIds.has(entry.raidId) } }
     })
   )
 

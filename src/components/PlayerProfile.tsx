@@ -12,7 +12,7 @@ interface RaidInfo {
   season: number
   type: { name: string }
   server: { name: string }
-  status: string
+  isActive: boolean
   color: string
   color2: string
   startDate?: string | null
@@ -86,8 +86,8 @@ export function PlayerProfile({ playerId, onClose }: Props) {
   }
 
   const initials = ((player.favouriteStudent || player.ign).slice(0, 2)).toUpperCase()
-  const activeEntries = player.entries.filter((e) => e.raid.status === 'CURRENT')
-  const historyEntries = player.entries.filter((e) => e.raid.status === 'PREVIOUS')
+  const activeEntries = player.entries.filter((e) => e.raid.isActive)
+  const historyEntries = player.entries.filter((e) => !e.raid.isActive)
 
   const totalScore = player.entries.reduce((s, e) => s + e.score, 0)
   const bestRank = player.entries.length ? Math.min(...player.entries.map((e) => e.rank)) : null

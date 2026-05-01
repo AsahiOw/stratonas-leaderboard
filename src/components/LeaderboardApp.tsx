@@ -21,7 +21,7 @@ interface RaidData {
   type: { id: string; name: string }
   serverId: string
   server: { id: string; name: string }
-  status: string
+  isActive: boolean
   color: string
   color2: string
   pattern: string
@@ -73,9 +73,9 @@ export function LeaderboardApp({ initialRaids }: Props) {
     return true
   }
 
-  const currentRaids = initialRaids.filter((r) => r.status === 'CURRENT' && matchesServer(r))
-  const previousRaids = initialRaids.filter((r) => r.status === 'PREVIOUS' && matchesServer(r))
-  const previousCount = initialRaids.filter((r) => r.status === 'PREVIOUS').length
+  const currentRaids = initialRaids.filter((r) => r.isActive && matchesServer(r))
+  const previousRaids = initialRaids.filter((r) => !r.isActive && matchesServer(r))
+  const previousCount = initialRaids.filter((r) => !r.isActive).length
 
   function handleLogin() {
     setShowLogin(false)

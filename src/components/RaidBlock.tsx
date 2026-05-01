@@ -10,7 +10,7 @@ interface Raid {
   season: number
   type: { name: string }
   server: { name: string }
-  status: string
+  isActive: boolean
   color: string
   color2: string
   pattern: string

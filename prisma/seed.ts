@@ -89,7 +89,8 @@ async function main() {
   console.log('✓ 10 guild players created/updated')
 
   // ── External players (43, isGuildMember: false) ──────────────────────────────
-  for (const [idx, ign] of EXT_NAMES.entries()) {
+  for (let idx = 0; idx < EXT_NAMES.length; idx += 1) {
+    const ign = EXT_NAMES[idx]
     const externalPlayer = {
       ign,
       username: EXT_USERNAMES[ign],
@@ -135,12 +136,12 @@ async function main() {
 
   // ── Raids ────────────────────────────────────────────────────────────────────
   const raidsData = [
-    { key: 'vs3', raidBossId: bossMap['Void Sanctum'],  season: 3, typeId: totalAssault.id, serverId: serverGlobal.id, status: 'CURRENT'  as const, color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex',     startDate: new Date('2026-04-15'), endDate: new Date('2026-05-15') },
-    { key: 'cf3', raidBossId: bossMap['Crimson Forge'], season: 3, typeId: totalAssault.id, serverId: serverJapan.id,  status: 'CURRENT'  as const, color: '#f87171', color2: '#f59e0b', pattern: 'grid',    startDate: new Date('2026-04-20'), endDate: new Date('2026-05-20') },
-    { key: 'vs2', raidBossId: bossMap['Void Sanctum'],  season: 2, typeId: totalAssault.id, serverId: serverGlobal.id, status: 'PREVIOUS' as const, color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex',     startDate: new Date('2026-02-01'), endDate: new Date('2026-03-15') },
-    { key: 'cf2', raidBossId: bossMap['Crimson Forge'], season: 2, typeId: totalAssault.id, serverId: serverJapan.id,  status: 'PREVIOUS' as const, color: '#f87171', color2: '#f59e0b', pattern: 'grid',    startDate: new Date('2026-02-05'), endDate: new Date('2026-03-20') },
-    { key: 'ak1', raidBossId: bossMap['Abyssal Keep'],  season: 1, typeId: totalAssault.id, serverId: serverGlobal.id, status: 'PREVIOUS' as const, color: '#a78bfa', color2: '#34d399', pattern: 'diamond', startDate: new Date('2025-11-10'), endDate: new Date('2025-12-25') },
-    { key: 'sr1', raidBossId: bossMap['Shadow Realm'],  season: 1, typeId: grandAssault.id,  serverId: serverJapan.id,  status: 'PREVIOUS' as const, color: '#6ee7b7', color2: '#0ea5e9', pattern: 'dot',     startDate: new Date('2025-08-01'), endDate: new Date('2025-09-15') },
+    { key: 'vs3', raidBossId: bossMap['Void Sanctum'],  season: 3, typeId: totalAssault.id, serverId: serverGlobal.id, color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex',     startDate: new Date('2026-04-15'), endDate: new Date('2026-05-15') },
+    { key: 'cf3', raidBossId: bossMap['Crimson Forge'], season: 3, typeId: totalAssault.id, serverId: serverJapan.id,  color: '#f87171', color2: '#f59e0b', pattern: 'grid',    startDate: new Date('2026-04-20'), endDate: new Date('2026-05-20') },
+    { key: 'vs2', raidBossId: bossMap['Void Sanctum'],  season: 2, typeId: totalAssault.id, serverId: serverGlobal.id, color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex',     startDate: new Date('2026-02-01'), endDate: new Date('2026-03-15') },
+    { key: 'cf2', raidBossId: bossMap['Crimson Forge'], season: 2, typeId: totalAssault.id, serverId: serverJapan.id,  color: '#f87171', color2: '#f59e0b', pattern: 'grid',    startDate: new Date('2026-02-05'), endDate: new Date('2026-03-20') },
+    { key: 'ak1', raidBossId: bossMap['Abyssal Keep'],  season: 1, typeId: totalAssault.id, serverId: serverGlobal.id, color: '#a78bfa', color2: '#34d399', pattern: 'diamond', startDate: new Date('2025-11-10'), endDate: new Date('2025-12-25') },
+    { key: 'sr1', raidBossId: bossMap['Shadow Realm'],  season: 1, typeId: grandAssault.id,  serverId: serverJapan.id,  color: '#6ee7b7', color2: '#0ea5e9', pattern: 'dot',     startDate: new Date('2025-08-01'), endDate: new Date('2025-09-15') },
   ]
   const raidMap: Record<string, string> = {}
   for (const r of raidsData) {
