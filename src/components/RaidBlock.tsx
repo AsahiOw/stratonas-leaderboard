@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { RaidBanner } from '@/components/RaidBanner'
 import { LeaderboardTable, type TableEntry } from '@/components/LeaderboardTable'
 import { RaidDetailModal } from '@/components/RaidDetailModal'
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen = true }: Props) {
+  const router = useRouter()
   const [open, setOpen] = useState(defaultOpen)
   const [showDetail, setShowDetail] = useState(false)
   const [hideGuests, setHideGuests] = useState(false)
@@ -42,9 +44,14 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
   return (
     <div className="fade-up mb-5 sm:mb-6">
       <div className="relative">
-        <div onClick={() => setOpen((o) => !o)} className="cursor-pointer">
+        <button
+          type="button"
+          onClick={() => router.push(`/leaderboard/${raid.id}`)}
+          className="block w-full cursor-pointer border-0 bg-transparent p-0 text-left"
+          aria-label={`Open ${raid.raidBoss.name} S${raid.season} raid leaderboard`}
+        >
           <RaidBanner raid={raid} topPlayer={topPlayer} />
-        </div>
+        </button>
         <button
           onClick={(e) => { e.stopPropagation(); setHideGuests((v) => !v) }}
           className={`absolute bottom-3.5 left-4 sm:bottom-4 sm:left-5 z-10 text-[11px] px-2.5 py-1 rounded border font-semibold tracking-[0.04em] transition-colors backdrop-blur-sm ${
@@ -70,7 +77,7 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
           />
           <div className="border-t border-border px-3 py-3 sm:px-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button
-              onClick={() => setShowDetail(true)}
+              onClick={() => router.push(`/leaderboard/${raid.id}`)}
               className="rounded-md px-4 py-1.5 text-xs font-semibold inline-flex items-center justify-center gap-1.5 border w-full sm:w-auto transition-colors"
               style={{
                 background: `${raid.color}15`,
@@ -78,7 +85,13 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
                 color: raid.color,
               }}
             >
-              View Full Rankings (Top 50) →
+              View Card Rankings (Top 50) →
+            </button>
+            <button
+              onClick={() => setShowDetail(true)}
+              className="bg-transparent border border-border rounded-md px-3.5 py-1 text-muted text-xs hover:text-text hover:border-border2 transition-colors w-full sm:w-auto"
+            >
+              Table View
             </button>
             <button
               onClick={() => setOpen(false)}

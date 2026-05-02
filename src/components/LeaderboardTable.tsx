@@ -10,8 +10,12 @@ export interface TableEntry {
   score: number
   isGuild: boolean
   club?: string | null
+  clubColor?: string | null
+  clubLogo?: string | null
   favouriteStudent?: string | null
   favouriteStudentImage?: string | null
+  favouriteStudentPortrait?: string | null
+  favouriteStudentMemorial?: string | null
   playerId?: string
 }
 
@@ -48,6 +52,7 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
             const isHov = hov === i
             const initials = ((p.favouriteStudent || p.name).slice(0, 2)).toUpperCase()
             const rowBg = isHov ? 'rgba(255,255,255,0.03)' : p.rank <= 3 ? glow : 'transparent'
+            const clubColor = p.clubColor || (p.isGuild ? 'var(--green)' : 'var(--muted)')
             return (
               <tr
                 key={`${p.name}-${i}`}
@@ -87,11 +92,24 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
                         </span>
                       )}
                       {p.isGuild ? (
-                        <span className="text-[10px] px-1.5 py-px rounded bg-green/[0.12] text-green border border-green/25 font-semibold tracking-[0.05em]">
+                        <span
+                          className="text-[10px] px-1.5 py-px rounded border font-semibold tracking-[0.05em]"
+                          style={{
+                            background: p.clubColor ? `${p.clubColor}18` : 'rgba(52,211,153,0.12)',
+                            borderColor: p.clubColor ? `${p.clubColor}45` : 'rgba(52,211,153,0.25)',
+                            color: clubColor,
+                          }}
+                        >
                           {p.club || 'GUILD'}
                         </span>
                       ) : p.club ? (
-                        <span className="text-[10px] px-1.5 py-px rounded bg-[rgba(255,255,255,0.05)] text-muted border border-border font-semibold tracking-[0.05em]">
+                        <span
+                          className="text-[10px] px-1.5 py-px rounded bg-[rgba(255,255,255,0.05)] border font-semibold tracking-[0.05em]"
+                          style={{
+                            borderColor: p.clubColor ? `${p.clubColor}35` : 'var(--border)',
+                            color: clubColor,
+                          }}
+                        >
                           {p.club}
                         </span>
                       ) : null}
