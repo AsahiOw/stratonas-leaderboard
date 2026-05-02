@@ -25,10 +25,11 @@ export async function resolveRaidType(value: unknown) {
 }
 
 export async function resolveRaidServer(value: unknown) {
-  const raw = typeof value === 'string' ? value.trim() : ''
+  const rawInput = typeof value === 'string' ? value.trim() : ''
+  const raw = rawInput.toLowerCase() === 'jp' ? 'Japan' : rawInput
   if (!raw) return null
 
-  const existingById = await prisma.raidServer.findUnique({ where: { id: raw } })
+  const existingById = await prisma.raidServer.findUnique({ where: { id: rawInput } })
   if (existingById) return existingById
 
   const existingByName = await prisma.raidServer.findUnique({ where: { name: raw } })

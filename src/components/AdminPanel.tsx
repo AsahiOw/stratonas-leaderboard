@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StModal } from '@/components/ui/StModal'
 import { StField, inputClass } from '@/components/ui/StField'
@@ -100,7 +100,11 @@ const navItems: { id: Section; label: string; icon: string }[] = [
 ]
 
 const RAID_TYPES   = ['Total Assault', 'Grand Assault']
-const RAID_SERVERS = ['Global', 'Japan']
+const RAID_SERVERS = ['Global', 'JP']
+
+function serverOptionLabel(name: string) {
+  return name.toLowerCase() === 'japan' || name.toLowerCase() === 'jp' ? 'JP' : name
+}
 
 const editBtnClass =
   'bg-accent/[0.12] border border-accent/30 rounded-md px-2.5 py-1 text-accent text-xs font-semibold hover:bg-accent/20 transition-colors'
@@ -164,6 +168,21 @@ export function AdminPanel() {
   })
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
+
+  const importServerOptions = useMemo(() => [
+    ...raidServers.map((server) => ({
+      key: server.id,
+      value: server.id,
+      label: serverOptionLabel(server.name),
+    })),
+    ...RAID_SERVERS
+      .filter((name) => !raidServers.some((server) => serverOptionLabel(server.name) === serverOptionLabel(name)))
+      .map((name) => ({
+        key: name,
+        value: name,
+        label: serverOptionLabel(name),
+      })),
+  ], [raidServers])
 
   const loadPlayers = useCallback(() => fetch('/api/admin/players').then(r => r.json()).then(setPlayers), [])
   const loadClubs = useCallback(() => fetch('/api/admin/clubs').then(r => r.json()).then(setClubs), [])
@@ -249,9 +268,9 @@ export function AdminPanel() {
   }, [drawerOpen])
 
   useEffect(() => {
-    if (xlsxForm.server || raidServers.length === 0) return
-    setXlsxForm((form) => ({ ...form, server: raidServers[0].id }))
-  }, [raidServers, xlsxForm.server])
+    if (xlsxForm.server || importServerOptions.length === 0) return
+    setXlsxForm((form) => ({ ...form, server: importServerOptions[0].value }))
+  }, [importServerOptions, xlsxForm.server])
 
   // ── Player form ────────────────────────────────────────────────────────────
   const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', favouriteStudentId: '', joinedDate: '', club: 'Guest', clubID: 'GUEST', userID: '' }
@@ -1260,8 +1279,7 @@ export function AdminPanel() {
                       required
                     >
                       <option value="">— Select Server —</option>
-                      {raidServers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      {raidServers.length === 0 && RAID_SERVERS.map(n => <option key={n} value={n}>{n}</option>)}
+                      {importServerOptions.map(s => <option key={s.key} value={s.value}>{s.label}</option>)}
                     </select>
                   </StField>
                   <StField label="START DATE">
