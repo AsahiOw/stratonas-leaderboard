@@ -19,6 +19,9 @@ export async function POST(req: Request) {
 
   const body = await req.json()
   const name = typeof body.name === 'string' ? body.name.trim() : ''
+  const uid = typeof body.uid === 'string' && body.uid.trim() ? body.uid.trim() : null
+  const logo = typeof body.logo === 'string' && body.logo.trim() ? body.logo.trim() : null
+  const color = typeof body.color === 'string' && body.color.trim() ? body.color.trim() : '#4f8ef7'
   if (!name) return NextResponse.json({ error: 'Club name is required.' }, { status: 400 })
 
   const existing = await prisma.club.findFirst({
@@ -26,6 +29,6 @@ export async function POST(req: Request) {
   })
   if (existing) return NextResponse.json({ error: 'Club already exists.' }, { status: 409 })
 
-  const club = await prisma.club.create({ data: { name } })
+  const club = await prisma.club.create({ data: { name, uid, logo, color } })
   return NextResponse.json(club, { status: 201 })
 }

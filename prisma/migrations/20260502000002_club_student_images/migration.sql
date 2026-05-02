@@ -1,0 +1,5 @@
+ALTER TABLE "Club" ADD COLUMN "uid" TEXT;
+ALTER TABLE "Club" ADD COLUMN "logo" TEXT;
+
+ALTER TABLE "Student" ADD COLUMN "portrait" TEXT;
+ALTER TABLE "Student" ADD COLUMN "memorial" TEXT;

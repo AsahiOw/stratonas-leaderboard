@@ -7,7 +7,7 @@ import { Toast } from '@/components/ui/Toast'
 import { fmtDate, proxyImage } from '@/lib/utils'
 
 interface Club {
-  id: string; name: string; createdAt?: string; updatedAt?: string
+  id: string; name: string; uid?: string | null; logo?: string | null; color: string; createdAt?: string; updatedAt?: string
   _count?: { players: number }
 }
 
@@ -20,7 +20,7 @@ interface Player {
 }
 
 interface Student {
-  id: number; name: string; image: string
+  id: number; name: string; image: string; portrait?: string | null; memorial?: string | null
 }
 
 interface ImportState {
@@ -89,17 +89,17 @@ type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'raids' | 'bo
 
 const navItems: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '◈' },
-  { id: 'players',   label: 'Players',   icon: '◎' },
-  { id: 'clubs',     label: 'Clubs',     icon: '◇' },
-  { id: 'students',  label: 'Students',  icon: '◌' },
-  { id: 'raids',     label: 'Raids',     icon: '⬡' },
-  { id: 'bosses',    label: 'Bosses',    icon: '◉' },
-  { id: 'entries',   label: 'Entries',   icon: '⊞' },
-  { id: 'import',    label: 'Import',    icon: '⇪' },
-  { id: 'settings',  label: 'Settings',  icon: '⊛' },
+  { id: 'players', label: 'Players', icon: '◎' },
+  { id: 'clubs', label: 'Clubs', icon: '◇' },
+  { id: 'students', label: 'Students', icon: '◌' },
+  { id: 'raids', label: 'Raids', icon: '⬡' },
+  { id: 'bosses', label: 'Bosses', icon: '◉' },
+  { id: 'entries', label: 'Entries', icon: '⊞' },
+  { id: 'import', label: 'Import', icon: '⇪' },
+  { id: 'settings', label: 'Settings', icon: '⊛' },
 ]
 
-const RAID_TYPES   = ['Total Assault', 'Grand Assault']
+const RAID_TYPES = ['Total Assault', 'Grand Assault']
 const RAID_SERVERS = ['Global', 'JP']
 
 function serverOptionLabel(name: string) {
@@ -110,6 +110,8 @@ const editBtnClass =
   'bg-accent/[0.12] border border-accent/30 rounded-md px-2.5 py-1 text-accent text-xs font-semibold hover:bg-accent/20 transition-colors'
 const delBtnClass =
   'bg-red/10 border border-red/25 rounded-md px-2.5 py-1 text-red text-xs hover:bg-red/20 transition-colors'
+const colorSwatchClass =
+  'inline-block h-5 w-5 rounded-md border border-border align-middle'
 const submitBtnClass =
   'w-full bg-accent rounded-lg py-3 text-white font-bold text-sm cursor-pointer mt-1.5 hover:bg-accent/90 transition-colors'
 const addBtnClass =
@@ -124,18 +126,18 @@ const SHOW_MORE_ROWS = 50
 export function AdminPanel() {
   const [sec, setSec] = useState<Section>('dashboard')
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [players, setPlayers]   = useState<Player[]>([])
-  const [clubs, setClubs]       = useState<Club[]>([])
+  const [players, setPlayers] = useState<Player[]>([])
+  const [clubs, setClubs] = useState<Club[]>([])
   const [students, setStudents] = useState<Student[]>([])
-  const [raids, setRaids]       = useState<Raid[]>([])
-  const [bosses, setBosses]     = useState<RaidBoss[]>([])
-  const [raidTypes, setRaidTypes]     = useState<RaidType[]>([])
+  const [raids, setRaids] = useState<Raid[]>([])
+  const [bosses, setBosses] = useState<RaidBoss[]>([])
+  const [raidTypes, setRaidTypes] = useState<RaidType[]>([])
   const [raidServers, setRaidServers] = useState<RaidServer[]>([])
   const [raidTerrains, setRaidTerrains] = useState<RaidTerrain[]>([])
-  const [entries, setEntries]   = useState<Entry[]>([])
-  const [modal, setModal]       = useState<string | null>(null)
+  const [entries, setEntries] = useState<Entry[]>([])
+  const [modal, setModal] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<Player | Club | Student | Raid | Entry | RaidBoss | null>(null)
-  const [toast, setToast]       = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [xlsxImportResult, setXlsxImportResult] = useState<XlsxImportResult | null>(null)
   const [xlsxImporting, setXlsxImporting] = useState(false)
   const [importState, setImportState] = useState<ImportState | null>(null)
@@ -169,6 +171,10 @@ export function AdminPanel() {
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
+  function playerClubName(player: Player) {
+    return player.clubData?.name || player.club || 'Guest'
+  }
+
   const importServerOptions = useMemo(() => [
     ...raidServers.map((server) => ({
       key: server.id,
@@ -187,8 +193,8 @@ export function AdminPanel() {
   const loadPlayers = useCallback(() => fetch('/api/admin/players').then(r => r.json()).then(setPlayers), [])
   const loadClubs = useCallback(() => fetch('/api/admin/clubs').then(r => r.json()).then(setClubs), [])
   const loadStudents = useCallback(() => fetch('/api/admin/students').then(r => r.json()).then(setStudents), [])
-  const loadRaids   = useCallback(() => fetch('/api/raids').then(r => r.json()).then(setRaids), [])
-  const loadBosses  = useCallback(() => fetch('/api/raid-bosses').then(r => r.json()).then(setBosses), [])
+  const loadRaids = useCallback(() => fetch('/api/raids').then(r => r.json()).then(setRaids), [])
+  const loadBosses = useCallback(() => fetch('/api/raid-bosses').then(r => r.json()).then(setBosses), [])
   const loadEntries = useCallback(() => fetch('/api/admin/entries').then(r => r.json()).then(setEntries), [])
   const loadImportStatus = useCallback(() => fetch('/api/admin/students/import/status').then(r => r.json()).then(setImportState), [])
   const loadBossImportStatus = useCallback(() => fetch('/api/admin/raid-bosses/import/status').then(r => r.json()).then(setBossImportState), [])
@@ -273,7 +279,7 @@ export function AdminPanel() {
   }, [importServerOptions, xlsxForm.server])
 
   // ── Player form ────────────────────────────────────────────────────────────
-  const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', favouriteStudentId: '', joinedDate: '', club: 'Guest', clubID: 'GUEST', userID: '' }
+  const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', favouriteStudentId: '', joinedDate: '', club: 'Guest', clubId: '', userID: '' }
   const [pForm, setPForm] = useState(emptyP)
   const [isGuest, setIsGuest] = useState(true)
 
@@ -294,8 +300,8 @@ export function AdminPanel() {
       favouriteStudent: p.favouriteStudentData?.name || p.favouriteStudent || 'Hoshino',
       favouriteStudentId: p.favouriteStudentId ? String(p.favouriteStudentId) : '',
       joinedDate: p.joinedDate ? p.joinedDate.split('T')[0] : '',
-      club: p.club || 'Guest',
-      clubID: p.clubID || (guest ? 'GUEST' : ''),
+      club: p.clubData?.name || p.club || 'Guest',
+      clubId: p.clubId || p.clubData?.id || '',
       userID: p.userID || '',
     })
     setIsGuest(guest); setEditTarget(p); setModal('player')
@@ -306,25 +312,27 @@ export function AdminPanel() {
   async function savePlayer(e: React.FormEvent) {
     e.preventDefault()
     const payload = isGuest
-      ? { ...pForm, club: 'Guest', clubID: 'GUEST', isGuildMember: false }
+      ? { ...pForm, club: 'Guest', clubId: '', isGuildMember: false }
       : { ...pForm, isGuildMember: true }
-    if (editTarget) {
-      await fetch(`/api/admin/players/${(editTarget as Player).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      showToast('Player updated.')
-    } else {
-      await fetch('/api/admin/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      showToast('Player added.')
+    const res = editTarget
+      ? await fetch(`/api/admin/players/${(editTarget as Player).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      : await fetch('/api/admin/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not save player.' }))
+      showToast(body.error || 'Could not save player.')
+      return
     }
+    showToast(editTarget ? 'Player updated.' : 'Player added.')
     setModal(null); loadPlayers(); loadClubs()
   }
 
   // ── Club form ──────────────────────────────────────────────────────────────
-  const emptyC = { name: '' }
+  const emptyC = { name: '', uid: '', logo: '', color: '#4f8ef7' }
   const [cForm, setCForm] = useState(emptyC)
 
   function openAddClub() { setCForm(emptyC); setEditTarget(null); setModal('club') }
   function openEditClub(c: Club) {
-    setCForm({ name: c.name })
+    setCForm({ name: c.name, uid: c.uid || '', logo: c.logo || '', color: c.color || '#4f8ef7' })
     setEditTarget(c); setModal('club')
   }
   async function deleteClub(id: string) {
@@ -338,7 +346,7 @@ export function AdminPanel() {
   }
   async function saveClub(e: React.FormEvent) {
     e.preventDefault()
-    const payload = { name: cForm.name }
+    const payload = { name: cForm.name, uid: cForm.uid, logo: cForm.logo, color: cForm.color }
     const res = editTarget
       ? await fetch(`/api/admin/clubs/${(editTarget as Club).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       : await fetch('/api/admin/clubs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -352,12 +360,12 @@ export function AdminPanel() {
   }
 
   // ── Student form/import ─────────────────────────────────────────────────────
-  const emptyS = { id: '', name: '', image: '' }
+  const emptyS = { id: '', name: '', image: '', portrait: '', memorial: '' }
   const [sForm, setSForm] = useState(emptyS)
 
   function openAddStudent() { setSForm(emptyS); setEditTarget(null); setModal('student') }
   function openEditStudent(s: Student) {
-    setSForm({ id: String(s.id), name: s.name, image: s.image })
+    setSForm({ id: String(s.id), name: s.name, image: s.image, portrait: s.portrait || '', memorial: s.memorial || '' })
     setEditTarget(s); setModal('student')
   }
   async function deleteStudent(id: number) {
@@ -366,7 +374,7 @@ export function AdminPanel() {
   }
   async function saveStudent(e: React.FormEvent) {
     e.preventDefault()
-    const payload = { id: Number(sForm.id), name: sForm.name, image: sForm.image }
+    const payload = { id: Number(sForm.id), name: sForm.name, image: sForm.image, portrait: sForm.portrait, memorial: sForm.memorial }
     const res = editTarget
       ? await fetch(`/api/admin/students/${(editTarget as Student).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       : await fetch('/api/admin/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -565,13 +573,13 @@ export function AdminPanel() {
   }
 
   const filteredPlayers = players.filter((p) => searchable([
-    p.ign, p.username, p.favouriteStudentData?.name, p.favouriteStudent, p.club, p.clubID, p.userID, p.isGuildMember ? 'guild' : 'guest',
+    p.ign, p.username, p.favouriteStudentData?.name, p.favouriteStudent, playerClubName(p), p.clubID, p.userID, p.isGuildMember ? 'guild' : 'guest',
   ], normalizedSearch.players))
   const filteredClubs = clubs.filter((c) => searchable([
-    c.name, c._count?.players,
+    c.name, c.uid, c.logo, c.color, c._count?.players,
   ], normalizedSearch.clubs))
   const filteredStudents = students.filter((s) => searchable([
-    s.id, s.name, s.image,
+    s.id, s.name, s.image, s.portrait, s.memorial,
   ], normalizedSearch.students))
   const filteredRaids = raids.filter((r) => searchable([
     r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name, r.terrain.name,
@@ -656,7 +664,7 @@ export function AdminPanel() {
           className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-card text-muted2 hover:text-text hover:border-border2 transition-colors"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="4" y1="7"  x2="20" y2="7" />
+            <line x1="4" y1="7" x2="20" y2="7" />
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="17" x2="20" y2="17" />
           </svg>
@@ -679,9 +687,8 @@ export function AdminPanel() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 md:w-48 md:shrink-0 bg-bg md:border-r md:border-border py-5 md:py-5 overflow-y-auto transition-transform duration-200 ease-out border-r border-border ${
-          drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 md:w-48 md:shrink-0 bg-bg md:border-r md:border-border py-5 md:py-5 overflow-y-auto transition-transform duration-200 ease-out border-r border-border ${drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
       >
         <div className="flex items-center justify-between px-4 mb-3.5 md:px-4">
           <span className="text-[11px] text-muted tracking-[0.1em] font-semibold">ADMIN PANEL</span>
@@ -698,11 +705,10 @@ export function AdminPanel() {
             <button
               key={n.id}
               onClick={() => selectSection(n.id)}
-              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors border-l-2 font-sans ${
-                sec === n.id
+              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors border-l-2 font-sans ${sec === n.id
                   ? 'bg-accent/[0.12] border-accent text-accent font-semibold'
                   : 'border-transparent text-muted2 hover:text-text hover:bg-white/5'
-              }`}
+                }`}
             >
               <span className="text-base">{n.icon}</span>{n.label}
             </button>
@@ -718,10 +724,10 @@ export function AdminPanel() {
             <div className="font-bold text-lg mb-5">Dashboard</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               {[
-                { l: 'Total Players', v: players.length,  c: 'var(--accent)' },
-                { l: 'Clubs',         v: clubs.length,    c: 'var(--gold)'   },
-                { l: 'Latest Raids',  v: latestRaidCount, c: 'var(--green)'  },
-                { l: 'Total Entries', v: entries.length,  c: '#a78bfa'       },
+                { l: 'Total Players', v: players.length, c: 'var(--accent)' },
+                { l: 'Clubs', v: clubs.length, c: 'var(--gold)' },
+                { l: 'Latest Raids', v: latestRaidCount, c: 'var(--green)' },
+                { l: 'Total Entries', v: entries.length, c: '#a78bfa' },
               ].map((d) => (
                 <div key={d.l} className="bg-card border border-border rounded-xl px-5 py-4">
                   <div className="text-2xl font-bold font-mono" style={{ color: d.c }}>{d.v}</div>
@@ -735,9 +741,8 @@ export function AdminPanel() {
               {visibleActivity.map((e, i) => (
                 <div
                   key={e.id}
-                  className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 py-2 ${
-                    i < visibleActivity.length - 1 ? 'border-b border-border' : ''
-                  }`}
+                  className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 py-2 ${i < visibleActivity.length - 1 ? 'border-b border-border' : ''
+                    }`}
                 >
                   <div className="min-w-0">
                     <span className="font-semibold text-[13px]">{e.player.ign}</span>
@@ -795,9 +800,9 @@ export function AdminPanel() {
                     </div>
                     <div>
                       <div className="text-[10px] text-muted tracking-[0.06em] uppercase">Club</div>
-                      <div>{p.club || 'Guest'}</div>
+                      <div>{playerClubName(p)}</div>
                       <div className="text-[10px] text-muted font-mono">
-                        {p.clubID || (p.club === 'Guest' ? 'GUEST' : '—')}
+                        {p.clubID || (playerClubName(p) === 'Guest' ? 'GUEST' : '—')}
                       </div>
                     </div>
                     <div className="col-span-2">
@@ -820,7 +825,7 @@ export function AdminPanel() {
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
-                      {['IGN','USERNAME','FAV STUDENT','CLUB / ID','USER ID','ACTIONS'].map((h) => (
+                      {['IGN', 'USERNAME', 'FAV STUDENT', 'CLUB / ID', 'USER ID', 'ACTIONS'].map((h) => (
                         <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                           {h}
                         </th>
@@ -837,8 +842,8 @@ export function AdminPanel() {
                         <td className="px-3.5 py-2.5 text-muted font-mono text-xs whitespace-nowrap">@{p.username}</td>
                         <td className="px-3.5 py-2.5 text-muted2 text-[13px]">{p.favouriteStudentData?.name || p.favouriteStudent || '—'}</td>
                         <td className="px-3.5 py-2.5">
-                          <div className="text-[13px]">{p.club || 'Guest'}</div>
-                          <div className="text-[11px] text-muted font-mono">{p.clubID || (p.club === 'Guest' ? 'GUEST' : '—')}</div>
+                          <div className="text-[13px]">{playerClubName(p)}</div>
+                          <div className="text-[11px] text-muted font-mono">{p.clubID || (playerClubName(p) === 'Guest' ? 'GUEST' : '—')}</div>
                         </td>
                         <td className="px-3.5 py-2.5 font-mono text-xs text-muted2">{p.userID || '—'}</td>
                         <td className="px-3.5 py-2.5">
@@ -871,14 +876,14 @@ export function AdminPanel() {
               </div>
               <button onClick={openAddClub} className={addBtnClass}>+ Add Club</button>
             </div>
-            {renderListControls('clubs', clubs.length, filteredClubs.length, visibleClubs.length, 'Search clubs by name or player count...')}
+            {renderListControls('clubs', clubs.length, filteredClubs.length, visibleClubs.length, 'Search clubs by name, UID, color, logo URL, or player count...')}
 
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
-                      {['NAME','PLAYERS','ACTIONS'].map((h) => (
+                      {['LOGO', 'NAME', 'UID', 'COLOR', 'PLAYERS', 'ACTIONS'].map((h) => (
                         <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                           {h}
                         </th>
@@ -888,7 +893,24 @@ export function AdminPanel() {
                   <tbody>
                     {visibleClubs.map((c, i) => (
                       <tr key={c.id} className={i < visibleClubs.length - 1 ? 'border-b border-border' : ''}>
+                        <td className="px-3.5 py-2.5">
+                          {c.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={proxyImage(c.logo)}
+                              alt={c.name}
+                              className="w-9 h-9 rounded-lg object-cover border border-border"
+                              onError={e => (e.currentTarget.style.display = 'none')}
+                            />
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{c.name}</td>
+                        <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">{c.uid || '—'}</td>
+                        <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">
+                          <span className={colorSwatchClass} style={{ backgroundColor: c.color }} /> {c.color}
+                        </td>
                         <td className="px-3.5 py-2.5 font-mono text-muted2">{c._count?.players || 0}</td>
                         <td className="px-3.5 py-2.5">
                           <div className="flex gap-1.5">
@@ -928,7 +950,7 @@ export function AdminPanel() {
                 Import running: {importState.processed.toLocaleString()} / {importState.total ? importState.total.toLocaleString() : '...'} processed
               </div>
             )}
-            {renderListControls('students', students.length, filteredStudents.length, visibleStudents.length, 'Search students by id, name, or image URL...')}
+            {renderListControls('students', students.length, filteredStudents.length, visibleStudents.length, 'Search students by id, name, or image URLs...')}
 
             {/* Card list (mobile) */}
             <div className="sm:hidden flex flex-col gap-2.5">
@@ -946,6 +968,9 @@ export function AdminPanel() {
                       <div className="min-w-0">
                         <div className="font-semibold text-sm break-words">{s.name}</div>
                         <div className="text-[11px] text-muted font-mono">ID {s.id}</div>
+                        <div className="text-[11px] text-muted truncate max-w-[180px]">
+                          Portrait: {s.portrait ? 'set' : '—'} · Memorial: {s.memorial ? 'set' : '—'}
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
@@ -968,7 +993,7 @@ export function AdminPanel() {
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
-                      {['IMAGE','ID','NAME','IMAGE URL','ACTIONS'].map((h) => (
+                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'IMAGE URL', 'MEMORIAL URL', 'ACTIONS'].map((h) => (
                         <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                           {h}
                         </th>
@@ -987,9 +1012,23 @@ export function AdminPanel() {
                             onError={e => (e.currentTarget.style.display = 'none')}
                           />
                         </td>
+                        <td className="px-3.5 py-2.5">
+                          {s.portrait ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={proxyImage(s.portrait)}
+                              alt={`${s.name} portrait`}
+                              className="w-11 h-11 rounded-lg object-cover border border-border"
+                              onError={e => (e.currentTarget.style.display = 'none')}
+                            />
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
                         <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">{s.id}</td>
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{s.name}</td>
                         <td className="px-3.5 py-2.5 text-muted text-xs max-w-[360px] truncate">{s.image}</td>
+                        <td className="px-3.5 py-2.5 text-muted text-xs max-w-[360px] truncate">{s.memorial || '—'}</td>
                         <td className="px-3.5 py-2.5">
                           <div className="flex gap-1.5">
                             <button onClick={() => openEditStudent(s)} className={editBtnClass}>Edit</button>
@@ -1208,7 +1247,7 @@ export function AdminPanel() {
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
-                      {['PLAYER','RAID','SERVER','SCORE','DATE','ACTIONS'].map((h) => (
+                      {['PLAYER', 'RAID', 'SERVER', 'SCORE', 'DATE', 'ACTIONS'].map((h) => (
                         <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                           {h}
                         </th>
@@ -1409,7 +1448,15 @@ export function AdminPanel() {
                 type="button"
                 role="switch"
                 aria-checked={isGuest}
-                onClick={() => setIsGuest(v => !v)}
+                onClick={() => {
+                  const next = !isGuest
+                  setIsGuest(next)
+                  if (next) {
+                    setPForm(f => ({ ...f, clubId: '', club: 'Guest' }))
+                  } else if (!pForm.clubId && clubs[0]) {
+                    setPForm(f => ({ ...f, clubId: clubs[0].id, club: clubs[0].name }))
+                  }
+                }}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${isGuest ? 'bg-accent' : 'bg-border'}`}
               >
                 <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${isGuest ? 'translate-x-4' : 'translate-x-0'}`} />
@@ -1420,10 +1467,22 @@ export function AdminPanel() {
             {!isGuest && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                 <StField label="CLUB">
-                  <input className={inputClass} type="text" value={pForm.club} onChange={e => setPForm(f => ({ ...f, club: e.target.value }))} placeholder="Club name" />
-                </StField>
-                <StField label="CLUB ID">
-                  <input className={inputClass} type="text" value={pForm.clubID} onChange={e => setPForm(f => ({ ...f, clubID: e.target.value }))} placeholder="e.g. MIL001" />
+                  <select
+                    className={inputClass}
+                    value={pForm.clubId}
+                    onChange={e => {
+                      const club = clubs.find(c => c.id === e.target.value)
+                      setPForm(f => ({ ...f, clubId: e.target.value, club: club?.name || '' }))
+                    }}
+                    required
+                  >
+                    <option value="">— Select Club —</option>
+                    {clubs.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.uid ? ` (${c.uid})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </StField>
               </div>
             )}
@@ -1441,18 +1500,57 @@ export function AdminPanel() {
 
       {/* Club modal */}
       {modal === 'club' && (
-        <StModal title={editTarget ? 'Edit Club' : 'Add Club'} onClose={() => setModal(null)}>
+        <StModal title={editTarget ? 'Edit Club' : 'Add Club'} onClose={() => setModal(null)} extraWide>
           <form onSubmit={saveClub}>
-            <StField label="CLUB NAME" span2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <StField label="CLUB NAME">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={cForm.name}
+                  onChange={e => setCForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Club name"
+                  required
+                />
+              </StField>
+              <StField label="UID">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={cForm.uid}
+                  onChange={e => setCForm(f => ({ ...f, uid: e.target.value }))}
+                  placeholder="Optional UID"
+                />
+              </StField>
+              <StField label="COLOR">
+                <input
+                  className={`${inputClass} h-11`}
+                  type="color"
+                  value={cForm.color}
+                  onChange={e => setCForm(f => ({ ...f, color: e.target.value }))}
+                />
+              </StField>
+            </div>
+            <StField label="LOGO URL" span2>
               <input
                 className={inputClass}
-                type="text"
-                value={cForm.name}
-                onChange={e => setCForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Club name"
-                required
+                type="url"
+                value={cForm.logo}
+                onChange={e => setCForm(f => ({ ...f, logo: e.target.value }))}
+                placeholder="https://..."
               />
             </StField>
+            {cForm.logo && (
+              <div className="mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={proxyImage(cForm.logo)}
+                  alt="Preview"
+                  className="h-16 w-16 rounded-xl border border-border object-cover"
+                  onError={e => (e.currentTarget.style.display = 'none')}
+                />
+              </div>
+            )}
             <button type="submit" className={submitBtnClass}>
               {editTarget ? 'Save Changes' : 'Add Club'}
             </button>
@@ -1497,15 +1595,42 @@ export function AdminPanel() {
                 placeholder="https://schaledb.com/images/student/collection/10000.webp"
               />
             </StField>
-            {sForm.image && (
-              <div className="mb-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={proxyImage(sForm.image)}
-                  alt="Preview"
-                  className="h-24 w-24 rounded-xl border border-border object-cover"
-                  onError={e => (e.currentTarget.style.display = 'none')}
-                />
+            <StField label="PORTRAIT URL" span2>
+              <input
+                className={inputClass}
+                type="url"
+                value={sForm.portrait}
+                onChange={e => setSForm(f => ({ ...f, portrait: e.target.value }))}
+                placeholder="https://schaledb.com/images/student/portrait/10000.webp"
+              />
+            </StField>
+            <StField label="MEMORIAL URL" span2>
+              <input
+                className={inputClass}
+                type="url"
+                value={sForm.memorial}
+                onChange={e => setSForm(f => ({ ...f, memorial: e.target.value }))}
+                placeholder="https://..."
+              />
+            </StField>
+            {(sForm.image || sForm.portrait || sForm.memorial) && (
+              <div className="mb-3 flex flex-wrap gap-3">
+                {[
+                  ['Image', sForm.image],
+                  ['Portrait', sForm.portrait],
+                  ['Memorial', sForm.memorial],
+                ].filter((item): item is [string, string] => Boolean(item[1])).map(([label, src]) => (
+                  <div key={label}>
+                    <div className="text-[10px] text-muted tracking-[0.06em] uppercase mb-1">{label}</div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={proxyImage(src)}
+                      alt={`${label} preview`}
+                      className="h-24 w-24 rounded-xl border border-border object-cover"
+                      onError={e => (e.currentTarget.style.display = 'none')}
+                    />
+                  </div>
+                ))}
               </div>
             )}
             <button type="submit" className={submitBtnClass}>

@@ -47,6 +47,9 @@ model Player {
 model Club {
   id        String   @id @default(cuid())
   name      String   @unique
+  uid       String?
+  logo      String?
+  color     String   @default("#4f8ef7")
   players   Player[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -56,6 +59,8 @@ model Student {
   id          Int      @id
   name        String
   image       String
+  portrait    String?
+  memorial    String?
   favoritedBy Player[]
 
   @@index([name])

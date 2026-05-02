@@ -1,13 +1,35 @@
+import fs from 'fs/promises'
+import path from 'path'
 import { prisma } from '@/lib/prisma'
-import { studentImageUrl } from '@/lib/students'
+import { normalizeStudentName, studentImageUrl, studentPortraitUrl } from '@/lib/students'
 
 export const STUDENT_IMPORT_ID = 'schaledb-students'
 const SCHALE_STUDENTS_URL = 'https://schaledb.com/data/en/students.min.json'
+const WIKI_API_URL = 'https://bluearchive.wiki/w/api.php'
+const MEMORIAL_LOBBIES_PATH = path.join(process.cwd(), 'Development_data', 'memorial-lobbies.json')
 const BATCH_SIZE = 50
 
 type SchaleStudent = {
   Id?: unknown
   Name?: unknown
+}
+
+type WikiAllImagesResponse = {
+  query?: {
+    allimages?: Array<{
+      name?: unknown
+      url?: unknown
+    }>
+  }
+  continue?: {
+    continue?: unknown
+    aicontinue?: unknown
+  }
+}
+
+type MemorialLobbyJsonEntry = {
+  studentName?: unknown
+  imageUrl?: unknown
 }
 
 export function defaultStudentImportState() {
@@ -65,12 +87,102 @@ export async function startStudentImport() {
   return true
 }
 
+function parseMemorialStudentName(filename: string) {
+  if (!filename.startsWith('Memorial_Lobby_')) return null
+  return filename
+    .replace(/^Memorial_Lobby_/, '')
+    .replace(/\.[^.]+$/, '')
+    .replace(/_/g, ' ')
+    .trim()
+}
+
+async function fetchMemorialLobbyUrls() {
+  const memorials = new Map<string, string>()
+  let aiContinue: string | null = null
+  let queryContinue: string | null = null
+
+  do {
+    const params = new URLSearchParams({
+      action: 'query',
+      list: 'allimages',
+      aiprefix: 'Memorial_Lobby_',
+      ailimit: '500',
+      aiprop: 'url',
+      format: 'json',
+    })
+    if (aiContinue) params.set('aicontinue', aiContinue)
+    if (queryContinue) params.set('continue', queryContinue)
+
+    const res = await fetch(`${WIKI_API_URL}?${params.toString()}`, {
+      cache: 'no-store',
+      headers: {
+        'User-Agent': 'MyScript/1.0',
+        'Accept': 'application/json',
+      },
+    })
+    if (!res.ok) throw new Error(`Blue Archive Wiki request failed with ${res.status}`)
+
+    const body = (await res.json()) as WikiAllImagesResponse
+    for (const image of body.query?.allimages || []) {
+      if (typeof image.name !== 'string' || typeof image.url !== 'string') continue
+      const studentName = parseMemorialStudentName(image.name)
+      if (!studentName) continue
+      const normalized = normalizeStudentName(studentName)
+      if (normalized && !memorials.has(normalized)) memorials.set(normalized, image.url)
+    }
+
+    aiContinue = typeof body.continue?.aicontinue === 'string' ? body.continue.aicontinue : null
+    queryContinue = typeof body.continue?.continue === 'string' ? body.continue.continue : null
+  } while (aiContinue)
+
+  return memorials
+}
+
+async function readMemorialLobbyJson() {
+  const raw = await fs.readFile(MEMORIAL_LOBBIES_PATH, 'utf8')
+  const entries = JSON.parse(raw) as MemorialLobbyJsonEntry[]
+  if (!Array.isArray(entries)) throw new Error('memorial-lobbies.json must contain an array.')
+
+  const memorials = new Map<string, string>()
+  for (const entry of entries) {
+    if (typeof entry.studentName !== 'string' || typeof entry.imageUrl !== 'string') continue
+    const normalized = normalizeStudentName(entry.studentName)
+    if (normalized && !memorials.has(normalized)) memorials.set(normalized, entry.imageUrl)
+  }
+
+  return memorials
+}
+
+async function loadMemorialLobbyUrls() {
+  try {
+    const memorials = await readMemorialLobbyJson()
+    if (memorials.size > 0) return { memorials, warning: null as string | null }
+    return { memorials: null, warning: 'Memorial JSON was empty; falling back to wiki API.' }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Could not read memorial JSON.'
+    try {
+      return { memorials: await fetchMemorialLobbyUrls(), warning: null as string | null }
+    } catch (wikiError) {
+      const wikiReason = wikiError instanceof Error ? wikiError.message : 'Wiki API request failed.'
+      return {
+        memorials: null,
+        warning: `Memorial import skipped: ${reason}; ${wikiReason}`,
+      }
+    }
+  }
+}
+
 async function runStudentImport() {
   let processed = 0
   let added = 0
   let skipped = 0
+  let memorialWarning: string | null = null
 
   try {
+    const memorialResult = await loadMemorialLobbyUrls()
+    const memorials = memorialResult.memorials
+    memorialWarning = memorialResult.warning
+
     const res = await fetch(SCHALE_STUDENTS_URL, { cache: 'no-store' })
     if (!res.ok) throw new Error(`SchaleDB request failed with ${res.status}`)
 
@@ -80,9 +192,15 @@ async function runStudentImport() {
         const id = Number(student.Id)
         const name = typeof student.Name === 'string' ? student.Name.trim() : ''
         if (!Number.isInteger(id) || id <= 0 || !name) return null
-        return { id, name, image: studentImageUrl(id) }
+        return {
+          id,
+          name,
+          image: studentImageUrl(id),
+          portrait: studentPortraitUrl(id),
+          memorial: memorials?.get(normalizeStudentName(name)) || null,
+        }
       })
-      .filter((student): student is { id: number; name: string; image: string } => Boolean(student))
+      .filter((student): student is { id: number; name: string; image: string; portrait: string; memorial: string | null } => Boolean(student))
 
     await prisma.studentImportState.update({
       where: { id: STUDENT_IMPORT_ID },
@@ -97,14 +215,23 @@ async function runStudentImport() {
 
     for (let i = 0; i < students.length; i += BATCH_SIZE) {
       const batch = students.slice(i, i + BATCH_SIZE)
-      const rowsToCreate = batch.filter((student) => !existingIds.has(student.id))
-      const result = rowsToCreate.length
-        ? await prisma.student.createMany({ data: rowsToCreate, skipDuplicates: true })
-        : { count: 0 }
+      await prisma.$transaction(
+        batch.map((student) => prisma.student.upsert({
+          where: { id: student.id },
+          create: student,
+          update: {
+            name: student.name,
+            image: student.image,
+            portrait: student.portrait,
+            ...(memorials ? { memorial: student.memorial } : {}),
+          },
+        }))
+      )
 
+      const newRows = batch.filter((student) => !existingIds.has(student.id)).length
       processed += batch.length
-      added += result.count
-      skipped += batch.length - result.count
+      added += newRows
+      skipped += batch.length - newRows
 
       await prisma.studentImportState.update({
         where: { id: STUDENT_IMPORT_ID },
@@ -128,7 +255,7 @@ async function runStudentImport() {
         processed,
         added,
         skipped,
-        error: null,
+        error: memorialWarning,
         completedAt: new Date(),
       },
     })

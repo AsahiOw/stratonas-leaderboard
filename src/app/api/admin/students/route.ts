@@ -19,11 +19,13 @@ export async function POST(req: Request) {
   const id = normalizeStudentId(body.id)
   const name = typeof body.name === 'string' ? body.name.trim() : ''
   const image = typeof body.image === 'string' && body.image.trim() ? body.image.trim() : id ? studentImageUrl(id) : ''
+  const portrait = typeof body.portrait === 'string' && body.portrait.trim() ? body.portrait.trim() : null
+  const memorial = typeof body.memorial === 'string' && body.memorial.trim() ? body.memorial.trim() : null
 
   if (!id || !name || !image) {
     return NextResponse.json({ error: 'Student id, name, and image are required' }, { status: 400 })
   }
 
-  const student = await prisma.student.create({ data: { id, name, image } })
+  const student = await prisma.student.create({ data: { id, name, image, portrait, memorial } })
   return NextResponse.json(student, { status: 201 })
 }

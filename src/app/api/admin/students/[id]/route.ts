@@ -14,11 +14,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const body = await req.json()
   const name = typeof body.name === 'string' ? body.name.trim() : ''
   const image = typeof body.image === 'string' && body.image.trim() ? body.image.trim() : studentImageUrl(id)
+  const portrait = typeof body.portrait === 'string' && body.portrait.trim() ? body.portrait.trim() : null
+  const memorial = typeof body.memorial === 'string' && body.memorial.trim() ? body.memorial.trim() : null
   if (!name) return NextResponse.json({ error: 'Student name is required' }, { status: 400 })
 
   const student = await prisma.student.update({
     where: { id },
-    data: { name, image },
+    data: { name, image, portrait, memorial },
   })
   await prisma.player.updateMany({
     where: { favouriteStudentId: id },
