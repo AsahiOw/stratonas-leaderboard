@@ -6,6 +6,7 @@ import { normalizeStudentName, studentImageUrl, studentPortraitUrl } from '@/lib
 export const STUDENT_IMPORT_ID = 'schaledb-students'
 const SCHALE_STUDENTS_URL = 'https://schaledb.com/data/en/students.min.json'
 const MEMORIAL_LOBBY_VIDEOS_DIR = path.join(process.cwd(), 'Development_data', 'lobbies')
+const OPTIMIZED_MEMORIAL_LOBBY_VIDEOS_DIR = path.join(process.cwd(), 'Development_data', 'lobbies-optimized')
 const BATCH_SIZE = 50
 
 type SchaleStudent = {
@@ -105,13 +106,23 @@ function normalizeMemorialStudentName(value: string) {
 
 async function loadMemorialLobbyVideos() {
   const memorials = new Map<string, string>()
+  const videoDirs = [OPTIMIZED_MEMORIAL_LOBBY_VIDEOS_DIR, MEMORIAL_LOBBY_VIDEOS_DIR]
 
-  for (const entry of await fs.readdir(MEMORIAL_LOBBY_VIDEOS_DIR, { withFileTypes: true })) {
-    if (!entry.isFile()) continue
-    const studentName = parseMemorialVideoStudentName(entry.name)
-    if (!studentName) continue
-    const normalized = normalizeMemorialStudentName(studentName)
-    if (normalized && !memorials.has(normalized)) memorials.set(normalized, memorialVideoUrl(entry.name))
+  for (const videoDir of videoDirs) {
+    let entries: Array<import('fs').Dirent>
+    try {
+      entries = await fs.readdir(videoDir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+
+    for (const entry of entries) {
+      if (!entry.isFile()) continue
+      const studentName = parseMemorialVideoStudentName(entry.name)
+      if (!studentName) continue
+      const normalized = normalizeMemorialStudentName(studentName)
+      if (normalized && !memorials.has(normalized)) memorials.set(normalized, memorialVideoUrl(entry.name))
+    }
   }
 
   return memorials

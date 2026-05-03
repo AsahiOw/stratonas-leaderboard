@@ -2,7 +2,8 @@ import fsPromises from 'fs/promises'
 import path from 'path'
 import { NextRequest, NextResponse } from 'next/server'
 
-const LOBBIES_DIR = path.join(process.cwd(), 'Development_data', 'lobbies')
+const ORIGINAL_LOBBIES_DIR = path.join(process.cwd(), 'Development_data', 'lobbies')
+const OPTIMIZED_LOBBIES_DIR = path.join(process.cwd(), 'Development_data', 'lobbies-optimized')
 const VIDEO_CONTENT_TYPE = 'video/mp4'
 const STREAM_CHUNK_SIZE = 1024 * 256
 
@@ -24,6 +25,20 @@ function parseRange(range: string | null, size: number) {
   }
 
   return { start, end }
+}
+
+async function findVideoPath(file: string) {
+  for (const dir of [OPTIMIZED_LOBBIES_DIR, ORIGINAL_LOBBIES_DIR]) {
+    const filePath = path.join(dir, file)
+    try {
+      const stats = await fsPromises.stat(filePath)
+      if (stats.isFile()) return { filePath, stats }
+    } catch {
+      continue
+    }
+  }
+
+  return null
 }
 
 async function createFileStream(filePath: string, start: number, end: number) {
@@ -81,33 +96,38 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid memorial video' }, { status: 400 })
   }
 
-  const filePath = path.join(LOBBIES_DIR, file)
-
   try {
-    const stats = await fsPromises.stat(filePath)
-    if (!stats.isFile()) throw new Error('Not a file')
+    const video = await findVideoPath(file)
+    if (!video) throw new Error('Not a file')
 
-    const range = parseRange(request.headers.get('range'), stats.size)
+    const range = parseRange(request.headers.get('range'), video.stats.size)
+    const etag = `"${video.stats.size}-${Math.floor(video.stats.mtimeMs)}"`
     const headers = new Headers({
       'Accept-Ranges': 'bytes',
       'Content-Type': VIDEO_CONTENT_TYPE,
-      'Cache-Control': 'public, max-age=3600',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'ETag': etag,
+      'Last-Modified': video.stats.mtime.toUTCString(),
     })
+
+    if (!request.headers.get('range') && request.headers.get('if-none-match') === etag) {
+      return new Response(null, { status: 304, headers })
+    }
 
     if (range) {
       const chunkSize = range.end - range.start + 1
       headers.set('Content-Length', String(chunkSize))
-      headers.set('Content-Range', `bytes ${range.start}-${range.end}/${stats.size}`)
+      headers.set('Content-Range', `bytes ${range.start}-${range.end}/${video.stats.size}`)
 
-      const stream = await createFileStream(filePath, range.start, range.end)
+      const stream = await createFileStream(video.filePath, range.start, range.end)
       return new Response(stream, {
         status: 206,
         headers,
       })
     }
 
-    headers.set('Content-Length', String(stats.size))
-    const stream = await createFileStream(filePath, 0, stats.size - 1)
+    headers.set('Content-Length', String(video.stats.size))
+    const stream = await createFileStream(video.filePath, 0, video.stats.size - 1)
     return new Response(stream, { headers })
   } catch {
     return NextResponse.json({ error: 'Memorial video not found' }, { status: 404 })

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RaidCard } from '@/components/RaidCard'
+import { warmMemorialVideoCache } from '@/lib/memorial-video-cache'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
 type VideoMode = 'poster' | 'preload' | 'active'
@@ -45,20 +46,12 @@ interface ManagedRaidCardProps {
   elevated?: boolean
   videoMode: VideoMode
   registerCard: (id: string, node: HTMLElement | null) => void
-  markVideoFailed: (id: string) => void
 }
 
 const NEAR_VIEWPORT_PX = 650
 
 function cardKey(entry: TableEntry) {
   return entry.playerId || `${entry.rank}-${entry.name}`
-}
-
-function activeVideoBudget() {
-  if (typeof window === 'undefined') return 2
-  if (window.innerWidth < 640) return 2
-  if (window.innerWidth < 1024) return 4
-  return 6
 }
 
 function usePrefersReducedMotion() {
@@ -87,15 +80,10 @@ function ManagedRaidCard({
   elevated,
   videoMode,
   registerCard,
-  markVideoFailed,
 }: ManagedRaidCardProps) {
   const setRef = useCallback((node: HTMLDivElement | null) => {
     registerCard(id, node)
   }, [id, registerCard])
-
-  const handleVideoError = useCallback(() => {
-    markVideoFailed(id)
-  }, [id, markVideoFailed])
 
   return (
     <div ref={setRef}>
@@ -104,7 +92,6 @@ function ManagedRaidCard({
         entry={entry}
         elevated={elevated}
         videoMode={videoMode}
-        onVideoError={handleVideoError}
       />
     </div>
   )
@@ -114,13 +101,20 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const nodesRef = useRef(new Map<string, HTMLElement>())
   const entriesByKey = useMemo(() => new Map(entries.map((entry) => [cardKey(entry), entry])), [entries])
-  const failedVideosRef = useRef(new Set<string>())
   const observerRef = useRef<IntersectionObserver | null>(null)
   const rafRef = useRef<number | null>(null)
   const [activeIds, setActiveIds] = useState<string[]>([])
   const [preloadIds, setPreloadIds] = useState<string[]>([])
   const activeIdSet = useMemo(() => new Set(activeIds), [activeIds])
   const preloadIdSet = useMemo(() => new Set(preloadIds), [preloadIds])
+  const memorialVideoUrls = useMemo(
+    () => entries.map((entry) => entry.favouriteStudentMemorial).filter((url): url is string => Boolean(url)),
+    [entries],
+  )
+
+  useEffect(() => {
+    warmMemorialVideoCache(memorialVideoUrls)
+  }, [memorialVideoUrls])
 
   const updatePlaybackModes = useCallback(() => {
     if (prefersReducedMotion || document.visibilityState === 'hidden') {
@@ -136,7 +130,7 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
 
     nodesRef.current.forEach((node, id) => {
       const entry = entriesByKey.get(id)
-      if (!entry?.favouriteStudentMemorial || failedVideosRef.current.has(id)) return
+      if (!entry?.favouriteStudentMemorial) return
 
       const rect = node.getBoundingClientRect()
       const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0))
@@ -154,19 +148,15 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
       })
     })
 
-    const activeBudget = activeVideoBudget()
     const nextActive = snapshots
-      .filter((snapshot) => snapshot.ratio > 0.04)
+      .filter((snapshot) => snapshot.ratio > 0)
       .sort((a, b) => b.ratio - a.ratio || a.distance - b.distance || a.rank - b.rank)
-      .slice(0, activeBudget)
       .map((snapshot) => snapshot.id)
 
     const activeSet = new Set(nextActive)
-    const preloadBudget = activeBudget * 2
     const nextPreload = snapshots
       .filter((snapshot) => snapshot.isNear && !activeSet.has(snapshot.id))
       .sort((a, b) => a.distance - b.distance || b.ratio - a.ratio || a.rank - b.rank)
-      .slice(0, preloadBudget)
       .map((snapshot) => snapshot.id)
 
     setActiveIds((previous) => (sameList(previous, nextActive) ? previous : nextActive))
@@ -207,15 +197,20 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
     const handleVisibility = () => scheduleUpdate()
     const handleResize = () => scheduleUpdate()
     const handleScroll = () => scheduleUpdate()
+    const scrollOptions = { capture: true, passive: true }
+    const refreshTimer = window.setInterval(scheduleUpdate, 350)
 
     document.addEventListener('visibilitychange', handleVisibility)
     window.addEventListener('resize', handleResize)
-    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('scroll', handleScroll, scrollOptions)
+    document.addEventListener('scroll', handleScroll, scrollOptions)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('resize', handleResize)
-      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('scroll', handleScroll, scrollOptions)
+      document.removeEventListener('scroll', handleScroll, scrollOptions)
+      window.clearInterval(refreshTimer)
       if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current)
     }
   }, [scheduleUpdate])
@@ -234,14 +229,9 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
     scheduleUpdate()
   }, [scheduleUpdate])
 
-  const markVideoFailed = useCallback((id: string) => {
-    failedVideosRef.current.add(id)
-    scheduleUpdate()
-  }, [scheduleUpdate])
-
   const modeFor = useCallback((id: string): VideoMode => {
     if (prefersReducedMotion) return 'poster'
-    if (activeIdSet.has(id)) return 'active'
+    if (activeIdSet.has(id)) return 'preload'
     if (preloadIdSet.has(id)) return 'preload'
     return 'poster'
   }, [activeIdSet, preloadIdSet, prefersReducedMotion])
@@ -283,7 +273,6 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
                     elevated={division.elevated}
                     videoMode={modeFor(id)}
                     registerCard={registerCard}
-                    markVideoFailed={markVideoFailed}
                   />
                 )
               })}

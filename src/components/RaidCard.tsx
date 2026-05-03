@@ -20,7 +20,6 @@ interface Props {
   entry: TableEntry
   elevated?: boolean
   videoMode?: 'poster' | 'preload' | 'active'
-  onVideoError?: () => void
 }
 
 function safeHex(value: string | null | undefined, fallback: string) {
@@ -29,6 +28,18 @@ function safeHex(value: string | null | undefined, fallback: string) {
 
 function rgba(hex: string, opacity: number) {
   return `rgba(${hexToRgb(hex)},${opacity})`
+}
+
+function memorialPosterSrc(memorial: string | null | undefined) {
+  if (!memorial?.startsWith('/api/memorial-video')) return FALLBACK_BG
+
+  try {
+    const url = new URL(memorial, 'http://localhost')
+    const file = url.searchParams.get('file')
+    return file ? `/api/memorial-poster?file=${encodeURIComponent(file)}&v=final-frame` : FALLBACK_BG
+  } catch {
+    return FALLBACK_BG
+  }
 }
 
 const CARD_BROWN  = '#5a2d14'
@@ -42,9 +53,11 @@ const FALLBACK_BG       = '/assets/raid-card/lobby.jpg'
 const FALLBACK_PORTRAIT = '/assets/raid-card/portrait.webp'
 const FALLBACK_CLUB     = '/assets/raid-card/club.webp'
 
-export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', onVideoError }: Props) {
+export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const touchReleaseTimerRef = useRef<number | null>(null)
   const [videoReady, setVideoReady] = useState(false)
+  const [isInteracting, setIsInteracting] = useState(false)
 
   // clubAccent: drives border/shadow/badge-glow; falls back to raid color
   const clubAccent = safeHex(entry.clubColor, safeHex(raid.color, '#4f8ef7'))
@@ -54,6 +67,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
   const portrait   = imageSrc(entry.favouriteStudentPortrait || entry.favouriteStudentImage, FALLBACK_PORTRAIT)
   const clubLogo   = imageSrc(entry.clubLogo, FALLBACK_CLUB)
   const background = imageSrc(entry.favouriteStudentMemorial, FALLBACK_BG)
+  const poster     = memorialPosterSrc(entry.favouriteStudentMemorial)
   const memorialOffset = getMemorialOffset(entry.favouriteStudentMemorialOffset)
   const portraitOffset = getPortraitOffset(entry.favouriteStudentId, entry.favouriteStudentPortraitOffset)
   const seasonLabel = `S${raid.season}: ${raid.raidBoss.name} ${raid.terrain.name}`
@@ -67,8 +81,9 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
   // Curved-slash path — quadratic bezier from design defaults
   // cx=1161.8 (116.18% of W), cy=304 (mid + 14% offset), control bends to x=−314
   const slashPath = 'M 1161.8 -1121 Q -314 304 1161.8 1729 L 5161.8 1729 L 5161.8 -1121 Z'
-  const shouldMountVideo = Boolean(entry.favouriteStudentMemorial && videoMode !== 'poster')
-  const shouldPlayVideo = videoMode === 'active'
+  const shouldMountVideo = Boolean(entry.favouriteStudentMemorial && isInteracting)
+  const shouldPlayVideo = shouldMountVideo && isInteracting
+  const videoPreload = 'auto'
 
   useEffect(() => {
     const video = videoRef.current
@@ -79,19 +94,101 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
       return
     }
 
-    void video.play().catch(() => {
-      video.pause()
-      onVideoError?.()
-    })
-  }, [onVideoError, shouldPlayVideo])
+    let cancelled = false
+    let retryTimer: number | null = null
+    let retryInterval: number | null = null
+
+    const playVideo = () => {
+      if (cancelled) return
+      if (!video.paused && !video.ended) return
+
+      if (video.currentTime > Math.max(0, video.duration - 0.2)) {
+        video.currentTime = 0
+      }
+
+      void video.play().catch((error: unknown) => {
+        if (cancelled) return
+
+        const name = error instanceof DOMException ? error.name : ''
+        if (name === 'AbortError') return
+
+        retryTimer = window.setTimeout(playVideo, 400)
+      })
+    }
+
+    const handlePause = () => {
+      if (!cancelled) retryTimer = window.setTimeout(playVideo, 120)
+    }
+
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      playVideo()
+    } else {
+      video.load()
+      video.addEventListener('loadeddata', playVideo, { once: true })
+      video.addEventListener('canplay', playVideo, { once: true })
+    }
+
+    video.addEventListener('pause', handlePause)
+    video.addEventListener('stalled', playVideo)
+    video.addEventListener('suspend', playVideo)
+    retryInterval = window.setInterval(playVideo, 700)
+
+    return () => {
+      cancelled = true
+      if (retryTimer !== null) window.clearTimeout(retryTimer)
+      if (retryInterval !== null) window.clearInterval(retryInterval)
+      video.removeEventListener('loadeddata', playVideo)
+      video.removeEventListener('canplay', playVideo)
+      video.removeEventListener('pause', handlePause)
+      video.removeEventListener('stalled', playVideo)
+      video.removeEventListener('suspend', playVideo)
+    }
+  }, [shouldPlayVideo, background])
 
   useEffect(() => {
-    if (videoMode === 'poster') setVideoReady(false)
-  }, [videoMode])
+    return () => {
+      if (touchReleaseTimerRef.current !== null) window.clearTimeout(touchReleaseTimerRef.current)
+    }
+  }, [])
+
+  const clearTouchReleaseTimer = () => {
+    if (touchReleaseTimerRef.current !== null) {
+      window.clearTimeout(touchReleaseTimerRef.current)
+      touchReleaseTimerRef.current = null
+    }
+  }
+
+  const stopTouchPlaybackSoon = () => {
+    clearTouchReleaseTimer()
+    touchReleaseTimerRef.current = window.setTimeout(() => {
+      setIsInteracting(false)
+      touchReleaseTimerRef.current = null
+    }, 120)
+  }
 
   return (
     <article
       className="relative isolate aspect-[1000/475] overflow-hidden rounded-md border bg-card"
+      data-video-mode={videoMode}
+      data-video-interacting={isInteracting}
+      onPointerEnter={(event) => {
+        if (event.pointerType === 'mouse') setIsInteracting(true)
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType === 'mouse') setIsInteracting(false)
+      }}
+      onPointerDown={(event) => {
+        if (event.pointerType === 'mouse') return
+        clearTouchReleaseTimer()
+        setIsInteracting(true)
+        event.currentTarget.setPointerCapture?.(event.pointerId)
+      }}
+      onPointerUp={(event) => {
+        if (event.pointerType !== 'mouse') stopTouchPlaybackSoon()
+      }}
+      onPointerCancel={(event) => {
+        if (event.pointerType !== 'mouse') setIsInteracting(false)
+      }}
       style={{
         borderColor: `${clubAccent}${elevated ? '80' : '40'}`,
         boxShadow: elevated
@@ -104,8 +201,12 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
       <div className="absolute inset-0 z-0 overflow-hidden bg-[#ddd]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={FALLBACK_BG}
+          src={poster}
           alt=""
+          onError={(e) => {
+            const img = e.currentTarget
+            if (!img.src.endsWith(FALLBACK_BG)) img.src = FALLBACK_BG
+          }}
           className="max-w-none"
           style={{
             position: 'absolute',
@@ -123,15 +224,16 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
           <video
             ref={videoRef}
             src={background}
+            poster={poster}
             loop
             muted
             playsInline
-            preload={videoMode === 'active' ? 'auto' : 'metadata'}
+            preload={videoPreload}
             onLoadedData={() => setVideoReady(true)}
             onCanPlay={() => setVideoReady(true)}
             onError={(e) => {
-              e.currentTarget.style.display = 'none'
-              onVideoError?.()
+              e.currentTarget.pause()
+              setVideoReady(false)
             }}
             className="max-w-none"
             style={{
