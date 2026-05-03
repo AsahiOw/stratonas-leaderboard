@@ -49,10 +49,9 @@ On macOS:
 
 ```bash
 brew install node postgresql@16 ffmpeg
-brew install --cask powershell
 ```
 
-The media scripts are PowerShell 7 scripts. On macOS/Linux, run them with `pwsh`.
+The media scripts have macOS/Linux shell versions and Windows PowerShell versions.
 
 ### Setup
 ```bash
@@ -134,20 +133,30 @@ The scripts generate:
 
 `Development_data` is ignored by git, so these files must be copied or mounted on the production server.
 
-### Generate Media On macOS
+### Generate Media On macOS/Linux
 
 From the project root:
 
 ```bash
-pwsh ./scripts/optimize-memorial-videos.ps1
-pwsh ./scripts/regenerate-final-frame-posters.ps1
+chmod +x ./scripts/optimize-memorial-videos.sh
+chmod +x ./scripts/regenerate-final-frame-posters.sh
+
+./scripts/optimize-memorial-videos.sh
+./scripts/regenerate-final-frame-posters.sh
 ```
 
 The optimizer skips existing optimized videos by default. The final-frame poster script skips existing `.jpg` posters by default. To rebuild everything:
 
 ```bash
-pwsh ./scripts/optimize-memorial-videos.ps1 -Force
-pwsh ./scripts/regenerate-final-frame-posters.ps1 -Force
+./scripts/optimize-memorial-videos.sh --force
+./scripts/regenerate-final-frame-posters.sh --force
+```
+
+On Windows, use the PowerShell versions:
+
+```powershell
+.\scripts\optimize-memorial-videos.ps1
+.\scripts\regenerate-final-frame-posters.ps1
 ```
 
 ### Add One New Student Video
@@ -156,8 +165,8 @@ pwsh ./scripts/regenerate-final-frame-posters.ps1 -Force
 2. Run:
 
 ```bash
-pwsh ./scripts/optimize-memorial-videos.ps1
-pwsh ./scripts/regenerate-final-frame-posters.ps1
+./scripts/optimize-memorial-videos.sh
+./scripts/regenerate-final-frame-posters.sh
 ```
 
 Only missing optimized videos/posters are generated.
@@ -173,7 +182,7 @@ For production, make sure these folders exist next to the running app:
 ./Development_data/lobby-posters
 ```
 
-The API routes `/api/memorial-video` and `/api/memorial-poster` read those folders from disk. On a macOS host, the simplest setup is to run the same `pwsh` scripts on the server or copy the generated folders from your development machine.
+The API routes `/api/memorial-video` and `/api/memorial-poster` read those folders from disk. On a macOS host, the simplest setup is to run the same shell scripts on the server or copy the generated folders from your development machine.
 
 ## Development (App Without Docker)
 
