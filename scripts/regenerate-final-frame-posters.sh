@@ -6,6 +6,14 @@ POSTER_DIR="Development_data/lobby-posters"
 HEIGHT="540"
 POSTER_EXT=".jpg"
 FORCE="0"
+TEMP_POSTER=""
+
+cleanup() {
+  if [[ -n "$TEMP_POSTER" ]]; then
+    rm -f "$TEMP_POSTER"
+  fi
+}
+trap cleanup EXIT INT TERM
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,7 +44,10 @@ fi
 
 mkdir -p "$POSTER_DIR"
 
-mapfile -d '' VIDEOS < <(find "$VIDEO_DIR" -maxdepth 1 -type f -iname '*.mp4' -print0 | sort -z)
+VIDEOS=()
+while IFS= read -r VIDEO; do
+  VIDEOS+=("$VIDEO")
+done < <(find "$VIDEO_DIR" -maxdepth 1 -type f -iname '*.mp4' ! -iname '*.tmp.mp4' | sort)
 TOTAL="${#VIDEOS[@]}"
 INDEX="0"
 
@@ -66,6 +77,7 @@ for VIDEO in "${VIDEOS[@]}"; do
     "$TEMP_POSTER"
 
   mv "$TEMP_POSTER" "$POSTER"
+  TEMP_POSTER=""
 done
 
 echo "Done. Generated $TOTAL ${POSTER_EXT#.} posters."

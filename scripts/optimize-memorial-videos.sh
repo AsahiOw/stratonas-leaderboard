@@ -8,6 +8,14 @@ FPS="24"
 CRF="30"
 PRESET="slow"
 FORCE="0"
+TEMP_VIDEO=""
+
+cleanup() {
+  if [[ -n "$TEMP_VIDEO" ]]; then
+    rm -f "$TEMP_VIDEO"
+  fi
+}
+trap cleanup EXIT INT TERM
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -40,7 +48,10 @@ fi
 
 mkdir -p "$VIDEO_OUT_DIR"
 
-mapfile -d '' VIDEOS < <(find "$SOURCE_DIR" -maxdepth 1 -type f -iname '*.mp4' -print0 | sort -z)
+VIDEOS=()
+while IFS= read -r VIDEO; do
+  VIDEOS+=("$VIDEO")
+done < <(find "$SOURCE_DIR" -maxdepth 1 -type f -iname '*.mp4' | sort)
 TOTAL="${#VIDEOS[@]}"
 INDEX="0"
 
@@ -71,6 +82,7 @@ for VIDEO in "${VIDEOS[@]}"; do
     "$TEMP_VIDEO"
 
   mv "$TEMP_VIDEO" "$OPTIMIZED"
+  TEMP_VIDEO=""
 done
 
 echo "Done. Optimized $TOTAL memorial lobby videos."
