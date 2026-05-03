@@ -1,0 +1,15 @@
+.git
+.next
+node_modules
+
+Development_data
+Production_data
+
+.env
+.env.*
+
+*.log
+*.tsbuildinfo
+
+README.md
+scripts
