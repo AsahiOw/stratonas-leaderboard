@@ -2,7 +2,9 @@ param(
   [string]$VideoDir = "Development_data/lobbies-optimized",
   [string]$PosterDir = "Development_data/lobby-posters",
   [int]$Height = 540,
-  [string]$PosterExt = ".jpg"
+  [string]$PosterExt = ".jpg",
+  [string]$FfmpegPath = "",
+  [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,13 +20,15 @@ if (-not [IO.Path]::IsPathRooted($PosterDir)) {
 
 New-Item -ItemType Directory -Force -Path $PosterDir | Out-Null
 
-$ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
-$fallbackFfmpeg = Join-Path $env:LOCALAPPDATA "Overwolf/Extensions/ncfplpkmiejjaklknfnkgcpapnhkggmlcppckhcb/270.0.10/obs/bin/64bit/ffmpeg.exe"
-if ($ffmpeg -like "*\Microsoft\WinGet\Links\ffmpeg.exe" -and (Test-Path -LiteralPath $fallbackFfmpeg)) {
-  $ffmpeg = $fallbackFfmpeg
+if (-not $FfmpegPath) {
+  $ffmpegCommand = Get-Command ffmpeg -ErrorAction SilentlyContinue
+  if ($ffmpegCommand) {
+    $FfmpegPath = $ffmpegCommand.Source
+  }
 }
-if (-not $ffmpeg) {
-  throw "ffmpeg was not found."
+
+if (-not $FfmpegPath) {
+  throw "ffmpeg was not found in PATH. Install FFmpeg first, then re-run this script."
 }
 
 $videos = Get-ChildItem -LiteralPath $VideoDir -Filter *.mp4 -File | Sort-Object Name
@@ -42,11 +46,20 @@ foreach ($video in $videos) {
 
   Write-Host "[$index/$total] $($video.Name)"
 
+  if (-not $Force -and (Test-Path -LiteralPath $poster)) {
+    Write-Host "  final-frame poster exists; skipping"
+    continue
+  }
+
   if (Test-Path -LiteralPath $tempPoster) {
     Remove-Item -LiteralPath $tempPoster -Force
   }
 
-  & $ffmpeg -hide_banner -loglevel error -y -sseof -0.08 -i $video.FullName -frames:v 1 -vf "scale=-2:$Height" $tempPoster
+  & $FfmpegPath -hide_banner -loglevel error -y -sseof -0.08 -i $video.FullName -frames:v 1 -vf "scale=-2:$Height" $tempPoster
+
+  if ($LASTEXITCODE -ne 0) {
+    throw "ffmpeg failed with exit code $LASTEXITCODE."
+  }
 
   Move-Item -LiteralPath $tempPoster -Destination $poster -Force
 }

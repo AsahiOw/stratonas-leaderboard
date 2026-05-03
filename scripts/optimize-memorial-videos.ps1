@@ -11,39 +11,38 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+
+if (-not [IO.Path]::IsPathRooted($SourceDir)) {
+  $SourceDir = Join-Path $ProjectRoot $SourceDir
+}
+
+if (-not [IO.Path]::IsPathRooted($VideoOutDir)) {
+  $VideoOutDir = Join-Path $ProjectRoot $VideoOutDir
+}
+
+if (-not [IO.Path]::IsPathRooted($PosterOutDir)) {
+  $PosterOutDir = Join-Path $ProjectRoot $PosterOutDir
+}
 
 if (-not $FfmpegPath) {
   $ffmpegCommand = Get-Command ffmpeg -ErrorAction SilentlyContinue
   if ($ffmpegCommand) {
-    $ffmpegItem = Get-Item -LiteralPath $ffmpegCommand.Source -Force
-    $FfmpegPath = if ($ffmpegItem.Target) { $ffmpegItem.Target } else { $ffmpegCommand.Source }
+    $FfmpegPath = $ffmpegCommand.Source
   }
 }
 
-if (-not $FfmpegPath -or -not (Test-Path -LiteralPath $FfmpegPath)) {
+if (-not $FfmpegPath) {
   throw "ffmpeg was not found in PATH. Install FFmpeg first, then re-run this script."
 }
 
 function Invoke-Ffmpeg {
   param([string[]]$Arguments)
 
-  $escapedArguments = $Arguments | ForEach-Object {
-    '"' + ($_ -replace '"', '\"') + '"'
-  }
-  $process = Start-Process `
-    -FilePath $FfmpegPath `
-    -ArgumentList ($escapedArguments -join ' ') `
-    -NoNewWindow `
-    -PassThru `
-    -Wait
+  & $FfmpegPath @Arguments
 
-  if ($process.ExitCode -ne 0) {
-    throw "ffmpeg failed with exit code $($process.ExitCode)."
-  }
-
-  $childProcesses = Get-Process ffmpeg -ErrorAction SilentlyContinue
-  if ($childProcesses) {
-    $childProcesses | Wait-Process
+  if ($LASTEXITCODE -ne 0) {
+    throw "ffmpeg failed with exit code $LASTEXITCODE."
   }
 }
 
@@ -79,10 +78,6 @@ foreach ($video in $videos) {
 
   if ($Force -or -not (Test-Path -LiteralPath $optimizedPath)) {
     $tempVideo = "$optimizedPath.tmp.mp4"
-    $childProcesses = Get-Process ffmpeg -ErrorAction SilentlyContinue
-    if ($childProcesses) {
-      $childProcesses | Wait-Process
-    }
     Remove-TempFile $tempVideo
 
     Invoke-Ffmpeg @(
@@ -101,10 +96,6 @@ foreach ($video in $videos) {
 
   if ($Force -or -not (Test-Path -LiteralPath $posterPath)) {
     $tempPoster = "$posterPath.tmp.webp"
-    $childProcesses = Get-Process ffmpeg -ErrorAction SilentlyContinue
-    if ($childProcesses) {
-      $childProcesses | Wait-Process
-    }
     Remove-TempFile $tempPoster
 
     Invoke-Ffmpeg @(

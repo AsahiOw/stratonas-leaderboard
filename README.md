@@ -43,6 +43,16 @@ This is the fastest way to work on the app after PostgreSQL is installed on your
 ### Prerequisites
 - Node.js 20+
 - PostgreSQL 16 installed locally
+- FFmpeg, required for memorial video processing
+
+On macOS:
+
+```bash
+brew install node postgresql@16 ffmpeg
+brew install --cask powershell
+```
+
+The media scripts are PowerShell 7 scripts. On macOS/Linux, run them with `pwsh`.
 
 ### Setup
 ```bash
@@ -88,6 +98,68 @@ Stop local PostgreSQL with:
 ```bash
 npm run postgres:stop
 ```
+
+## Memorial Videos
+
+Raid cards use optimized local MP4 memorial videos and final-frame poster images.
+
+### Folder Layout
+
+Put original downloaded MP4 files here:
+
+```text
+./Development_data/lobbies
+```
+
+The scripts generate:
+
+```text
+./Development_data/lobbies-optimized   # optimized MP4 files used by the app
+./Development_data/lobby-posters       # final-frame JPG posters used by the app
+```
+
+`Development_data` is ignored by git, so these files must be copied or mounted on the production server.
+
+### Generate Media On macOS
+
+From the project root:
+
+```bash
+pwsh ./scripts/optimize-memorial-videos.ps1
+pwsh ./scripts/regenerate-final-frame-posters.ps1
+```
+
+The optimizer skips existing optimized videos by default. The final-frame poster script skips existing `.jpg` posters by default. To rebuild everything:
+
+```bash
+pwsh ./scripts/optimize-memorial-videos.ps1 -Force
+pwsh ./scripts/regenerate-final-frame-posters.ps1 -Force
+```
+
+### Add One New Student Video
+
+1. Add the new MP4 to `./Development_data/lobbies`.
+2. Run:
+
+```bash
+pwsh ./scripts/optimize-memorial-videos.ps1
+pwsh ./scripts/regenerate-final-frame-posters.ps1
+```
+
+Only missing optimized videos/posters are generated.
+
+3. In the admin panel, run the SchaleDB student import/update so the new student is matched to the video.
+
+### Production Media Setup
+
+For production, make sure these folders exist next to the running app:
+
+```text
+./Development_data/lobbies-optimized
+./Development_data/lobby-posters
+```
+
+The API routes `/api/memorial-video` and `/api/memorial-poster` read those folders from disk. On a macOS host, the simplest setup is to run the same `pwsh` scripts on the server or copy the generated folders from your development machine.
 
 ## Development (App Without Docker)
 
