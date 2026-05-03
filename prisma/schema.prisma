@@ -56,12 +56,18 @@ model Club {
 }
 
 model Student {
-  id          Int      @id
-  name        String
-  image       String
-  portrait    String?
-  memorial    String?
-  favoritedBy Player[]
+  id              Int      @id
+  name            String
+  image           String
+  portrait        String?
+  memorial        String?
+  memorialOffsetX Float    @default(-7.6)
+  memorialOffsetY Float    @default(0)
+  memorialScale   Float    @default(0.5)
+  portraitOffsetX Float    @default(0)
+  portraitOffsetY Float    @default(0)
+  portraitScale   Float    @default(1)
+  favoritedBy     Player[]
 
   @@index([name])
 }

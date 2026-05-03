@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { Avatar } from '@/components/ui/Avatar'
 import { hexToRgb } from '@/lib/utils'
+import type { PortraitOffset } from '@/lib/portrait-offset'
 
 export interface TableEntry {
   rank: number
@@ -13,6 +14,9 @@ export interface TableEntry {
   clubColor?: string | null
   clubLogo?: string | null
   favouriteStudent?: string | null
+  favouriteStudentId?: number | null
+  favouriteStudentPortraitOffset?: Partial<PortraitOffset> | null
+  favouriteStudentMemorialOffset?: Partial<PortraitOffset> | null
   favouriteStudentImage?: string | null
   favouriteStudentPortrait?: string | null
   favouriteStudentMemorial?: string | null

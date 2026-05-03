@@ -24,6 +24,21 @@ export async function getRankedRaidEntries(raidId: string, take?: number) {
     clubColor: e.player.clubData?.color || null,
     clubLogo: e.player.clubData?.logo || null,
     favouriteStudent: e.player.favouriteStudentData?.name || e.player.favouriteStudent,
+    favouriteStudentId: e.player.favouriteStudentData?.id || null,
+    favouriteStudentPortraitOffset: e.player.favouriteStudentData
+      ? {
+          x: e.player.favouriteStudentData.portraitOffsetX,
+          y: e.player.favouriteStudentData.portraitOffsetY,
+          scale: e.player.favouriteStudentData.portraitScale,
+        }
+      : null,
+    favouriteStudentMemorialOffset: e.player.favouriteStudentData
+      ? {
+          x: e.player.favouriteStudentData.memorialOffsetX,
+          y: e.player.favouriteStudentData.memorialOffsetY,
+          scale: e.player.favouriteStudentData.memorialScale,
+        }
+      : null,
     favouriteStudentImage: e.player.favouriteStudentData?.image || null,
     favouriteStudentPortrait: e.player.favouriteStudentData?.portrait || e.player.favouriteStudentData?.image || null,
     favouriteStudentMemorial: e.player.favouriteStudentData?.memorial || null,

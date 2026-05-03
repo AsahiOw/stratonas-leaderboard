@@ -2,10 +2,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getRankedRaidEntries } from '@/lib/raid-entries'
-import { RaidCard } from '@/components/RaidCard'
+import { LeaderboardCardGrid } from '@/components/LeaderboardCardGrid'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { fmtDate, imageSrc } from '@/lib/utils'
-import type { TableEntry } from '@/components/LeaderboardTable'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,26 +20,30 @@ const divisions = [
     name: 'Platinum Division',
     range: 'Ranks 1-3',
     icon: '/assets/Divisions/Platinum.webp',
-    entries: (rows: TableEntry[]) => rows.filter((e) => e.rank <= 3),
+    minRank: 1,
+    maxRank: 3,
     elevated: true,
   },
   {
     name: 'Gold Division',
     range: 'Ranks 4-10',
     icon: '/assets/Divisions/Gold.webp',
-    entries: (rows: TableEntry[]) => rows.filter((e) => e.rank >= 4 && e.rank <= 10),
+    minRank: 4,
+    maxRank: 10,
   },
   {
     name: 'Silver Division',
     range: 'Ranks 11-20',
     icon: '/assets/Divisions/Silver.webp',
-    entries: (rows: TableEntry[]) => rows.filter((e) => e.rank >= 11 && e.rank <= 20),
+    minRank: 11,
+    maxRank: 20,
   },
   {
     name: 'Bronze Division',
     range: 'Ranks 21-50',
     icon: '/assets/Divisions/Bronze.webp',
-    entries: (rows: TableEntry[]) => rows.filter((e) => e.rank >= 21 && e.rank <= 50),
+    minRank: 21,
+    maxRank: 50,
   },
 ]
 
@@ -51,8 +54,17 @@ export default async function RaidLeaderboardPage({ params }: { params: { id: st
   })
   if (!raid) notFound()
 
-  const entries = (await getRankedRaidEntries(params.id, 50)) as TableEntry[]
+  const entries = await getRankedRaidEntries(params.id, 50)
   const topPlayer = entries[0]
+  const cardRaid = {
+    raidBoss: raid.raidBoss,
+    season: raid.season,
+    type: raid.type,
+    server: raid.server,
+    terrain: raid.terrain,
+    color: raid.color,
+    color2: raid.color2,
+  }
 
   return (
     <main className="min-h-screen bg-bg pb-16">
@@ -126,38 +138,7 @@ export default async function RaidLeaderboardPage({ params }: { params: { id: st
             No entries found for this raid.
           </div>
         ) : (
-          <div className="flex flex-col gap-7">
-            {divisions.map((division) => {
-              const rows = division.entries(entries)
-              if (rows.length === 0) return null
-              return (
-                <section key={division.name}>
-                  <div className="mb-3 flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={division.icon} alt="" className="h-9 w-9 object-contain" />
-                    <div>
-                      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
-                        {division.range}
-                      </div>
-                      <h2 className="text-lg font-bold tracking-[-0.02em]">{division.name}</h2>
-                    </div>
-                    <div className="h-px flex-1 bg-border" />
-                  </div>
-                  <div
-                    className={
-                      division.elevated
-                        ? 'grid grid-cols-1 gap-4 lg:grid-cols-3'
-                        : 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'
-                    }
-                  >
-                    {rows.map((entry) => (
-                      <RaidCard key={entry.playerId || `${entry.rank}-${entry.name}`} raid={raid} entry={entry} elevated={division.elevated} />
-                    ))}
-                  </div>
-                </section>
-              )
-            })}
-          </div>
+          <LeaderboardCardGrid raid={cardRaid} entries={entries} divisions={divisions} />
         )}
       </div>
     </main>

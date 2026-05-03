@@ -4,7 +4,7 @@ import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StModal } from '@/components/ui/StModal'
 import { StField, inputClass } from '@/components/ui/StField'
 import { Toast } from '@/components/ui/Toast'
-import { fmtDate, proxyImage } from '@/lib/utils'
+import { fmtDate, imageSrc, proxyImage } from '@/lib/utils'
 
 interface Club {
   id: string; name: string; uid?: string | null; logo?: string | null; color: string; createdAt?: string; updatedAt?: string
@@ -21,6 +21,8 @@ interface Player {
 
 interface Student {
   id: number; name: string; image: string; portrait?: string | null; memorial?: string | null
+  memorialOffsetX: number; memorialOffsetY: number; memorialScale: number
+  portraitOffsetX: number; portraitOffsetY: number; portraitScale: number
 }
 
 interface ImportState {
@@ -360,12 +362,36 @@ export function AdminPanel() {
   }
 
   // ── Student form/import ─────────────────────────────────────────────────────
-  const emptyS = { id: '', name: '', image: '', portrait: '', memorial: '' }
+  const emptyS = {
+    id: '',
+    name: '',
+    image: '',
+    portrait: '',
+    memorial: '',
+    memorialOffsetX: '-7.6',
+    memorialOffsetY: '0',
+    memorialScale: '0.5',
+    portraitOffsetX: '0',
+    portraitOffsetY: '0',
+    portraitScale: '1',
+  }
   const [sForm, setSForm] = useState(emptyS)
 
   function openAddStudent() { setSForm(emptyS); setEditTarget(null); setModal('student') }
   function openEditStudent(s: Student) {
-    setSForm({ id: String(s.id), name: s.name, image: s.image, portrait: s.portrait || '', memorial: s.memorial || '' })
+    setSForm({
+      id: String(s.id),
+      name: s.name,
+      image: s.image,
+      portrait: s.portrait || '',
+      memorial: s.memorial || '',
+      memorialOffsetX: String(s.memorialOffsetX ?? -7.6),
+      memorialOffsetY: String(s.memorialOffsetY ?? 0),
+      memorialScale: String(s.memorialScale ?? 0.5),
+      portraitOffsetX: String(s.portraitOffsetX ?? 0),
+      portraitOffsetY: String(s.portraitOffsetY ?? 0),
+      portraitScale: String(s.portraitScale ?? 1),
+    })
     setEditTarget(s); setModal('student')
   }
   async function deleteStudent(id: number) {
@@ -374,7 +400,19 @@ export function AdminPanel() {
   }
   async function saveStudent(e: React.FormEvent) {
     e.preventDefault()
-    const payload = { id: Number(sForm.id), name: sForm.name, image: sForm.image, portrait: sForm.portrait, memorial: sForm.memorial }
+    const payload = {
+      id: Number(sForm.id),
+      name: sForm.name,
+      image: sForm.image,
+      portrait: sForm.portrait,
+      memorial: sForm.memorial,
+      memorialOffsetX: Number(sForm.memorialOffsetX),
+      memorialOffsetY: Number(sForm.memorialOffsetY),
+      memorialScale: Number(sForm.memorialScale),
+      portraitOffsetX: Number(sForm.portraitOffsetX),
+      portraitOffsetY: Number(sForm.portraitOffsetY),
+      portraitScale: Number(sForm.portraitScale),
+    }
     const res = editTarget
       ? await fetch(`/api/admin/students/${(editTarget as Student).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       : await fetch('/api/admin/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -580,6 +618,8 @@ export function AdminPanel() {
   ], normalizedSearch.clubs))
   const filteredStudents = students.filter((s) => searchable([
     s.id, s.name, s.image, s.portrait, s.memorial,
+    s.memorialOffsetX, s.memorialOffsetY, s.memorialScale,
+    s.portraitOffsetX, s.portraitOffsetY, s.portraitScale,
   ], normalizedSearch.students))
   const filteredRaids = raids.filter((r) => searchable([
     r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name, r.terrain.name,
@@ -950,7 +990,7 @@ export function AdminPanel() {
                 Import running: {importState.processed.toLocaleString()} / {importState.total ? importState.total.toLocaleString() : '...'} processed
               </div>
             )}
-            {renderListControls('students', students.length, filteredStudents.length, visibleStudents.length, 'Search students by id, name, or image URLs...')}
+            {renderListControls('students', students.length, filteredStudents.length, visibleStudents.length, 'Search students by id, name, or media URLs...')}
 
             {/* Card list (mobile) */}
             <div className="sm:hidden flex flex-col gap-2.5">
@@ -969,7 +1009,13 @@ export function AdminPanel() {
                         <div className="font-semibold text-sm break-words">{s.name}</div>
                         <div className="text-[11px] text-muted font-mono">ID {s.id}</div>
                         <div className="text-[11px] text-muted truncate max-w-[180px]">
-                          Portrait: {s.portrait ? 'set' : '—'} · Memorial: {s.memorial ? 'set' : '—'}
+                          Portrait: {s.portrait ? 'set' : '—'} · Memorial video: {s.memorial ? 'set' : '—'}
+                        </div>
+                        <div className="text-[11px] text-muted font-mono">
+                          P {s.portraitOffsetX}, {s.portraitOffsetY} · {s.portraitScale}x
+                        </div>
+                        <div className="text-[11px] text-muted font-mono">
+                          M {s.memorialOffsetX}, {s.memorialOffsetY} · {s.memorialScale}x
                         </div>
                       </div>
                     </div>
@@ -993,7 +1039,7 @@ export function AdminPanel() {
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
-                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'IMAGE URL', 'MEMORIAL URL', 'ACTIONS'].map((h) => (
+                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'PORTRAIT OFFSET', 'MEMORIAL OFFSET', 'IMAGE URL', 'MEMORIAL VIDEO', 'ACTIONS'].map((h) => (
                         <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                           {h}
                         </th>
@@ -1027,6 +1073,12 @@ export function AdminPanel() {
                         </td>
                         <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">{s.id}</td>
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{s.name}</td>
+                        <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">
+                          {s.portraitOffsetX}, {s.portraitOffsetY} · {s.portraitScale}x
+                        </td>
+                        <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">
+                          {s.memorialOffsetX}, {s.memorialOffsetY} · {s.memorialScale}x
+                        </td>
                         <td className="px-3.5 py-2.5 text-muted text-xs max-w-[360px] truncate">{s.image}</td>
                         <td className="px-3.5 py-2.5 text-muted text-xs max-w-[360px] truncate">{s.memorial || '—'}</td>
                         <td className="px-3.5 py-2.5">
@@ -1604,31 +1656,109 @@ export function AdminPanel() {
                 placeholder="https://schaledb.com/images/student/portrait/10000.webp"
               />
             </StField>
-            <StField label="MEMORIAL URL" span2>
+            <StField label="MEMORIAL VIDEO" span2>
               <input
                 className={inputClass}
-                type="url"
+                type="text"
                 value={sForm.memorial}
                 onChange={e => setSForm(f => ({ ...f, memorial: e.target.value }))}
-                placeholder="https://..."
+                placeholder="/api/memorial-video?file=Blue%20Archive%20-%20Airi%20Live2D.mp4"
               />
             </StField>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4">
+              <StField label="MEMORIAL X OFFSET">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="0.1"
+                  value={sForm.memorialOffsetX}
+                  onChange={e => setSForm(f => ({ ...f, memorialOffsetX: e.target.value }))}
+                  placeholder="-7.6"
+                />
+              </StField>
+              <StField label="MEMORIAL Y OFFSET">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="0.1"
+                  value={sForm.memorialOffsetY}
+                  onChange={e => setSForm(f => ({ ...f, memorialOffsetY: e.target.value }))}
+                  placeholder="0"
+                />
+              </StField>
+              <StField label="MEMORIAL SCALE">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={sForm.memorialScale}
+                  onChange={e => setSForm(f => ({ ...f, memorialScale: e.target.value }))}
+                  placeholder="0.5"
+                />
+              </StField>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4">
+              <StField label="PORTRAIT X OFFSET">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="0.1"
+                  value={sForm.portraitOffsetX}
+                  onChange={e => setSForm(f => ({ ...f, portraitOffsetX: e.target.value }))}
+                  placeholder="0"
+                />
+              </StField>
+              <StField label="PORTRAIT Y OFFSET">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="0.1"
+                  value={sForm.portraitOffsetY}
+                  onChange={e => setSForm(f => ({ ...f, portraitOffsetY: e.target.value }))}
+                  placeholder="0"
+                />
+              </StField>
+              <StField label="PORTRAIT SCALE">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={sForm.portraitScale}
+                  onChange={e => setSForm(f => ({ ...f, portraitScale: e.target.value }))}
+                  placeholder="1"
+                />
+              </StField>
+            </div>
             {(sForm.image || sForm.portrait || sForm.memorial) && (
               <div className="mb-3 flex flex-wrap gap-3">
                 {[
-                  ['Image', sForm.image],
-                  ['Portrait', sForm.portrait],
-                  ['Memorial', sForm.memorial],
-                ].filter((item): item is [string, string] => Boolean(item[1])).map(([label, src]) => (
+                  ['Image', sForm.image, 'image'],
+                  ['Portrait', sForm.portrait, 'image'],
+                  ['Memorial video', sForm.memorial, 'video'],
+                ].filter((item): item is [string, string, string] => Boolean(item[1])).map(([label, src, kind]) => (
                   <div key={label}>
                     <div className="text-[10px] text-muted tracking-[0.06em] uppercase mb-1">{label}</div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={proxyImage(src)}
-                      alt={`${label} preview`}
-                      className="h-24 w-24 rounded-xl border border-border object-cover"
-                      onError={e => (e.currentTarget.style.display = 'none')}
-                    />
+                    {kind === 'video' ? (
+                      <video
+                        src={imageSrc(src)}
+                        muted
+                        loop
+                        playsInline
+                        controls
+                        className="h-24 w-24 rounded-xl border border-border object-cover"
+                        onError={e => (e.currentTarget.style.display = 'none')}
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={proxyImage(src)}
+                        alt={`${label} preview`}
+                        className="h-24 w-24 rounded-xl border border-border object-cover"
+                        onError={e => (e.currentTarget.style.display = 'none')}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import { imageSrc, hexToRgb } from '@/lib/utils'
+import { getMemorialOffset, getPortraitOffset } from '@/lib/portrait-offset'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
 interface RaidCardRaid {
@@ -17,6 +19,8 @@ interface Props {
   raid: RaidCardRaid
   entry: TableEntry
   elevated?: boolean
+  videoMode?: 'poster' | 'preload' | 'active'
+  onVideoError?: () => void
 }
 
 function safeHex(value: string | null | undefined, fallback: string) {
@@ -38,7 +42,10 @@ const FALLBACK_BG       = '/assets/raid-card/lobby.jpg'
 const FALLBACK_PORTRAIT = '/assets/raid-card/portrait.webp'
 const FALLBACK_CLUB     = '/assets/raid-card/club.webp'
 
-export function RaidCard({ raid, entry, elevated = false }: Props) {
+export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', onVideoError }: Props) {
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [videoReady, setVideoReady] = useState(false)
+
   // clubAccent: drives border/shadow/badge-glow; falls back to raid color
   const clubAccent = safeHex(entry.clubColor, safeHex(raid.color, '#4f8ef7'))
   // tintColor: drives the two-tone overlay; falls back to design default pink (not raid color)
@@ -47,6 +54,8 @@ export function RaidCard({ raid, entry, elevated = false }: Props) {
   const portrait   = imageSrc(entry.favouriteStudentPortrait || entry.favouriteStudentImage, FALLBACK_PORTRAIT)
   const clubLogo   = imageSrc(entry.clubLogo, FALLBACK_CLUB)
   const background = imageSrc(entry.favouriteStudentMemorial, FALLBACK_BG)
+  const memorialOffset = getMemorialOffset(entry.favouriteStudentMemorialOffset)
+  const portraitOffset = getPortraitOffset(entry.favouriteStudentId, entry.favouriteStudentPortraitOffset)
   const seasonLabel = `S${raid.season}: ${raid.raidBoss.name} ${raid.terrain.name}`
   const headerLabel = `Stratonas ${raid.type.name} Leaderboard`
 
@@ -58,6 +67,27 @@ export function RaidCard({ raid, entry, elevated = false }: Props) {
   // Curved-slash path — quadratic bezier from design defaults
   // cx=1161.8 (116.18% of W), cy=304 (mid + 14% offset), control bends to x=−314
   const slashPath = 'M 1161.8 -1121 Q -314 304 1161.8 1729 L 5161.8 1729 L 5161.8 -1121 Z'
+  const shouldMountVideo = Boolean(entry.favouriteStudentMemorial && videoMode !== 'poster')
+  const shouldPlayVideo = videoMode === 'active'
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    if (!shouldPlayVideo) {
+      video.pause()
+      return
+    }
+
+    void video.play().catch(() => {
+      video.pause()
+      onVideoError?.()
+    })
+  }, [onVideoError, shouldPlayVideo])
+
+  useEffect(() => {
+    if (videoMode === 'poster') setVideoReady(false)
+  }, [videoMode])
 
   return (
     <article
@@ -70,16 +100,13 @@ export function RaidCard({ raid, entry, elevated = false }: Props) {
         containerType: 'inline-size',
       }}
     >
-      {/* z-0 — Memorial background image (design parity: 200%x200% + translate/scale + contain) */}
+      {/* z-0 — Memorial lobby video (design parity: 200%x200% + translate/scale + contain) */}
       <div className="absolute inset-0 z-0 overflow-hidden bg-[#ddd]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={background}
+          src={FALLBACK_BG}
           alt=""
-          onError={(e) => {
-            const img = e.currentTarget
-            if (!img.src.endsWith(FALLBACK_BG)) img.src = FALLBACK_BG
-          }}
+          className="max-w-none"
           style={{
             position: 'absolute',
             left: '50%',
@@ -88,10 +115,40 @@ export function RaidCard({ raid, entry, elevated = false }: Props) {
             height: '200%',
             objectFit: 'contain',
             objectPosition: 'center center',
-            transform: 'translate(-50%, -50%) translate(-7.6%, 0%) scale(0.5)',
+            transform: `translate(-50%, -50%) translate(${memorialOffset.x}%, ${memorialOffset.y}%) scale(${memorialOffset.scale})`,
             transformOrigin: 'center center',
           }}
         />
+        {shouldMountVideo ? (
+          <video
+            ref={videoRef}
+            src={background}
+            loop
+            muted
+            playsInline
+            preload={videoMode === 'active' ? 'auto' : 'metadata'}
+            onLoadedData={() => setVideoReady(true)}
+            onCanPlay={() => setVideoReady(true)}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+              onVideoError?.()
+            }}
+            className="max-w-none"
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              width: '200%',
+              height: '200%',
+              objectFit: 'contain',
+              objectPosition: 'center center',
+              opacity: videoReady ? 1 : 0,
+              transition: 'opacity 220ms ease',
+              transform: `translate(-50%, -50%) translate(${memorialOffset.x}%, ${memorialOffset.y}%) scale(${memorialOffset.scale})`,
+              transformOrigin: 'center center',
+            }}
+          />
+        ) : null}
       </div>
 
       {/* z-1 — Curved slash (behind gradient) */}
@@ -136,11 +193,12 @@ export function RaidCard({ raid, entry, elevated = false }: Props) {
             const img = e.currentTarget
             if (!img.src.endsWith(FALLBACK_PORTRAIT)) img.src = FALLBACK_PORTRAIT
           }}
-          className="absolute z-[2] w-auto object-contain"
+          className="absolute z-[2] w-auto max-w-none object-contain"
           style={{
-            left: '11%',
-            top: '-8.7%',
-            height: '184.68%',
+            left: `calc(50% + ${portraitOffset.x}%)`,
+            top: `calc(-8.7% + ${portraitOffset.y}%)`,
+            height: `${184.68 * portraitOffset.scale}%`,
+            transform: 'translateX(-50%)',
             filter: 'drop-shadow(0 7px 14px rgba(0,0,0,0.2))',
           }}
         />

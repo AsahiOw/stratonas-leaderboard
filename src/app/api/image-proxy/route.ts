@@ -10,6 +10,7 @@ const ALLOWED_HOSTS = [
   'schaledb.com',
   'static.wikia.nocookie.net',
   'static.fandom.net',
+  'static.wikitide.net',
   'bluearchive.wiki',
 ]
 
