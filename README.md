@@ -363,3 +363,14 @@ src/
 | POST/PUT/DELETE | `/api/admin/raids` `/api/admin/raids/[id]` | Raid CRUD |
 | POST/PUT/DELETE | `/api/admin/entries` `/api/admin/entries/[id]` | Entry CRUD |
 | POST | `/api/admin/import/xlsx` | Import Top 50 raid entries from XLSX |
+
+### XLSX Import Filenames
+
+Raid XLSX imports must include raid type, season, boss, and terrain in the filename:
+
+```text
+Total Assault S74_ Gregorius Indoor.xlsx
+```
+
+Valid terrain suffixes are `Urban`, `Indoor`, and `Outdoor`. Finder/browser suffixes after the terrain, such as `(read-only)`, are accepted.
+Boss names are matched against the Bosses table case-insensitively, with punctuation and spacing ignored. For example, `ShiroKuro` in a filename matches `Shiro & Kuro` in the Bosses table. Manual aliases are also supported, such as `Kaiten` matching `KAITEN FX Mk.0`.

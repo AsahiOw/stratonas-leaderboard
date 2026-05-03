@@ -84,6 +84,10 @@ const MANUAL_STUDENT_ALIASES: Record<string, string> = {
   'u akane': 'Akane (School)',
 }
 
+const MANUAL_RAID_BOSS_ALIASES: Record<string, string> = {
+  kaiten: 'KAITEN FX Mk.0',
+}
+
 function stringValue(value: unknown): string {
   if (value === null || value === undefined) return ''
   if (typeof value === 'object' && 'text' in value && typeof value.text === 'string') return value.text.trim()
@@ -107,11 +111,12 @@ export function parseRaidTitleFromFilename(filename: string): ParsedRaidTitle {
     throw new Error('Filename must look like "Total Assault S81_ Kurokage Urban.xlsx".')
   }
   const raidName = match[3].trim()
-  const terrain = TERRAIN_NAMES.find((name) => new RegExp(`\\s${name}$`, 'i').test(raidName))
-  if (!terrain) {
+  const terrainMatch = raidName.match(new RegExp(`\\s(${TERRAIN_NAMES.join('|')})(?:\\s*\\([^)]*\\))*$`, 'i'))
+  const terrain = TERRAIN_NAMES.find((name) => name.toLowerCase() === terrainMatch?.[1]?.toLowerCase())
+  if (!terrain || !terrainMatch) {
     throw new Error(`Filename raid name must end with terrain: ${TERRAIN_NAMES.join(', ')}.`)
   }
-  const bossName = raidName.replace(new RegExp(`\\s${terrain}$`, 'i'), '').trim()
+  const bossName = raidName.slice(0, terrainMatch.index).trim()
   if (!bossName) {
     throw new Error('Filename must include a raid boss before the terrain.')
   }
@@ -131,6 +136,28 @@ export function normalizeStudentLookup(value: string): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ')
+}
+
+function normalizeRaidBossLookup(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+}
+
+async function resolveRaidBossByName(name: string) {
+  const alias = MANUAL_RAID_BOSS_ALIASES[normalizeRaidBossLookup(name)]
+  if (alias) return resolveRaidBossByName(alias)
+
+  const exact = await prisma.raidBoss.findFirst({
+    where: { name: { equals: name, mode: 'insensitive' } },
+  })
+  if (exact) return exact
+
+  const normalizedName = normalizeRaidBossLookup(name)
+  if (!normalizedName) return null
+
+  const bosses = await prisma.raidBoss.findMany()
+  return bosses.find((boss) => normalizeRaidBossLookup(boss.name) === normalizedName) || null
 }
 
 function studentVariant(name: string) {
@@ -297,9 +324,7 @@ export async function importRaidXlsx(options: {
   const terrain = await resolveRaidTerrain(parsed.terrainName)
   if (!type || !server || !terrain) throw new Error('Raid type, server, and terrain are required.')
 
-  const boss = await prisma.raidBoss.findFirst({
-    where: { name: { equals: parsed.bossName, mode: 'insensitive' } },
-  })
+  const boss = await resolveRaidBossByName(parsed.bossName)
   if (!boss) throw new Error(`Raid boss "${parsed.bossName}" does not exist. Import raid bosses first or add it in Bosses.`)
 
   const existingRaid = await prisma.raid.findFirst({
@@ -408,7 +433,7 @@ export async function importRaidXlsx(options: {
   return {
     raid: {
       id: raid.id,
-      title: `${parsed.type} S${parsed.season}: ${parsed.bossName} (${parsed.terrainName})`,
+      title: `${parsed.type} S${parsed.season}: ${boss.name} (${parsed.terrainName})`,
       created: !existingRaid,
     },
     rowsRead: rows.length,

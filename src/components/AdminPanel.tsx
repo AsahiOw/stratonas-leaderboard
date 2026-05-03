@@ -1346,7 +1346,7 @@ export function AdminPanel() {
             <div className="mb-5">
               <div className="font-bold text-lg">Import</div>
               <div className="text-[13px] text-muted mt-1">
-                Upload an XLSX with a Members sheet. The filename provides raid type, season, and boss.
+                Upload an XLSX with a Members sheet. Filename format: Total Assault S74_ Gregorius Indoor.xlsx.
               </div>
             </div>
 
