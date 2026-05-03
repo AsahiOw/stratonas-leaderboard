@@ -78,11 +78,25 @@ App runs at http://localhost:3000
 
 After migrations are applied, create an admin explicitly:
 
+```bash
+npm run admin:create -- --email admin@example.com --password choose-a-strong-password --name Admin
+```
+
+The command above works on macOS, Linux, and Windows. You can also use environment variables if you prefer.
+
+PowerShell:
+
 ```powershell
 $env:ADMIN_EMAIL="admin@example.com"
 $env:ADMIN_PASSWORD="choose-a-strong-password"
 $env:ADMIN_NAME="Admin"
 npm run admin:create
+```
+
+macOS/Linux shell:
+
+```bash
+ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="choose-a-strong-password" ADMIN_NAME="Admin" npm run admin:create
 ```
 
 Then use those credentials from **Admin Login** in the navbar.
