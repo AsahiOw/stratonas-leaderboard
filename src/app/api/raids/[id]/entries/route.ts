@@ -1,23 +1,8 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getRankedRaidEntries } from '@/lib/raid-entries'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const entries = await prisma.raidEntry.findMany({
-    where: { raidId: params.id },
-    include: { player: { include: { favouriteStudentData: true } } },
-    orderBy: { score: 'desc' },
-  })
-  const ranked = entries.map((e, i) => ({
-    rank: i + 1,
-    name: e.player.ign,
-    score: e.score,
-    isGuild: e.player.isGuildMember,
-    club: e.player.club,
-    favouriteStudent: e.player.favouriteStudent,
-    favouriteStudentImage: e.player.favouriteStudentData?.image || null,
-    playerId: e.player.id,
-  }))
-  return NextResponse.json(ranked)
+  return NextResponse.json(await getRankedRaidEntries(params.id))
 }

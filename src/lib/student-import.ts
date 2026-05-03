@@ -5,31 +5,13 @@ import { normalizeStudentName, studentImageUrl, studentPortraitUrl } from '@/lib
 
 export const STUDENT_IMPORT_ID = 'schaledb-students'
 const SCHALE_STUDENTS_URL = 'https://schaledb.com/data/en/students.min.json'
-const WIKI_API_URL = 'https://bluearchive.wiki/w/api.php'
-const MEMORIAL_LOBBIES_PATH = path.join(process.cwd(), 'Development_data', 'memorial-lobbies.json')
+const MEMORIAL_LOBBY_VIDEOS_DIR = path.join(process.cwd(), 'Development_data', 'lobbies')
+const OPTIMIZED_MEMORIAL_LOBBY_VIDEOS_DIR = path.join(process.cwd(), 'Development_data', 'lobbies-optimized')
 const BATCH_SIZE = 50
 
 type SchaleStudent = {
   Id?: unknown
   Name?: unknown
-}
-
-type WikiAllImagesResponse = {
-  query?: {
-    allimages?: Array<{
-      name?: unknown
-      url?: unknown
-    }>
-  }
-  continue?: {
-    continue?: unknown
-    aicontinue?: unknown
-  }
-}
-
-type MemorialLobbyJsonEntry = {
-  studentName?: unknown
-  imageUrl?: unknown
 }
 
 export function defaultStudentImportState() {
@@ -87,67 +69,60 @@ export async function startStudentImport() {
   return true
 }
 
-function parseMemorialStudentName(filename: string) {
-  if (!filename.startsWith('Memorial_Lobby_')) return null
+function parseMemorialVideoStudentName(filename: string) {
+  const parsed = path.parse(filename)
+  if (parsed.ext.toLowerCase() !== '.mp4') return null
+
   return filename
-    .replace(/^Memorial_Lobby_/, '')
-    .replace(/\.[^.]+$/, '')
-    .replace(/_/g, ' ')
+    .replace(/\.mp4$/i, '')
+    .replace(/^Blue Archive\s*-\s*/i, '')
+    .replace(/\s*Live2D$/i, '')
     .trim()
 }
 
-async function fetchMemorialLobbyUrls() {
-  const memorials = new Map<string, string>()
-  let aiContinue: string | null = null
-  let queryContinue: string | null = null
-
-  do {
-    const params = new URLSearchParams({
-      action: 'query',
-      list: 'allimages',
-      aiprefix: 'Memorial_Lobby_',
-      ailimit: '500',
-      aiprop: 'url',
-      format: 'json',
-    })
-    if (aiContinue) params.set('aicontinue', aiContinue)
-    if (queryContinue) params.set('continue', queryContinue)
-
-    const res = await fetch(`${WIKI_API_URL}?${params.toString()}`, {
-      cache: 'no-store',
-      headers: {
-        'User-Agent': 'MyScript/1.0',
-        'Accept': 'application/json',
-      },
-    })
-    if (!res.ok) throw new Error(`Blue Archive Wiki request failed with ${res.status}`)
-
-    const body = (await res.json()) as WikiAllImagesResponse
-    for (const image of body.query?.allimages || []) {
-      if (typeof image.name !== 'string' || typeof image.url !== 'string') continue
-      const studentName = parseMemorialStudentName(image.name)
-      if (!studentName) continue
-      const normalized = normalizeStudentName(studentName)
-      if (normalized && !memorials.has(normalized)) memorials.set(normalized, image.url)
-    }
-
-    aiContinue = typeof body.continue?.aicontinue === 'string' ? body.continue.aicontinue : null
-    queryContinue = typeof body.continue?.continue === 'string' ? body.continue.continue : null
-  } while (aiContinue)
-
-  return memorials
+function memorialVideoUrl(filename: string) {
+  return `/api/memorial-video?file=${encodeURIComponent(filename)}`
 }
 
-async function readMemorialLobbyJson() {
-  const raw = await fs.readFile(MEMORIAL_LOBBIES_PATH, 'utf8')
-  const entries = JSON.parse(raw) as MemorialLobbyJsonEntry[]
-  if (!Array.isArray(entries)) throw new Error('memorial-lobbies.json must contain an array.')
+function normalizeMemorialStudentName(value: string) {
+  return normalizeStudentName(value)
+    .replace(/\b(swimsuit|summer)\b/g, 'summer')
+    .replace(/\b(battle|armed|tactical)\b/g, 'battle')
+    .replace(/\bpart\s*(timer|time job)\b/g, 'part timer')
+    .replace(/\bbunny\s+girl\b/g, 'bunny')
+    .replace(/\b(school|uniform)\b/g, 'school')
+    .replace(/\b(camp|camping)\b/g, 'camp')
+    .replace(/\bpajamas?\b/g, 'pajama')
+    .replace(/\bpop\s+idol\b/g, 'idol')
+    .replace(/\b(track|sportswear)\b/g, 'track')
+    .replace(/\bcasual\s+clothes\b/g, 'casual')
+    .replace(/\b(cycling|cyclist\s+ver)\b/g, 'cycling')
+    .replace(/\b(small|little\s+girl)\b/g, 'small')
+    .replace(/\b(chear|cheer)\s+(squard|squad)\b/g, 'cheerleader')
+    .replace(/\bchearleader\b/g, 'cheerleader')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
 
+async function loadMemorialLobbyVideos() {
   const memorials = new Map<string, string>()
-  for (const entry of entries) {
-    if (typeof entry.studentName !== 'string' || typeof entry.imageUrl !== 'string') continue
-    const normalized = normalizeStudentName(entry.studentName)
-    if (normalized && !memorials.has(normalized)) memorials.set(normalized, entry.imageUrl)
+  const videoDirs = [OPTIMIZED_MEMORIAL_LOBBY_VIDEOS_DIR, MEMORIAL_LOBBY_VIDEOS_DIR]
+
+  for (const videoDir of videoDirs) {
+    let entries: Array<import('fs').Dirent>
+    try {
+      entries = await fs.readdir(videoDir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+
+    for (const entry of entries) {
+      if (!entry.isFile()) continue
+      const studentName = parseMemorialVideoStudentName(entry.name)
+      if (!studentName) continue
+      const normalized = normalizeMemorialStudentName(studentName)
+      if (normalized && !memorials.has(normalized)) memorials.set(normalized, memorialVideoUrl(entry.name))
+    }
   }
 
   return memorials
@@ -155,19 +130,14 @@ async function readMemorialLobbyJson() {
 
 async function loadMemorialLobbyUrls() {
   try {
-    const memorials = await readMemorialLobbyJson()
+    const memorials = await loadMemorialLobbyVideos()
     if (memorials.size > 0) return { memorials, warning: null as string | null }
-    return { memorials: null, warning: 'Memorial JSON was empty; falling back to wiki API.' }
+    return { memorials: null, warning: 'No memorial lobby videos were found in Development_data/lobbies.' }
   } catch (error) {
-    const reason = error instanceof Error ? error.message : 'Could not read memorial JSON.'
-    try {
-      return { memorials: await fetchMemorialLobbyUrls(), warning: null as string | null }
-    } catch (wikiError) {
-      const wikiReason = wikiError instanceof Error ? wikiError.message : 'Wiki API request failed.'
-      return {
-        memorials: null,
-        warning: `Memorial import skipped: ${reason}; ${wikiReason}`,
-      }
+    const reason = error instanceof Error ? error.message : 'Could not read memorial lobby videos.'
+    return {
+      memorials: null,
+      warning: `Memorial video import skipped: ${reason}`,
     }
   }
 }
@@ -197,7 +167,7 @@ async function runStudentImport() {
           name,
           image: studentImageUrl(id),
           portrait: studentPortraitUrl(id),
-          memorial: memorials?.get(normalizeStudentName(name)) || null,
+          memorial: memorials?.get(normalizeMemorialStudentName(name)) || null,
         }
       })
       .filter((student): student is { id: number; name: string; image: string; portrait: string; memorial: string | null } => Boolean(student))

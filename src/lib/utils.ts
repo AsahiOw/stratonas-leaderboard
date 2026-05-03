@@ -10,5 +10,12 @@ export function fmtDate(d: string | Date | null | undefined): string {
 }
 
 export function hexToRgb(hex: string): string {
-  return `${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)}`
+  const normalized = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '#4f8ef7'
+  return `${parseInt(normalized.slice(1, 3), 16)},${parseInt(normalized.slice(3, 5), 16)},${parseInt(normalized.slice(5, 7), 16)}`
+}
+
+export function imageSrc(url: string | null | undefined, fallback = ''): string {
+  if (!url) return fallback
+  if (url.startsWith('/')) return url
+  return proxyImage(url)
 }

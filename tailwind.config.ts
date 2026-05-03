@@ -27,6 +27,7 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font)', 'sans-serif'],
         mono: ['var(--mono)', 'monospace'],
+        display: ['var(--font-display)', 'Oswald', 'sans-serif'],
       },
     },
   },

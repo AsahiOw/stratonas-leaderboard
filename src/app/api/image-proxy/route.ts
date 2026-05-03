@@ -8,6 +8,10 @@ const ALLOWED_HOSTS = [
   'cdn.discordapp.com',
   'media.discordapp.net',
   'schaledb.com',
+  'static.wikia.nocookie.net',
+  'static.fandom.net',
+  'static.wikitide.net',
+  'bluearchive.wiki',
 ]
 
 function resolveDriveUrl(url: string): string {
