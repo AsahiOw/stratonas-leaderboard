@@ -12,10 +12,14 @@
     "postgres:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-local-postgres.ps1",
     "db:docker:start": "docker-compose up -d db",
     "db:docker:stop": "docker-compose stop db",
-    "db:migrate": "prisma migrate deploy",
-    "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
-    "admin:create": "ts-node --project tsconfig.seed.json prisma/create-admin.ts",
-    "wiki:memorials": "ts-node --project tsconfig.seed.json scripts/scrape-memorial-lobbies.ts",
+    "db:migrate": "set -a; . ./.env.docker; set +a; DATABASE_URL=$(printf '%s' \"$DATABASE_URL\" | sed 's/@db:5432/@localhost:5432/'); prisma migrate deploy",
+    "db:migrate:docker": "set -a; . ./.env.docker; set +a; prisma migrate deploy",
+    "db:seed": "set -a; . ./.env.docker; set +a; DATABASE_URL=$(printf '%s' \"$DATABASE_URL\" | sed 's/@db:5432/@localhost:5432/'); ts-node --project tsconfig.seed.json prisma/seed.ts",
+    "db:seed:docker": "set -a; . ./.env.docker; set +a; ts-node --project tsconfig.seed.json prisma/seed.ts",
+    "admin:create": "set -a; . ./.env.docker; set +a; DATABASE_URL=$(printf '%s' \"$DATABASE_URL\" | sed 's/@db:5432/@localhost:5432/'); ts-node --project tsconfig.seed.json prisma/create-admin.ts",
+    "admin:create:docker": "set -a; . ./.env.docker; set +a; ts-node --project tsconfig.seed.json prisma/create-admin.ts",
+    "wiki:memorials": "set -a; . ./.env.docker; set +a; DATABASE_URL=$(printf '%s' \"$DATABASE_URL\" | sed 's/@db:5432/@localhost:5432/'); ts-node --project tsconfig.seed.json scripts/scrape-memorial-lobbies.ts",
+    "wiki:memorials:docker": "set -a; . ./.env.docker; set +a; ts-node --project tsconfig.seed.json scripts/scrape-memorial-lobbies.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

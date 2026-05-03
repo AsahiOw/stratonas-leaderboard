@@ -14,6 +14,16 @@ cp .env.docker.example .env.docker
 ```
 Edit `.env.docker` if you want to change passwords. The defaults work out of the box.
 
+If your database password contains URL-reserved characters, encode them in `DATABASE_URL`.
+For example, `@` becomes `%40`:
+
+```env
+POSTGRES_USER=stratonasAsahi
+POSTGRES_PASSWORD=StratonasAsahi4104@
+POSTGRES_DB=stratonas
+DATABASE_URL=postgresql://stratonasAsahi:StratonasAsahi4104%40@db:5432/stratonas
+```
+
 ### 2. Build and start development
 ```bash
 docker compose up --build
@@ -35,6 +45,8 @@ Development PostgreSQL data is stored in:
 ```text
 ./Development_data/docker-postgres
 ```
+
+The Docker app container mounts `./Development_data` at `/app/Development_data` read-only so the admin student import and memorial video routes can see `lobbies`, `lobbies-optimized`, and `lobby-posters`.
 
 ## Development (No Docker)
 
@@ -81,18 +93,11 @@ After migrations are applied, create an admin explicitly:
 npm run admin:create -- --email admin@example.com --password choose-a-strong-password --name Admin
 ```
 
-The command above works on macOS, Linux, and Windows. You can also use environment variables if you prefer.
+For Docker-based local runs, this command loads `.env.docker` automatically and rewrites the database host from `db` to `localhost`, because it is executed from your machine rather than from inside the Docker network.
 
-PowerShell:
+If you are running with a native local PostgreSQL setup and a `.env` file instead, use Prisma/ts-node directly with your shell environment loaded, or set `DATABASE_URL` before running the command.
 
-```powershell
-$env:ADMIN_EMAIL="admin@example.com"
-$env:ADMIN_PASSWORD="choose-a-strong-password"
-$env:ADMIN_NAME="Admin"
-npm run admin:create
-```
-
-macOS/Linux shell:
+On macOS/Linux, you can also use environment variables if you prefer:
 
 ```bash
 ADMIN_EMAIL="admin@example.com" ADMIN_PASSWORD="choose-a-strong-password" ADMIN_NAME="Admin" npm run admin:create
@@ -183,6 +188,7 @@ For production, make sure these folders exist next to the running app:
 ```
 
 The API routes `/api/memorial-video` and `/api/memorial-poster` read those folders from disk. On a macOS host, the simplest setup is to run the same shell scripts on the server or copy the generated folders from your development machine.
+When running with Docker Compose, `./Development_data` is mounted into the app container read-only.
 
 ## Development (App Without Docker)
 
@@ -190,7 +196,7 @@ If PostgreSQL is not installed locally yet, you can still avoid rebuilding the a
 
 ```bash
 npm run db:docker:start
-npx prisma migrate deploy
+npm run db:migrate
 npm run dev:local
 ```
 
@@ -230,6 +236,21 @@ Production PostgreSQL data is stored in:
 ./Production_data/docker-postgres
 ```
 
+The production compose command still reads `.env.docker`. Keep `DATABASE_URL` pointed at the Docker service host:
+
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@db:5432/DB_NAME
+```
+
+When running helper commands from your Mac, use the npm scripts such as `npm run db:migrate` and `npm run admin:create`; they load `.env.docker` and switch `db:5432` to `localhost:5432` for host access.
+
+If Docker Hub times out while pulling `postgres:16`, pull through the Google mirror and tag it locally:
+
+```bash
+docker pull mirror.gcr.io/library/postgres:16
+docker tag mirror.gcr.io/library/postgres:16 postgres:16
+```
+
 Stop production with:
 
 ```bash
@@ -243,6 +264,8 @@ docker-compose -f docker-compose.yml -f docker-compose.production.yml down
 
 
 Do not delete `Production_data` unless you intentionally want to erase the production database.
+
+Changing `POSTGRES_USER`, `POSTGRES_PASSWORD`, or `POSTGRES_DB` after the database has already been initialized does not update the existing database roles. To change credentials for an existing database, update the role inside PostgreSQL. For a fresh local/prod test database, stop Compose and move or delete `Production_data/docker-postgres`, then start again.
 
 ---
 
@@ -264,12 +287,13 @@ Backups are saved to `./backups/stratonas_YYYY-MM-DD_HH-MM.sql`
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://stratonas:stratonas@db:5432/stratonas` |
+| `DATABASE_URL` | PostgreSQL connection string used inside Docker. Use host `db` in `.env.docker`; host-run npm scripts convert it to `localhost`. URL-encode special password characters such as `@` as `%40`. | `postgresql://stratonas:stratonas@db:5432/stratonas` |
 | `POSTGRES_USER` | DB username | `stratonas` |
 | `POSTGRES_PASSWORD` | DB password | `stratonas` |
 | `POSTGRES_DB` | Database name | `stratonas` |
-| `NEXTAUTH_SECRET` | JWT/session secret — **change in production** | dev value |
+| `NEXTAUTH_SECRET` | JWT/session secret. Generate one with `openssl rand -base64 32` and keep it stable after deployment. | dev value |
 | `NEXTAUTH_URL` | App URL for NextAuth callbacks | `http://localhost:3000` |
+| `AUTH_TRUST_HOST` | Allows Auth.js to trust the incoming Docker/proxy host. Keep `true` for this self-hosted Docker setup. | `true` |
 
 ## Local Data Folders
 
