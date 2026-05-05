@@ -93,7 +93,16 @@ After migrations are applied, create an admin explicitly:
 npm run admin:create -- --email admin@example.com --password choose-a-strong-password --name Admin
 ```
 
-For Docker-based local runs, this command loads `.env.docker` automatically and rewrites the database host from `db` to `localhost`, because it is executed from your machine rather than from inside the Docker network.
+For Docker-based local runs on macOS/Linux, this command loads `.env.docker` automatically and rewrites the database host from `db` to `localhost`, because it is executed from your machine rather than from inside the Docker network.
+
+On Windows PowerShell, set the host database URL explicitly first:
+
+```powershell
+$env:DATABASE_URL="postgresql://stratonas:stratonas@localhost:5432/stratonas"
+npx ts-node --project tsconfig.seed.json prisma/create-admin.ts --email admin@example.com --password "choose-a-strong-password" --name "Admin"
+```
+
+If you changed `POSTGRES_USER`, `POSTGRES_PASSWORD`, or `POSTGRES_DB` in `.env.docker`, update the PowerShell `DATABASE_URL` to match. Keep the host as `localhost` when running the command from Windows.
 
 If you are running with a native local PostgreSQL setup and a `.env` file instead, use Prisma/ts-node directly with your shell environment loaded, or set `DATABASE_URL` before running the command.
 
@@ -242,7 +251,7 @@ The production compose command still reads `.env.docker`. Keep `DATABASE_URL` po
 DATABASE_URL=postgresql://USER:PASSWORD@db:5432/DB_NAME
 ```
 
-When running helper commands from your Mac, use the npm scripts such as `npm run db:migrate` and `npm run admin:create`; they load `.env.docker` and switch `db:5432` to `localhost:5432` for host access.
+When running helper commands from macOS/Linux, use the npm scripts such as `npm run db:migrate` and `npm run admin:create`; they load `.env.docker` and switch `db:5432` to `localhost:5432` for host access. On Windows PowerShell, set `DATABASE_URL` with `localhost:5432` explicitly before running Prisma or ts-node helper commands.
 
 If Docker Hub times out while pulling `postgres:16`, pull through the Google mirror and tag it locally:
 
