@@ -30,17 +30,17 @@ export async function getRankedRaidEntries(raidId: string, take?: number, option
     favouriteStudentId: e.player.favouriteStudentData?.id || null,
     favouriteStudentPortraitOffset: e.player.favouriteStudentData
       ? {
-          x: e.player.favouriteStudentData.portraitOffsetX,
-          y: e.player.favouriteStudentData.portraitOffsetY,
-          scale: e.player.favouriteStudentData.portraitScale,
-        }
+        x: e.player.favouriteStudentData.portraitOffsetX,
+        y: e.player.favouriteStudentData.portraitOffsetY,
+        scale: e.player.favouriteStudentData.portraitScale,
+      }
       : null,
     favouriteStudentMemorialOffset: e.player.favouriteStudentData
       ? {
-          x: e.player.favouriteStudentData.memorialOffsetX,
-          y: e.player.favouriteStudentData.memorialOffsetY,
-          scale: e.player.favouriteStudentData.memorialScale,
-        }
+        x: e.player.favouriteStudentData.memorialOffsetX,
+        y: e.player.favouriteStudentData.memorialOffsetY,
+        scale: e.player.favouriteStudentData.memorialScale,
+      }
       : null,
     favouriteStudentImage: e.player.favouriteStudentData?.image || null,
     favouriteStudentPortrait: e.player.favouriteStudentData?.portrait || e.player.favouriteStudentData?.image || null,

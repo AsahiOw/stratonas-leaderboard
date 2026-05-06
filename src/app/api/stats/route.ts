@@ -11,6 +11,10 @@ function clubName(club?: string | null) {
   return trimmed || 'Guest'
 }
 
+function isGuestClub(club: string) {
+  return club.toLowerCase() === 'guest'
+}
+
 function avg(total: number, count: number) {
   return count > 0 ? Math.round(total / count) : 0
 }
@@ -134,6 +138,7 @@ export async function GET() {
   })
 
   const clubStandings = Array.from(clubStats.values())
+    .filter((club) => !isGuestClub(club.name))
     .sort((a, b) => b.totalScore - a.totalScore || b.entryCount - a.entryCount || a.name.localeCompare(b.name))
     .slice(0, 12)
     .map((club, index) => ({
@@ -149,7 +154,11 @@ export async function GET() {
     const raidEntries = rankedByRaid.get(raid.id) || []
     const topEntry = raidEntries[0] || null
     const uniquePlayers = new Set(raidEntries.map((entry) => entry.player.id))
-    const uniqueClubs = new Set(raidEntries.map((entry) => clubName(entry.player.club)))
+    const uniqueClubs = new Set(
+      raidEntries
+        .map((entry) => clubName(entry.player.club))
+        .filter((club) => !isGuestClub(club))
+    )
     const totalScore = raidEntries.reduce((sum, entry) => sum + entry.score, 0)
 
     return {
@@ -187,7 +196,11 @@ export async function GET() {
       topPlayer: raid.topPlayer,
     }))
 
-  const clubs = new Set(players.map((player) => clubName(player.club)))
+  const clubs = new Set(
+    players
+      .map((player) => clubName(player.club))
+      .filter((club) => !isGuestClub(club))
+  )
   const chartTopPlayers = topPlayers.slice(0, 8).map((player) => ({ name: player.name, val: player.totalScore }))
   const chartEntriesByRaid = raidBreakdown
     .filter((raid) => raid.entryCount > 0)

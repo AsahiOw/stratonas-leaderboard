@@ -167,7 +167,7 @@ export function StatsPage({ onPlayerClick }: Props) {
         <StatCard icon="⊞" label="Entries" value={fmtNum(stats.snapshot.totalEntries)} sub="Submitted scores" color="var(--green)" />
         <StatCard icon="⬡" label="Latest Raids" value={fmtNum(stats.snapshot.latestRaids)} sub="Shown on leaderboard" color="#f87171" />
         <StatCard icon="◈" label="Archived" value={fmtNum(stats.snapshot.completedRaids)} sub="Previous results" color="#a78bfa" />
-        <StatCard icon="◉" label="Clubs" value={fmtNum(stats.snapshot.uniqueClubs)} sub="Including guests" color="var(--gold)" />
+        <StatCard icon="◉" label="Clubs" value={fmtNum(stats.snapshot.uniqueClubs)} sub="Excluding guests" color="var(--gold)" />
         <StatCard icon="▦" label="Avg Entries" value={fmtNum(stats.snapshot.averageEntriesPerRaid)} sub="Per raid" color="#38bdf8" />
       </div>
 
@@ -266,7 +266,7 @@ export function StatsPage({ onPlayerClick }: Props) {
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-border2">
-                  {['#','PLAYER','CLUB','TOTAL','ENTRIES','AVG','BEST','PODIUMS'].map((h) => (
+                  {['#', 'PLAYER', 'CLUB', 'TOTAL', 'ENTRIES', 'AVG', 'BEST', 'PODIUMS'].map((h) => (
                     <th key={h} className="px-3 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                       {h}
                     </th>
@@ -306,7 +306,7 @@ export function StatsPage({ onPlayerClick }: Props) {
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-border2">
-                  {['#','CLUB','TOTAL SCORE','PLAYERS','ENTRIES','AVG ENTRY'].map((h) => (
+                  {['#', 'CLUB', 'TOTAL SCORE', 'PLAYERS', 'ENTRIES', 'AVG ENTRY'].map((h) => (
                     <th key={h} className="px-3 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                       {h}
                     </th>
@@ -342,7 +342,7 @@ export function StatsPage({ onPlayerClick }: Props) {
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-border2">
-                  {['RAID','SERVER','DATES','ENTRIES','PLAYERS','CLUBS','TOP PLAYER','AVG SCORE'].map((h) => (
+                  {['RAID', 'SERVER', 'DATES', 'ENTRIES', 'PLAYERS', 'CLUBS', 'TOP PLAYER', 'AVG SCORE'].map((h) => (
                     <th key={h} className="px-3 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                       {h}
                     </th>

@@ -44,6 +44,7 @@ interface ManagedRaidCardProps {
   raid: RaidCardRaid
   entry: TableEntry
   elevated?: boolean
+  className?: string
   videoMode: VideoMode
   registerCard: (id: string, node: HTMLElement | null) => void
 }
@@ -78,6 +79,7 @@ function ManagedRaidCard({
   raid,
   entry,
   elevated,
+  className,
   videoMode,
   registerCard,
 }: ManagedRaidCardProps) {
@@ -86,7 +88,7 @@ function ManagedRaidCard({
   }, [id, registerCard])
 
   return (
-    <div ref={setRef}>
+    <div ref={setRef} className={className}>
       <RaidCard
         raid={raid}
         entry={entry}
@@ -258,12 +260,18 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
             <div
               className={
                 division.elevated
-                  ? 'grid grid-cols-1 gap-4 lg:grid-cols-3'
+                  ? 'grid grid-cols-1 gap-4 lg:grid-cols-6'
                   : 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'
               }
             >
               {rows.map((entry) => {
                 const id = cardKey(entry)
+                const cardClassName = division.elevated
+                  ? entry.rank === 1
+                    ? 'lg:col-span-6'
+                    : 'lg:col-span-3'
+                  : undefined
+
                 return (
                   <ManagedRaidCard
                     key={id}
@@ -271,6 +279,7 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
                     raid={raid}
                     entry={entry}
                     elevated={division.elevated}
+                    className={cardClassName}
                     videoMode={modeFor(id)}
                     registerCard={registerCard}
                   />
