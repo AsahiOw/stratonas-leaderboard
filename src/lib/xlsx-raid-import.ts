@@ -1,7 +1,9 @@
+import Anthropic from '@anthropic-ai/sdk'
 import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/prisma'
 import { resolveClub } from '@/lib/clubs'
 import { resolveRaidServer, resolveRaidTerrain, resolveRaidType } from '@/lib/raid-lookups'
+import { buildStudentLookupFromRecords, resolveStudentFromLookup, type StudentLookup } from '@/lib/student-name-matcher'
 
 type ParsedRaidTitle = {
   type: string
@@ -20,13 +22,7 @@ type ImportRow = {
   club: string
   rank: number
   favouriteStudent: string
-}
-
-type StudentRecord = { id: number; name: string }
-
-type StudentLookup = {
-  aliases: Map<string, StudentRecord>
-  variantsByBase: Map<string, StudentRecord[]>
+  pfpUrl?: string
 }
 
 export type XlsxRaidImportResult = {
@@ -50,40 +46,6 @@ export type XlsxRaidImportResult = {
 const REQUIRED_COLUMNS: RequiredColumn[] = ['UserId', 'Username', 'IGN', 'Score', 'Club', 'Rank', 'FavoriteStudent']
 const TERRAIN_NAMES = ['Urban', 'Indoor', 'Outdoor']
 
-const VARIANT_PREFIXES: Record<string, string[]> = {
-  Swimsuit: ['S'],
-  Maid: ['M'],
-  'New Year': ['NY'],
-  HotSpring: ['HS'],
-  'Hot Spring': ['HS'],
-  Dress: ['D'],
-  Band: ['B'],
-  Bunny: ['B'],
-  Casual: ['C'],
-  'Cheer Squad': ['C'],
-  'Pop Idol': ['I'],
-  Pajamas: ['P'],
-  Magical: ['M'],
-  School: ['U'],
-  Track: ['T'],
-  Camp: ['C'],
-  Idol: ['I'],
-  Pajama: ['P'],
-  Uniform: ['U'],
-}
-
-const MANUAL_STUDENT_ALIASES: Record<string, string> = {
-  'b hoshino': 'Hoshino (Swimsuit)',
-  'c sena': 'Sena (Casual)',
-  'i sakurako': 'Sakurako (Pop Idol)',
-  kuroko: 'Shiroko*Terror',
-  'm reisa': 'Reisa (Magical)',
-  miku: 'Hatsune Miku',
-  'p noa': 'Noa (Pajamas)',
-  'p yuuka': 'Yuuka (Pajamas)',
-  'u akane': 'Akane (School)',
-}
-
 const MANUAL_RAID_BOSS_ALIASES: Record<string, string> = {
   kaiten: 'KAITEN FX Mk.0',
 }
@@ -99,6 +61,18 @@ function numberValue(value: unknown): number {
   if (typeof value === 'number') return value
   const parsed = Number(stringValue(value).replace(/,/g, ''))
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function extractImageUrl(cell: ExcelJS.Cell): string {
+  const val = cell.value
+  if (typeof val === 'object' && val !== null && 'formula' in val) {
+    const formula = (val as { formula: string }).formula
+    const match = formula.match(/IMAGE\("([^"]+)"/i)
+    return match?.[1] ?? ''
+  }
+  const str = stringValue(val)
+  const match = str.match(/IMAGE\("([^"]+)"/i)
+  return match?.[1] ?? ''
 }
 
 export function parseRaidTitleFromFilename(filename: string): ParsedRaidTitle {
@@ -129,15 +103,6 @@ export function parseRaidTitleFromFilename(filename: string): ParsedRaidTitle {
   }
 }
 
-export function normalizeStudentLookup(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ')
-}
-
 function normalizeRaidBossLookup(value: string): string {
   return value
     .toLowerCase()
@@ -160,90 +125,70 @@ async function resolveRaidBossByName(name: string) {
   return bosses.find((boss) => normalizeRaidBossLookup(boss.name) === normalizedName) || null
 }
 
-function studentVariant(name: string) {
-  const variantMatch = name.match(/^(.+?)\s*\((.+)\)$/)
-  if (!variantMatch) return null
-  return {
-    base: variantMatch[1].trim(),
-    variant: variantMatch[2].trim(),
+async function identifyStudentFromPfp(pfpUrl: string, studentNames: string[]): Promise<string> {
+  console.log(`[PFP] Fetching image: ${pfpUrl}`)
+  let res: Response
+  try {
+    res = await fetch(pfpUrl)
+  } catch (err) {
+    console.log(`[PFP] Fetch failed: ${err}`)
+    return ''
   }
-}
-
-function variantPrefixes(variant: string): string[] {
-  const configured = VARIANT_PREFIXES[variant] || []
-  const normalized = normalizeStudentLookup(variant)
-  const words = normalized.split(' ').filter(Boolean)
-  const firstWordInitial = words[0]?.slice(0, 1).toUpperCase()
-  const acronym = words.map((word) => word[0]).join('').toUpperCase()
-
-  return Array.from(new Set([
-    ...configured,
-    firstWordInitial,
-    acronym,
-  ].filter((prefix): prefix is string => Boolean(prefix))))
-}
-
-function studentAliases(name: string): string[] {
-  const aliases = new Set([name])
-  const variantData = studentVariant(name)
-  if (variantData) {
-    variantPrefixes(variantData.variant).forEach((prefix) => {
-      const base = variantData.base
-      aliases.add(`${prefix} ${base}`)
-      aliases.add(`${prefix}.${base}`)
-    })
+  if (!res.ok) {
+    console.log(`[PFP] HTTP ${res.status} for ${pfpUrl}`)
+    return ''
   }
-  return Array.from(aliases)
-}
 
-function findPrefixedVariant(normalized: string, studentLookup: StudentLookup) {
-  const match = normalized.match(/^([a-z]{1,3})\s+(.+)$/)
-  if (!match) return null
+  const buffer = await res.arrayBuffer()
+  const base64 = Buffer.from(buffer).toString('base64')
+  const bytes = new Uint8Array(buffer)
+  let contentType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/jpeg'
+  if (bytes[0] === 0x89 && bytes[1] === 0x50) contentType = 'image/png'
+  else if (bytes[0] === 0x47 && bytes[1] === 0x49) contentType = 'image/gif'
+  else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[8] === 0x57 && bytes[9] === 0x45) contentType = 'image/webp'
+  console.log(`[PFP] Detected content type: ${contentType}, size: ${buffer.byteLength} bytes`)
 
-  const prefix = match[1].toUpperCase()
-  const base = match[2]
-  const variants = studentLookup.variantsByBase.get(base) || []
-  if (variants.length === 0) return null
-
-  const matchingVariants = variants.filter((student) => {
-    const variantData = studentVariant(student.name)
-    return variantData ? variantPrefixes(variantData.variant).includes(prefix) : false
+  const client = new Anthropic()
+  const nameList = studentNames.join('\n')
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 64,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: contentType, data: base64 } },
+        { type: 'text', text: `This is a Blue Archive student profile picture. Which student from the list below does this image show? Reply with only the exact name from the list, nothing else.\n\n${nameList}` },
+      ],
+    }],
   })
-  if (matchingVariants.length === 1) return matchingVariants[0]
-
-  // If there is only one variant for that base, prefer it over the plain base
-  // because the imported value carried a prefix.
-  if (matchingVariants.length === 0 && variants.length === 1) return variants[0]
-  return null
+  const textBlock = message.content.find(c => c.type === 'text')
+  const identified = textBlock?.type === 'text' ? textBlock.text.trim() : ''
+  console.log(`[PFP] Claude identified: "${identified}"`)
+  return identified
 }
 
-async function resolveFavoriteStudent(raw: string, studentLookup: StudentLookup) {
-  const normalized = normalizeStudentLookup(raw)
-  if (!normalized) return { favouriteStudent: '', favouriteStudentId: null as number | null }
-  const manualAlias = MANUAL_STUDENT_ALIASES[normalized]
-  const student = (manualAlias ? studentLookup.aliases.get(normalizeStudentLookup(manualAlias)) : null)
-    || studentLookup.aliases.get(normalized)
-    || findPrefixedVariant(normalized, studentLookup)
-  if (!student) return { favouriteStudent: raw, favouriteStudentId: null as number | null }
+async function resolveFavoriteStudent(
+  raw: string,
+  studentLookup: StudentLookup,
+  options: { pfpUrl?: string; allowImageFallback?: boolean } = {},
+) {
+  let student = resolveStudentFromLookup(raw, studentLookup)
+  if (!student && options.allowImageFallback && options.pfpUrl) {
+    console.log(`[PFP] Name lookup failed for "${raw}", trying image match...`)
+    const identified = await identifyStudentFromPfp(options.pfpUrl, studentLookup.students.map((record) => record.name))
+    if (identified) {
+      student = resolveStudentFromLookup(identified, studentLookup)
+      console.log(`[PFP] DB match after image: ${student ? `"${student.name}" (id ${student.id})` : 'none'}`)
+    }
+  }
+
+  if (!student) return { favouriteStudent: raw || '', favouriteStudentId: null as number | null }
   return { favouriteStudent: student.name, favouriteStudentId: student.id }
 }
 
 async function buildStudentLookup() {
   const students = await prisma.student.findMany({ select: { id: true, name: true } })
-  const aliases = new Map<string, StudentRecord>()
-  const variantsByBase = new Map<string, StudentRecord[]>()
-  students.forEach((student) => {
-    studentAliases(student.name).forEach((alias) => {
-      aliases.set(normalizeStudentLookup(alias), student)
-    })
-    const variantData = studentVariant(student.name)
-    if (!variantData) return
-    const normalizedBase = normalizeStudentLookup(variantData.base)
-    const variants = variantsByBase.get(normalizedBase) || []
-    variants.push(student)
-    variantsByBase.set(normalizedBase, variants)
-  })
-  return { aliases, variantsByBase }
+  return buildStudentLookupFromRecords(students)
 }
 
 function columnMap(sheet: ExcelJS.Worksheet) {
@@ -258,11 +203,12 @@ function columnMap(sheet: ExcelJS.Worksheet) {
   if (missing.length > 0) {
     throw new Error(`Members sheet is missing columns: ${missing.join(', ')}`)
   }
-  return map as Map<RequiredColumn, number>
+  return map as Map<RequiredColumn | 'PFP', number>
 }
 
 function readImportRows(sheet: ExcelJS.Worksheet) {
   const columns = columnMap(sheet)
+  const pfpCol = columns.get('PFP')
   const rows: Array<{ rowNumber: number; row: ImportRow | null; reason?: string }> = []
 
   sheet.eachRow((worksheetRow, rowNumber) => {
@@ -270,7 +216,7 @@ function readImportRows(sheet: ExcelJS.Worksheet) {
     const rank = numberValue(worksheetRow.getCell(columns.get('Rank')!).value)
     if (!rank || rank > 50) return
 
-    const row = {
+    const row: ImportRow = {
       userID: stringValue(worksheetRow.getCell(columns.get('UserId')!).value),
       username: stringValue(worksheetRow.getCell(columns.get('Username')!).value),
       ign: stringValue(worksheetRow.getCell(columns.get('IGN')!).value),
@@ -278,6 +224,7 @@ function readImportRows(sheet: ExcelJS.Worksheet) {
       club: stringValue(worksheetRow.getCell(columns.get('Club')!).value),
       rank,
       favouriteStudent: stringValue(worksheetRow.getCell(columns.get('FavoriteStudent')!).value),
+      pfpUrl: pfpCol ? extractImageUrl(worksheetRow.getCell(pfpCol)) : undefined,
     }
 
     if (!row.userID && !row.username && !row.ign) {
@@ -383,6 +330,7 @@ export async function importRaidXlsx(options: {
     }
 
     const row = importRow.row
+    const player = await findPlayer(row)
     const clubBefore = row.club
       ? await prisma.club.findFirst({ where: { name: { equals: row.club, mode: 'insensitive' } } })
       : null
@@ -393,16 +341,29 @@ export async function importRaidXlsx(options: {
       seenClubs.add(club.id)
     }
 
-    const favorite = await resolveFavoriteStudent(row.favouriteStudent, studentLookup)
+    const favorite = await resolveFavoriteStudent(row.favouriteStudent, studentLookup, {
+      pfpUrl: row.pfpUrl,
+      allowImageFallback: !player,
+    })
     if (row.favouriteStudent && !favorite.favouriteStudentId) unmatchedFavoriteStudents.add(row.favouriteStudent)
 
-    const player = await findPlayer(row)
+    const favouriteStudent = favorite.favouriteStudentId
+      ? favorite.favouriteStudent
+      : player
+        ? player.favouriteStudent
+        : favorite.favouriteStudent || row.favouriteStudent || null
+    const favouriteStudentId = favorite.favouriteStudentId
+      ? favorite.favouriteStudentId
+      : player
+        ? player.favouriteStudentId
+        : null
+
     const playerData = {
       ign: row.ign,
       username: row.username,
       userID: row.userID || null,
-      favouriteStudent: favorite.favouriteStudent || row.favouriteStudent || null,
-      favouriteStudentId: favorite.favouriteStudentId,
+      favouriteStudent,
+      favouriteStudentId,
       club: club?.name || row.club || 'Guest',
       clubID: null,
       clubId: club?.id || null,

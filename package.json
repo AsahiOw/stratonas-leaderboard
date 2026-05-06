@@ -8,6 +8,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "test:student-lookup": "ts-node --project tsconfig.seed.json src/lib/student-name-matcher.test.ts",
     "postgres:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-postgres.ps1",
     "postgres:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-local-postgres.ps1",
     "db:docker:start": "docker-compose up -d db",
@@ -23,6 +24,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@auth/prisma-adapter": "^2.7.2",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
@@ -45,9 +47,9 @@
     "eslint-config-next": "14.2.21",
     "postcss": "^8",
     "prisma": "^5.22.0",
+    "puppeteer": "^22.15.0",
     "tailwindcss": "^3.4.17",
     "ts-node": "^10.9.2",
-    "puppeteer": "^22.15.0",
     "typescript": "^5"
   }
 }
