@@ -123,8 +123,8 @@ export function LeaderboardApp({ initialRaids }: Props) {
                   Stratonas <span className="text-accent">Leaderboard</span>
                 </h1>
                 <p className="text-muted2 text-sm mt-2 px-2 drop-shadow-[0_1px_8px_rgba(0,0,0,0.75)]">
-                  {latestRaids.length} latest raid{latestRaids.length !== 1 ? 's' : ''}
-                  {serverFilter !== 'all' ? ` · ${serverFilter === 'jp' ? 'JP' : 'Global'} server` : ''}
+                  Latest raid updates
+                  {serverFilter !== 'all' ? ` for the ${serverFilter === 'jp' ? 'JP' : 'Global'} server` : ' across all servers'}
                 </p>
               </div>
             </div>
@@ -151,7 +151,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
               <div className="text-[11px] font-bold text-muted tracking-[0.14em] mb-1.5">◈ ARCHIVED RAIDS</div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Previous Rankings</h2>
               <p className="text-muted2 text-[13px] mt-1.5">
-                All past raids and their final standings — click &quot;View Full Rankings&quot; for Top 50
+                All past raids and their final standings — click &quot;View Card Rankings&quot; for Top 50
               </p>
             </div>
             {previousRaids.length === 0 ? (
