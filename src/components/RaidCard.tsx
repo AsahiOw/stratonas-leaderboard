@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import localFont from 'next/font/local'
+import { DM_Sans, M_PLUS_1 } from 'next/font/google'
 import { imageSrc, hexToRgb } from '@/lib/utils'
 import { getMemorialOffset, getPortraitOffset } from '@/lib/portrait-offset'
 import type { TableEntry } from '@/components/LeaderboardTable'
@@ -30,6 +32,36 @@ function rgba(hex: string, opacity: number) {
   return `rgba(${hexToRgb(hex)},${opacity})`
 }
 
+function hexToHsl(hex: string) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const lightness = (max + min) / 2
+
+  if (max === min) {
+    return { hue: 0, saturation: 0, lightness }
+  }
+
+  const delta = max - min
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min)
+  let hue = 0
+
+  if (max === r) hue = (g - b) / delta + (g < b ? 6 : 0)
+  if (max === g) hue = (b - r) / delta + 2
+  if (max === b) hue = (r - g) / delta + 4
+
+  return { hue: hue * 60, saturation, lightness }
+}
+
+function titleColorFromTint(hex: string) {
+  const { hue, saturation } = hexToHsl(hex)
+  const textSaturation = Math.min(saturation, 0.64)
+
+  return `hsl(${Math.round(hue)} ${Math.round(textSaturation * 100)}% 22%)`
+}
+
 function memorialPosterSrc(memorial: string | null | undefined) {
   if (!memorial?.startsWith('/api/memorial-video')) return FALLBACK_BG
 
@@ -42,7 +74,6 @@ function memorialPosterSrc(memorial: string | null | undefined) {
   }
 }
 
-const CARD_BROWN = '#5a2d14'
 const SCORE_TEXT = '#1a1a1a'
 const CLUB_TEXT = '#111111'
 // Design default tint — used when the player's club has no color set
@@ -52,6 +83,23 @@ const DEFAULT_TINT = '#f0b8d0'
 const FALLBACK_BG = '/assets/raid-card/lobby.jpg'
 const FALLBACK_PORTRAIT = '/assets/raid-card/portrait.webp'
 const FALLBACK_CLUB = '/assets/raid-card/club.webp'
+
+const scoreFont = localFont({
+  src: '../../public/font/bukhari_script/Bukhari Script.ttf',
+  display: 'swap',
+})
+
+const titleFont1 = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
+  display: 'swap',
+})
+
+const titleFont2 = M_PLUS_1({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
+  display: 'swap',
+})
 
 export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -63,6 +111,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
   const clubAccent = safeHex(entry.clubColor, safeHex(raid.color, '#4f8ef7'))
   // tintColor: drives the two-tone overlay; falls back to design default pink (not raid color)
   const tintColor = safeHex(entry.clubColor, DEFAULT_TINT)
+  const titleTextColor = titleColorFromTint(tintColor)
 
   const portrait = imageSrc(entry.favouriteStudentPortrait || entry.favouriteStudentImage, FALLBACK_PORTRAIT)
   const clubLogo = imageSrc(entry.clubLogo, FALLBACK_CLUB)
@@ -80,7 +129,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
   // Curved-slash path — quadratic bezier from design defaults
   // cx=1161.8 (116.18% of W), cy=304 (mid + 14% offset), control bends to x=−314
-  const slashPath = 'M 1161.8 -1121 Q -314 304 1161.8 1729 L 5161.8 1729 L 5161.8 -1121 Z'
+  const slashPath = 'M 1161.8 -1121 Q -314 304 1161.8 1729 L 5161.8 172971 L 5161.8 -1121 Z'
   const shouldMountVideo = Boolean(entry.favouriteStudentMemorial && isInteracting)
   const shouldPlayVideo = shouldMountVideo && isInteracting
   const videoPreload = 'auto'
@@ -310,13 +359,15 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
       <div className="absolute inset-0 z-[6] pointer-events-none">
         {/* Header */}
         <div
-          className="absolute whitespace-nowrap font-sans leading-[1.15]"
+          className={`absolute whitespace-nowrap leading-[1.15] ${titleFont1.className}`}
           style={{
             left: '2%',
             top: '5%',
             fontSize: '2.05cqw',
-            color: CARD_BROWN,
-            letterSpacing: '-0.005em',
+            color: titleTextColor,
+            fontWeight: 500,
+            letterSpacing: '0',
+            textShadow: '0 1px 2px rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.3)',
           }}
         >
           {headerLabel}
@@ -324,12 +375,15 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
         {/* Season + terrain */}
         <div
-          className="absolute whitespace-nowrap font-bold font-sans leading-[1.05]"
+          className={`absolute whitespace-nowrap leading-[1.05] ${titleFont1.className}`}
           style={{
             left: '4%',
             top: '14%',
             fontSize: '2.65cqw',
-            color: CARD_BROWN,
+            color: titleTextColor,
+            fontWeight: 900,
+            letterSpacing: '0',
+            textShadow: '0 2px 2px rgba(255,255,255,0.35), 0 2px 3px rgba(0,0,0,0.35)',
           }}
         >
           {seasonLabel}
@@ -337,40 +391,48 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
         {/* Rank */}
         <div
-          className="absolute whitespace-nowrap font-bold font-sans leading-[1.05]"
+          className={`absolute whitespace-nowrap leading-[1.05] ${titleFont1.className}`}
           style={{
             left: '4%',
             top: '20.5%',
             fontSize: '2.75cqw',
-            color: CARD_BROWN,
+            color: titleTextColor,
+            fontWeight: 900,
+            letterSpacing: '0',
+            textShadow: '0 2px 2px rgba(255,255,255,0.35), 0 2px 3px rgba(0,0,0,0.35)',
           }}
         >
           Rank {entry.rank}
         </div>
 
-        {/* Player name — Oswald display font, uppercase */}
+        {/* Player name */}
         <div
-          className="absolute whitespace-nowrap font-bold uppercase leading-none font-display"
+          className={`absolute whitespace-nowrap uppercase leading-none ${titleFont2.className}`}
           style={{
             left: '4%',
             top: '28.9%',
             fontSize: '8cqw',
-            color: CARD_BROWN,
-            letterSpacing: '0.02em',
+            color: titleTextColor,
+            fontWeight: 900,
+            letterSpacing: '0',
+            textShadow: '0 3px 2px rgba(255,255,255,0.32), 0 3px 4px rgba(0,0,0,0.32)',
           }}
         >
           {entry.name}
         </div>
 
-        {/* Score — Oswald display font, bold italic */}
+        {/* Score */}
         <div
-          className="absolute whitespace-nowrap font-bold italic leading-[1.05] font-display"
+          className={`absolute whitespace-nowrap leading-[1.05] ${scoreFont.className}`}
           style={{
             left: '4%',
-            top: '50%',
-            fontSize: '7.02cqw',
+            top: '48.5%',
+            fontSize: '7.6cqw',
             color: SCORE_TEXT,
-            letterSpacing: '0.01em',
+            fontWeight: 400,
+            letterSpacing: '0',
+            transform: 'skewX(-8deg)',
+            textShadow: '0 4px 0 rgba(255,255,255,0.34), 0 5px 5px rgba(0,0,0,0.42)',
           }}
         >
           {entry.score.toLocaleString()}
@@ -378,13 +440,15 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
         {/* Club name */}
         <div
-          className="absolute whitespace-nowrap font-bold uppercase leading-[1.05] font-sans"
+          className={`absolute whitespace-nowrap uppercase leading-[1.05] ${titleFont2.className}`}
           style={{
             left: '4%',
             top: '71.5%',
             fontSize: '3.5cqw',
             color: CLUB_TEXT,
-            letterSpacing: '0.04em',
+            fontWeight: 500,
+            letterSpacing: '0',
+            textShadow: '0 2px 0 rgba(255,255,255,0.35), 0 2px 4px rgba(0,0,0,0.42)',
           }}
         >
           {entry.club || 'GUEST'}
