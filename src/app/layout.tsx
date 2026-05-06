@@ -26,7 +26,7 @@ const oswald = Oswald({
 
 export const metadata: Metadata = {
   title: 'Stratonas — Guild Leaderboard',
-  description: 'Stratonas Guild Leaderboard — Season 3',
+  description: 'Stratonas Guild Leaderboard',
   icons: {
     icon: '/assets/icons/ST_logo.png',
     shortcut: '/assets/icons/ST_logo.png',
