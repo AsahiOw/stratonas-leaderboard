@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { resolveClub } from '@/lib/clubs'
 import { resolveRaidServer, resolveRaidTerrain, resolveRaidType } from '@/lib/raid-lookups'
 import { buildStudentLookupFromRecords, resolveStudentFromLookup, type StudentLookup } from '@/lib/student-name-matcher'
+import { updateXlsxImportProgress } from '@/lib/xlsx-import-progress'
 
 type ParsedRaidTitle = {
   type: string
@@ -15,6 +16,8 @@ type ParsedRaidTitle = {
 type RequiredColumn = 'UserId' | 'Username' | 'IGN' | 'Score' | 'Club' | 'Rank' | 'FavoriteStudent'
 
 type ImportRow = {
+  sheetName: string
+  rowNumber: number
   userID: string
   username: string
   ign: string
@@ -44,6 +47,7 @@ export type XlsxRaidImportResult = {
 }
 
 const REQUIRED_COLUMNS: RequiredColumn[] = ['UserId', 'Username', 'IGN', 'Score', 'Club', 'Rank', 'FavoriteStudent']
+const IMPORT_SHEET_NAMES = ['Members', 'Guests'] as const
 const TERRAIN_NAMES = ['Urban', 'Indoor', 'Outdoor']
 
 const MANUAL_RAID_BOSS_ALIASES: Record<string, string> = {
@@ -201,7 +205,7 @@ function columnMap(sheet: ExcelJS.Worksheet) {
 
   const missing = REQUIRED_COLUMNS.filter((column) => !map.has(column))
   if (missing.length > 0) {
-    throw new Error(`Members sheet is missing columns: ${missing.join(', ')}`)
+    throw new Error(`${sheet.name} sheet is missing columns: ${missing.join(', ')}`)
   }
   return map as Map<RequiredColumn | 'PFP', number>
 }
@@ -214,9 +218,11 @@ function readImportRows(sheet: ExcelJS.Worksheet) {
   sheet.eachRow((worksheetRow, rowNumber) => {
     if (rowNumber === 1) return
     const rank = numberValue(worksheetRow.getCell(columns.get('Rank')!).value)
-    if (!rank || rank > 50) return
+    if (!rank) return
 
     const row: ImportRow = {
+      sheetName: sheet.name,
+      rowNumber,
       userID: stringValue(worksheetRow.getCell(columns.get('UserId')!).value),
       username: stringValue(worksheetRow.getCell(columns.get('Username')!).value),
       ign: stringValue(worksheetRow.getCell(columns.get('IGN')!).value),
@@ -228,11 +234,11 @@ function readImportRows(sheet: ExcelJS.Worksheet) {
     }
 
     if (!row.userID && !row.username && !row.ign) {
-      rows.push({ rowNumber, row: null, reason: 'Missing player identity.' })
+      rows.push({ rowNumber, row: null, reason: `${sheet.name}: Missing player identity.` })
       return
     }
     if (!row.username || !row.ign) {
-      rows.push({ rowNumber, row: null, reason: 'Missing username or IGN.' })
+      rows.push({ rowNumber, row: null, reason: `${sheet.name}: Missing username or IGN.` })
       return
     }
 
@@ -240,6 +246,14 @@ function readImportRows(sheet: ExcelJS.Worksheet) {
   })
 
   return rows
+}
+
+function readWorkbookImportRows(workbook: ExcelJS.Workbook) {
+  return IMPORT_SHEET_NAMES.flatMap((sheetName) => {
+    const sheet = workbook.getWorksheet(sheetName)
+    if (!sheet) throw new Error(`Workbook must contain a ${sheetName} sheet.`)
+    return readImportRows(sheet)
+  })
 }
 
 async function findPlayer(row: ImportRow) {
@@ -260,12 +274,11 @@ export async function importRaidXlsx(options: {
   endDate: string
 }): Promise<XlsxRaidImportResult> {
   const parsed = parseRaidTitleFromFilename(options.filename)
+  updateXlsxImportProgress({ stage: 'Loading workbook' })
   const workbook = new ExcelJS.Workbook()
   await (workbook.xlsx as { load: (buffer: unknown) => Promise<ExcelJS.Workbook> }).load(options.buffer)
 
-  const members = workbook.getWorksheet('Members')
-  if (!members) throw new Error('Workbook must contain a Members sheet.')
-
+  updateXlsxImportProgress({ stage: 'Resolving raid metadata' })
   const type = await resolveRaidType(parsed.type)
   const server = await resolveRaidServer(options.server)
   const terrain = await resolveRaidTerrain(parsed.terrainName)
@@ -310,7 +323,9 @@ export async function importRaidXlsx(options: {
     })
   }
 
-  const rows = readImportRows(members)
+  updateXlsxImportProgress({ stage: 'Reading Members and Guests sheets' })
+  const rows = readWorkbookImportRows(workbook)
+  updateXlsxImportProgress({ stage: 'Preparing student lookup', total: rows.length, processed: 0 })
   const studentLookup = await buildStudentLookup()
   const skippedRows: XlsxRaidImportResult['skippedRows'] = []
   const unmatchedFavoriteStudents = new Set<string>()
@@ -322,14 +337,28 @@ export async function importRaidXlsx(options: {
   let entriesCreated = 0
   let entriesUpdated = 0
   let rowsImported = 0
+  let processed = 0
 
   for (const importRow of rows) {
     if (!importRow.row) {
       skippedRows.push({ row: importRow.rowNumber, reason: importRow.reason || 'Skipped row.' })
+      processed += 1
+      updateXlsxImportProgress({ processed })
       continue
     }
 
     const row = importRow.row
+    updateXlsxImportProgress({
+      stage: `Importing ${row.sheetName}`,
+      currentSheet: row.sheetName,
+      currentRow: row.rowNumber,
+      processed,
+      rowsImported,
+      playersCreated,
+      playersUpdated,
+      entriesCreated,
+      entriesUpdated,
+    })
     const player = await findPlayer(row)
     const clubBefore = row.club
       ? await prisma.club.findFirst({ where: { name: { equals: row.club, mode: 'insensitive' } } })
@@ -389,6 +418,15 @@ export async function importRaidXlsx(options: {
     if (existingEntry) entriesUpdated += 1
     else entriesCreated += 1
     rowsImported += 1
+    processed += 1
+    updateXlsxImportProgress({
+      processed,
+      rowsImported,
+      playersCreated,
+      playersUpdated,
+      entriesCreated,
+      entriesUpdated,
+    })
   }
 
   return {

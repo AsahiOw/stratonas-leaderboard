@@ -64,7 +64,7 @@ export function RaidBanner({ raid, topPlayer }: Props) {
       />
 
       {/* Content */}
-      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div className="relative flex flex-col gap-3 pr-24 sm:pr-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <ServerBadge server={raid.server.name} />

@@ -86,6 +86,21 @@ interface XlsxImportResult {
   unmatchedFavoriteStudents: string[]
 }
 
+interface XlsxImportProgress {
+  status: 'idle' | 'running' | 'completed' | 'failed' | string
+  stage: string
+  total: number
+  processed: number
+  rowsImported: number
+  playersCreated: number
+  playersUpdated: number
+  entriesCreated: number
+  entriesUpdated: number
+  currentSheet?: string | null
+  currentRow?: number | null
+  error?: string | null
+}
+
 type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries' | 'import' | 'settings'
 type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries'
 
@@ -142,6 +157,7 @@ export function AdminPanel() {
   const [toast, setToast] = useState<string | null>(null)
   const [xlsxImportResult, setXlsxImportResult] = useState<XlsxImportResult | null>(null)
   const [xlsxImporting, setXlsxImporting] = useState(false)
+  const [xlsxImportProgress, setXlsxImportProgress] = useState<XlsxImportProgress | null>(null)
   const [importState, setImportState] = useState<ImportState | null>(null)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [bossImportState, setBossImportState] = useState<ImportState | null>(null)
@@ -541,6 +557,20 @@ export function AdminPanel() {
   const emptyE = { playerId: '', raidId: '', score: '' }
   const [eForm, setEForm] = useState(emptyE)
 
+  const loadXlsxImportProgress = useCallback(() => {
+    fetch('/api/admin/import/xlsx/status')
+      .then((r) => r.json())
+      .then(setXlsxImportProgress)
+      .catch(() => null)
+  }, [])
+
+  useEffect(() => {
+    if (!xlsxImporting) return
+    loadXlsxImportProgress()
+    const timer = window.setInterval(loadXlsxImportProgress, 1000)
+    return () => window.clearInterval(timer)
+  }, [loadXlsxImportProgress, xlsxImporting])
+
   function openAddEntry() { setEForm({ ...emptyE, raidId: raids[0]?.id || '', playerId: players[0]?.id || '' }); setEditTarget(null); setModal('entry') }
   function openEditEntry(en: Entry) {
     setEForm({ playerId: en.player.id, raidId: en.raid.id, score: String(en.score) })
@@ -571,6 +601,17 @@ export function AdminPanel() {
 
     setXlsxImporting(true)
     setXlsxImportResult(null)
+    setXlsxImportProgress({
+      status: 'running',
+      stage: 'Uploading workbook',
+      total: 0,
+      processed: 0,
+      rowsImported: 0,
+      playersCreated: 0,
+      playersUpdated: 0,
+      entriesCreated: 0,
+      entriesUpdated: 0,
+    })
     const form = new FormData()
     form.append('file', xlsxFile)
     form.append('server', xlsxForm.server)
@@ -580,6 +621,7 @@ export function AdminPanel() {
     const res = await fetch('/api/admin/import/xlsx', { method: 'POST', body: form })
     const body = await res.json().catch(() => null)
     setXlsxImporting(false)
+    loadXlsxImportProgress()
 
     if (!res.ok) {
       showToast(body?.error || 'Could not import XLSX.')
@@ -1346,7 +1388,7 @@ export function AdminPanel() {
             <div className="mb-5">
               <div className="font-bold text-lg">Import</div>
               <div className="text-[13px] text-muted mt-1">
-                Upload an XLSX with a Members sheet. Filename format: Total Assault S74_ Gregorius Indoor.xlsx.
+                Upload an XLSX with Members and Guests sheets. Filename format: Total Assault S74_ Gregorius Indoor.xlsx.
               </div>
             </div>
 
@@ -1397,6 +1439,47 @@ export function AdminPanel() {
                 </button>
               </form>
             </div>
+
+            {(xlsxImporting || xlsxImportProgress?.status === 'running') && (
+              <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                  <div>
+                    <div className="font-bold text-[15px]">Importing XLSX</div>
+                    <div className="text-xs text-muted">
+                      {xlsxImportProgress?.stage || 'Working'}{xlsxImportProgress?.currentSheet ? ` · ${xlsxImportProgress.currentSheet} row ${xlsxImportProgress.currentRow || ''}` : ''}
+                    </div>
+                  </div>
+                  <div className="font-mono text-sm text-muted2">
+                    {xlsxImportProgress?.total
+                      ? `${xlsxImportProgress.processed} / ${xlsxImportProgress.total}`
+                      : `${xlsxImportProgress?.processed || 0} rows`}
+                  </div>
+                </div>
+                <div className="h-2.5 rounded-full bg-bg border border-border overflow-hidden">
+                  <div
+                    className="h-full bg-accent transition-all duration-300"
+                    style={{
+                      width: `${xlsxImportProgress?.total
+                        ? Math.min(100, Math.round((xlsxImportProgress.processed / xlsxImportProgress.total) * 100))
+                        : 8}%`,
+                    }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-3">
+                  {[
+                    ['Imported', xlsxImportProgress?.rowsImported || 0],
+                    ['Players +', xlsxImportProgress?.playersCreated || 0],
+                    ['Players ~', xlsxImportProgress?.playersUpdated || 0],
+                    ['Entries', (xlsxImportProgress?.entriesCreated || 0) + (xlsxImportProgress?.entriesUpdated || 0)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="bg-card2 border border-border rounded-lg p-2.5">
+                      <div className="text-[10px] text-muted tracking-[0.08em] font-semibold uppercase">{label}</div>
+                      <div className="font-mono text-base text-text font-bold">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {xlsxImportResult && (
               <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">

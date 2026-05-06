@@ -54,7 +54,7 @@ export default async function RaidLeaderboardPage({ params }: { params: { id: st
   })
   if (!raid) notFound()
 
-  const entries = await getRankedRaidEntries(params.id, 50)
+  const entries = await getRankedRaidEntries(params.id, 50, { guildOnly: true })
   const topPlayer = entries[0]
   const cardRaid = {
     raidBoss: raid.raidBoss,

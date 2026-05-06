@@ -1,8 +1,11 @@
 import { prisma } from '@/lib/prisma'
 
-export async function getRankedRaidEntries(raidId: string, take?: number) {
+export async function getRankedRaidEntries(raidId: string, take?: number, options: { guildOnly?: boolean } = {}) {
   const entries = await prisma.raidEntry.findMany({
-    where: { raidId },
+    where: {
+      raidId,
+      ...(options.guildOnly ? { player: { isGuildMember: true } } : {}),
+    },
     include: {
       player: {
         include: {

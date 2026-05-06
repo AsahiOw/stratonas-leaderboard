@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-guard'
 import { importRaidXlsx } from '@/lib/xlsx-raid-import'
+import { completeXlsxImportProgress, failXlsxImportProgress, resetXlsxImportProgress } from '@/lib/xlsx-import-progress'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Only .xlsx files are supported.' }, { status: 400 })
     }
 
+    resetXlsxImportProgress('Reading workbook')
     const result = await importRaidXlsx({
       buffer: await file.arrayBuffer(),
       filename: file.name,
@@ -36,9 +38,11 @@ export async function POST(req: Request) {
       startDate,
       endDate,
     })
+    completeXlsxImportProgress()
 
     return NextResponse.json(result)
   } catch (error) {
+    failXlsxImportProgress(error instanceof Error ? error.message : 'Import failed.')
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Import failed.',
     }, { status: 400 })

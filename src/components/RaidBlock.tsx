@@ -54,10 +54,10 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); setHideGuests((v) => !v) }}
-          className={`absolute bottom-3.5 left-4 sm:bottom-4 sm:left-5 z-10 text-[11px] px-2.5 py-1 rounded border font-semibold tracking-[0.04em] transition-colors backdrop-blur-sm ${
+          className={`absolute right-3 top-3 sm:right-auto sm:top-auto sm:left-5 sm:bottom-4 z-10 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors backdrop-blur-sm ${
             hideGuests
               ? 'bg-accent/20 border-accent/35 text-accent'
-              : 'bg-black/40 border-white/10 text-muted hover:text-muted2 hover:border-white/20'
+              : 'bg-black/45 border-white/10 text-muted hover:text-muted2 hover:border-white/20'
           }`}
         >
           {hideGuests ? 'Guild Only' : 'All Players'}

@@ -37,11 +37,11 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onTo
   const filteredFull = (hideGuests
     ? full.filter((e) => e.isGuild).map((e, i) => ({ ...e, rank: i + 1 }))
     : full
-  ).slice(0, 50)
+  )
 
   return (
     <StModal
-      title={`${raid.raidBoss.name} — S${raid.season} · Top 50`}
+      title={`${raid.raidBoss.name} — S${raid.season} · Full Table`}
       onClose={onClose}
       fullScreen
     >
