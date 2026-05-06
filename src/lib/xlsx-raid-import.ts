@@ -14,10 +14,12 @@ type ParsedRaidTitle = {
 }
 
 type RequiredColumn = 'UserId' | 'Username' | 'IGN' | 'Score' | 'Club' | 'Rank' | 'FavoriteStudent'
+type ImportFormat = 'global' | 'jp'
 
 type ImportRow = {
   sheetName: string
   rowNumber: number
+  format: ImportFormat
   userID: string
   username: string
   ign: string
@@ -47,11 +49,27 @@ export type XlsxRaidImportResult = {
 }
 
 const REQUIRED_COLUMNS: RequiredColumn[] = ['UserId', 'Username', 'IGN', 'Score', 'Club', 'Rank', 'FavoriteStudent']
+const JP_REQUIRED_COLUMNS: RequiredColumn[] = ['IGN', 'Score', 'Club', 'Rank', 'FavoriteStudent']
 const IMPORT_SHEET_NAMES = ['Members', 'Guests'] as const
 const TERRAIN_NAMES = ['Urban', 'Indoor', 'Outdoor']
+const COLUMN_ALIASES: Record<RequiredColumn | 'PFP', string[]> = {
+  UserId: ['UserId', 'User ID', 'UID'],
+  Username: ['Username', 'Discord Username'],
+  IGN: ['IGN', 'ign'],
+  Score: ['Score'],
+  Club: ['Club'],
+  Rank: ['Rank'],
+  FavoriteStudent: ['FavoriteStudent', 'Favorite Student', 'FavouriteStudent', 'Favourite Student'],
+  PFP: ['PFP', 'Profile Picture'],
+}
 
 const MANUAL_RAID_BOSS_ALIASES: Record<string, string> = {
   kaiten: 'KAITEN FX Mk.0',
+  wakaboat: 'Hovercraft',
+  wakamoboat: 'Hovercraft',
+  wakamohivercraft: 'Hovercraft',
+  wakamohovercraft: 'Hovercraft',
+  wakamohoverscraft: 'Hovercraft',
 }
 
 function stringValue(value: unknown): string {
@@ -79,10 +97,16 @@ function extractImageUrl(cell: ExcelJS.Cell): string {
   return match?.[1] ?? ''
 }
 
+function columnKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
 export function parseRaidTitleFromFilename(filename: string): ParsedRaidTitle {
   const base = filename
     .replace(/\.[^.]+$/, '')
     .replace(/\s*\(copy\)\s*$/i, '')
+    .replace(/^\s*\((?:jp|japan)\)\s*/i, '')
+    .replace(/^\s*score\s+submission\s*-\s*/i, '')
     .trim()
   const match = base.match(/^(.+?)\s+S(\d+)[\s:_-]+(.+)$/i)
   if (!match) {
@@ -114,19 +138,23 @@ function normalizeRaidBossLookup(value: string): string {
 }
 
 async function resolveRaidBossByName(name: string) {
-  const alias = MANUAL_RAID_BOSS_ALIASES[normalizeRaidBossLookup(name)]
-  if (alias) return resolveRaidBossByName(alias)
+  const normalizedInput = normalizeRaidBossLookup(name)
+  const alias = MANUAL_RAID_BOSS_ALIASES[normalizedInput]
+  if (alias && normalizeRaidBossLookup(alias) !== normalizedInput) return resolveRaidBossByName(alias)
 
   const exact = await prisma.raidBoss.findFirst({
     where: { name: { equals: name, mode: 'insensitive' } },
   })
   if (exact) return exact
 
-  const normalizedName = normalizeRaidBossLookup(name)
+  const normalizedName = normalizedInput
   if (!normalizedName) return null
 
   const bosses = await prisma.raidBoss.findMany()
-  return bosses.find((boss) => normalizeRaidBossLookup(boss.name) === normalizedName) || null
+  return bosses.find((boss) => {
+    const normalizedBossName = normalizeRaidBossLookup(boss.name)
+    return normalizedBossName === normalizedName || normalizedBossName.includes(normalizedName)
+  }) || null
 }
 
 async function identifyStudentFromPfp(pfpUrl: string, studentNames: string[]): Promise<string> {
@@ -195,41 +223,61 @@ async function buildStudentLookup() {
   return buildStudentLookupFromRecords(students)
 }
 
-function columnMap(sheet: ExcelJS.Worksheet) {
+function columnMap(sheet: ExcelJS.Worksheet, requiredColumns: RequiredColumn[]) {
   const header = sheet.getRow(1)
-  const map = new Map<string, number>()
+  const headerColumns = new Map<string, number>()
   header.eachCell((cell, colNumber) => {
-    const key = stringValue(cell.value)
-    if (key) map.set(key, colNumber)
+    const key = columnKey(stringValue(cell.value))
+    if (key) headerColumns.set(key, colNumber)
   })
 
-  const missing = REQUIRED_COLUMNS.filter((column) => !map.has(column))
+  const map = new Map<RequiredColumn | 'PFP', number>()
+  Object.entries(COLUMN_ALIASES).forEach(([column, aliases]) => {
+    const colNumber = aliases
+      .map((alias) => headerColumns.get(columnKey(alias)))
+      .find((value): value is number => typeof value === 'number')
+    if (colNumber) map.set(column as RequiredColumn | 'PFP', colNumber)
+  })
+
+  const missing = requiredColumns.filter((column) => !map.has(column))
   if (missing.length > 0) {
     throw new Error(`${sheet.name} sheet is missing columns: ${missing.join(', ')}`)
   }
-  return map as Map<RequiredColumn | 'PFP', number>
+  return map
 }
 
-function readImportRows(sheet: ExcelJS.Worksheet) {
-  const columns = columnMap(sheet)
+function readImportRows(sheet: ExcelJS.Worksheet, format: ImportFormat) {
+  const columns = columnMap(sheet, format === 'jp' ? JP_REQUIRED_COLUMNS : REQUIRED_COLUMNS)
   const pfpCol = columns.get('PFP')
   const rows: Array<{ rowNumber: number; row: ImportRow | null; reason?: string }> = []
 
   sheet.eachRow((worksheetRow, rowNumber) => {
     if (rowNumber === 1) return
-    const rank = numberValue(worksheetRow.getCell(columns.get('Rank')!).value)
-    if (!rank) return
+    const userID = columns.has('UserId') ? stringValue(worksheetRow.getCell(columns.get('UserId')!).value) : ''
+    const rawIgn = stringValue(worksheetRow.getCell(columns.get('IGN')!).value)
+    const score = Math.round(numberValue(worksheetRow.getCell(columns.get('Score')!).value))
+    const club = stringValue(worksheetRow.getCell(columns.get('Club')!).value)
+    const favouriteStudent = stringValue(worksheetRow.getCell(columns.get('FavoriteStudent')!).value)
+    const rank = numberValue(worksheetRow.getCell(columns.get('Rank')!).value) || rows.length + 1
+    const username = columns.has('Username')
+      ? stringValue(worksheetRow.getCell(columns.get('Username')!).value)
+      : format === 'jp' && rawIgn
+        ? `jp:${rawIgn}`
+        : ''
+
+    if (!userID && !username && !rawIgn && !score && !club && !favouriteStudent) return
 
     const row: ImportRow = {
       sheetName: sheet.name,
       rowNumber,
-      userID: stringValue(worksheetRow.getCell(columns.get('UserId')!).value),
-      username: stringValue(worksheetRow.getCell(columns.get('Username')!).value),
-      ign: stringValue(worksheetRow.getCell(columns.get('IGN')!).value),
-      score: Math.round(numberValue(worksheetRow.getCell(columns.get('Score')!).value)),
-      club: stringValue(worksheetRow.getCell(columns.get('Club')!).value),
+      format,
+      userID,
+      username,
+      ign: rawIgn,
+      score,
+      club,
       rank,
-      favouriteStudent: stringValue(worksheetRow.getCell(columns.get('FavoriteStudent')!).value),
+      favouriteStudent,
       pfpUrl: pfpCol ? extractImageUrl(worksheetRow.getCell(pfpCol)) : undefined,
     }
 
@@ -237,7 +285,7 @@ function readImportRows(sheet: ExcelJS.Worksheet) {
       rows.push({ rowNumber, row: null, reason: `${sheet.name}: Missing player identity.` })
       return
     }
-    if (!row.username || !row.ign) {
+    if (!row.ign || (format === 'global' && !row.username)) {
       rows.push({ rowNumber, row: null, reason: `${sheet.name}: Missing username or IGN.` })
       return
     }
@@ -249,14 +297,31 @@ function readImportRows(sheet: ExcelJS.Worksheet) {
 }
 
 function readWorkbookImportRows(workbook: ExcelJS.Workbook) {
-  return IMPORT_SHEET_NAMES.flatMap((sheetName) => {
+  const hasGlobalSheets = IMPORT_SHEET_NAMES.every((sheetName) => workbook.getWorksheet(sheetName))
+  if (hasGlobalSheets) return IMPORT_SHEET_NAMES.flatMap((sheetName) => {
     const sheet = workbook.getWorksheet(sheetName)
     if (!sheet) throw new Error(`Workbook must contain a ${sheetName} sheet.`)
-    return readImportRows(sheet)
+    return readImportRows(sheet, 'global')
   })
+
+  const jpSheet = workbook.worksheets.find((sheet) => {
+    try {
+      columnMap(sheet, JP_REQUIRED_COLUMNS)
+      return true
+    } catch {
+      return false
+    }
+  })
+  if (jpSheet) return readImportRows(jpSheet, 'jp')
+
+  throw new Error('Workbook must contain Members and Guests sheets, or a JP sheet with ign, Score, Club, Rank, and Favorite Student columns.')
 }
 
 async function findPlayer(row: ImportRow) {
+  if (row.format === 'jp') {
+    return prisma.player.findUnique({ where: { ign: row.ign } }).catch(() => null)
+  }
+
   if (row.userID) {
     const byUserId = await prisma.player.findUnique({ where: { userID: row.userID } })
     if (byUserId) return byUserId

@@ -1388,7 +1388,8 @@ export function AdminPanel() {
             <div className="mb-5">
               <div className="font-bold text-lg">Import</div>
               <div className="text-[13px] text-muted mt-1">
-                Upload an XLSX with Members and Guests sheets. Filename format: Total Assault S74_ Gregorius Indoor.xlsx.
+                Upload a Global XLSX with Members and Guests sheets, or a JP XLSX with ign, Score, Club, Rank, and Favorite Student columns.
+                Filename format: Total Assault S74_ Gregorius Indoor.xlsx or (JP) Score Submission - Total Assault S85_ Wakaboat Outdoor.xlsx.
               </div>
             </div>
 

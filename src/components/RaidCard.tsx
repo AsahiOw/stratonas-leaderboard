@@ -72,9 +72,6 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
   const portraitOffset = getPortraitOffset(entry.favouriteStudentId, entry.favouriteStudentPortraitOffset)
   const seasonLabel = `S${raid.season}: ${raid.raidBoss.name} ${raid.terrain.name}`
   const headerLabel = `Stratonas ${raid.type.name} Leaderboard`
-  const isPodium = elevated && entry.rank <= 3
-  const podiumMetal = entry.rank === 1 ? '#f8d76b' : entry.rank === 2 ? '#d7e0ea' : '#d8a06a'
-  const podiumLabel = entry.rank === 1 ? 'Champion' : entry.rank === 2 ? 'Runner-up' : 'Third Place'
 
   // Two-tone overlay: left 25% tint, feather 71%–77%, right fully opaque
   const leftCol = rgba(tintColor, 0.25)
@@ -193,53 +190,13 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
         if (event.pointerType !== 'mouse') setIsInteracting(false)
       }}
       style={{
-        borderColor: isPodium ? `${podiumMetal}cc` : `${clubAccent}${elevated ? '80' : '40'}`,
-        boxShadow: isPodium
-          ? `0 0 0 1px ${podiumMetal}88, 0 0 0 3px ${clubAccent}35, 0 24px 60px rgba(0,0,0,0.52), 0 0 38px ${podiumMetal}30`
-          : elevated
-            ? `0 0 0 1px ${clubAccent}44, 0 22px 54px rgba(0,0,0,0.48), 0 0 30px ${clubAccent}18`
-            : `0 12px 30px rgba(0,0,0,0.28), 0 0 18px ${clubAccent}10`,
+        borderColor: `${clubAccent}${elevated ? '80' : '40'}`,
+        boxShadow: elevated
+          ? `0 0 0 1px ${clubAccent}44, 0 22px 54px rgba(0,0,0,0.48), 0 0 30px ${clubAccent}18`
+          : `0 12px 30px rgba(0,0,0,0.28), 0 0 18px ${clubAccent}10`,
         containerType: 'inline-size',
       }}
     >
-      {isPodium ? (
-        <>
-          <div
-            className="pointer-events-none absolute inset-[2.1%] z-[8] rounded-[4px] border"
-            style={{
-              borderColor: `${podiumMetal}b8`,
-              boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.24), inset 0 0 28px ${podiumMetal}22`,
-            }}
-          />
-          <div className="pointer-events-none absolute inset-0 z-[9]" aria-hidden="true">
-            {[
-              ['left-[2.1%] top-[2.1%] border-l border-t'],
-              ['right-[2.1%] top-[2.1%] border-r border-t'],
-              ['bottom-[2.1%] left-[2.1%] border-b border-l'],
-              ['bottom-[2.1%] right-[2.1%] border-b border-r'],
-            ].map((className) => (
-              <span
-                key={className}
-                className={`absolute h-[12%] w-[7%] ${className}`}
-                style={{ borderColor: podiumMetal }}
-              />
-            ))}
-          </div>
-          <div
-            className="pointer-events-none absolute right-[3.4%] top-[5%] z-[10] rounded-sm border px-[2.4%] py-[1.2%] text-right uppercase leading-none"
-            style={{
-              borderColor: `${podiumMetal}cc`,
-              background: `linear-gradient(135deg, ${rgba(podiumMetal, 0.92)} 0%, ${rgba(clubAccent, 0.78)} 100%)`,
-              boxShadow: '0 8px 20px rgba(0,0,0,0.28)',
-              color: '#101014',
-            }}
-          >
-            <div className="font-display text-[6.5cqw] font-bold tracking-normal">#{entry.rank}</div>
-            <div className="mt-[0.4cqw] font-sans text-[2cqw] font-black tracking-[0.12em]">{podiumLabel}</div>
-          </div>
-        </>
-      ) : null}
-
       {/* z-0 — Memorial lobby video (design parity: 200%x200% + translate/scale + contain) */}
       <div className="absolute inset-0 z-0 overflow-hidden bg-[#ddd]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
