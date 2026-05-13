@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import ExcelJS from 'exceljs'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { resolveClub } from '@/lib/clubs'
 import { resolveRaidServer, resolveRaidTerrain, resolveRaidType } from '@/lib/raid-lookups'
@@ -28,6 +29,18 @@ type ImportRow = {
   rank: number
   favouriteStudent: string
   pfpUrl?: string
+}
+
+type PlayerImportData = {
+  ign: string
+  username: string
+  userID: string | null
+  favouriteStudent: string | null
+  favouriteStudentId: number | null
+  club: string
+  clubID: string | null
+  clubId: string | null
+  isGuildMember: boolean
 }
 
 export type XlsxRaidImportResult = {
@@ -319,7 +332,7 @@ function readWorkbookImportRows(workbook: ExcelJS.Workbook) {
 
 async function findPlayer(row: ImportRow) {
   if (row.format === 'jp') {
-    return prisma.player.findUnique({ where: { ign: row.ign } }).catch(() => null)
+    return prisma.player.findUnique({ where: { username: row.username } }).catch(() => null)
   }
 
   if (row.userID) {
@@ -328,7 +341,44 @@ async function findPlayer(row: ImportRow) {
   }
   const byUsername = await prisma.player.findUnique({ where: { username: row.username } }).catch(() => null)
   if (byUsername) return byUsername
-  return prisma.player.findUnique({ where: { ign: row.ign } }).catch(() => null)
+  return null
+}
+
+function uniqueConstraintFields(error: unknown) {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') return []
+  const target = error.meta?.target
+  if (Array.isArray(target)) return target.map(String)
+  if (typeof target === 'string') return [target]
+  return []
+}
+
+async function findPlayerByUniqueImportData(data: PlayerImportData, fields: string[]) {
+  if (fields.includes('userID') && data.userID) {
+    const player = await prisma.player.findUnique({ where: { userID: data.userID } }).catch(() => null)
+    if (player) return player
+  }
+  if (fields.includes('username') && data.username) {
+    const player = await prisma.player.findUnique({ where: { username: data.username } }).catch(() => null)
+    if (player) return player
+  }
+  return null
+}
+
+async function savePlayerForImport(player: Awaited<ReturnType<typeof findPlayer>>, data: PlayerImportData) {
+  if (player) return { player: await prisma.player.update({ where: { id: player.id }, data }), created: false }
+
+  try {
+    return { player: await prisma.player.create({ data }), created: true }
+  } catch (error) {
+    const fields = uniqueConstraintFields(error)
+    const existingPlayer = await findPlayerByUniqueImportData(data, fields)
+    if (!existingPlayer) throw error
+
+    return {
+      player: await prisma.player.update({ where: { id: existingPlayer.id }, data }),
+      created: false,
+    }
+  }
 }
 
 export async function importRaidXlsx(options: {
@@ -452,7 +502,7 @@ export async function importRaidXlsx(options: {
         ? player.favouriteStudentId
         : null
 
-    const playerData = {
+    const playerData: PlayerImportData = {
       ign: row.ign,
       username: row.username,
       userID: row.userID || null,
@@ -464,12 +514,11 @@ export async function importRaidXlsx(options: {
       isGuildMember: Boolean(club),
     }
 
-    const savedPlayer = player
-      ? await prisma.player.update({ where: { id: player.id }, data: playerData })
-      : await prisma.player.create({ data: playerData })
+    const savedPlayerResult = await savePlayerForImport(player, playerData)
+    const savedPlayer = savedPlayerResult.player
 
-    if (player) playersUpdated += 1
-    else playersCreated += 1
+    if (savedPlayerResult.created) playersCreated += 1
+    else playersUpdated += 1
 
     const existingEntry = await prisma.raidEntry.findUnique({
       where: { playerId_raidId: { playerId: savedPlayer.id, raidId: raid.id } },

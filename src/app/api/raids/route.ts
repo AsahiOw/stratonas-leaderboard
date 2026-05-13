@@ -14,7 +14,7 @@ const raidInclude = {
 export async function GET() {
   const raids = await prisma.raid.findMany({
     include: raidInclude,
-    orderBy: [{ startDate: 'asc' }, { season: 'asc' }],
+    orderBy: [{ startDate: 'desc' }, { season: 'desc' }],
   })
   return NextResponse.json(withRaidActivity(raids))
 }

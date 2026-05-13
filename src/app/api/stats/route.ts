@@ -22,7 +22,7 @@ function avg(total: number, count: number) {
 export async function GET() {
   const [players, raids, entries] = await Promise.all([
     prisma.player.findMany(),
-    prisma.raid.findMany({ include: raidInclude, orderBy: [{ startDate: 'asc' }, { season: 'asc' }] }),
+    prisma.raid.findMany({ include: raidInclude, orderBy: [{ startDate: 'desc' }, { season: 'desc' }] }),
     prisma.raidEntry.findMany({
       include: { player: true, raid: { include: raidInclude } },
       orderBy: { score: 'desc' },

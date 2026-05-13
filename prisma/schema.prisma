@@ -26,7 +26,7 @@ enum Role {
 
 model Player {
   id               String       @id @default(cuid())
-  ign              String       @unique
+  ign              String
   username         String       @unique
   isGuildMember    Boolean      @default(true)
   favouriteStudent String?
@@ -40,6 +40,7 @@ model Player {
   userID           String?      @unique
   entries          RaidEntry[]
 
+  @@index([ign])
   @@index([favouriteStudentId])
   @@index([clubId])
 }

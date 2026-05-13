@@ -958,7 +958,7 @@ export function AdminPanel() {
               </div>
               <button onClick={openAddClub} className={addBtnClass}>+ Add Club</button>
             </div>
-            {renderListControls('clubs', clubs.length, filteredClubs.length, visibleClubs.length, 'Search clubs by name, UID, color, logo URL, or player count...')}
+            {renderListControls('clubs', clubs.length, filteredClubs.length, visibleClubs.length, 'Search clubs by name, UID, color, logo path, or player count...')}
 
             <div className="bg-card border border-border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
@@ -979,7 +979,7 @@ export function AdminPanel() {
                           {c.logo ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={proxyImage(c.logo)}
+                              src={imageSrc(c.logo)}
                               alt={c.name}
                               className="w-9 h-9 rounded-lg object-cover border border-border"
                               onError={e => (e.currentTarget.style.display = 'none')}
@@ -1667,20 +1667,20 @@ export function AdminPanel() {
                 />
               </StField>
             </div>
-            <StField label="LOGO URL" span2>
+            <StField label="LOGO PATH OR URL" span2>
               <input
                 className={inputClass}
-                type="url"
+                type="text"
                 value={cForm.logo}
                 onChange={e => setCForm(f => ({ ...f, logo: e.target.value }))}
-                placeholder="https://..."
+                placeholder="/assets/clubs/Gehenna.png or https://..."
               />
             </StField>
             {cForm.logo && (
               <div className="mb-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={proxyImage(cForm.logo)}
+                  src={imageSrc(cForm.logo)}
                   alt="Preview"
                   className="h-16 w-16 rounded-xl border border-border object-cover"
                   onError={e => (e.currentTarget.style.display = 'none')}

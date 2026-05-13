@@ -9,9 +9,7 @@ const raidInclude = { raidBoss: true, type: true, server: true, terrain: true } 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url)
   const ign = searchParams.get('ign')
-
-  const player = await prisma.player.findUnique({
-    where: ign ? { ign } : { id: params.id },
+  const playerInclude = {
     include: {
       favouriteStudentData: true,
       clubData: true,
@@ -20,7 +18,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         orderBy: { score: 'desc' },
       },
     },
-  })
+  } as const
+
+  const player = ign
+    ? await prisma.player.findFirst({ where: { ign }, ...playerInclude })
+    : await prisma.player.findUnique({ where: { id: params.id }, ...playerInclude })
 
   if (!player) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
