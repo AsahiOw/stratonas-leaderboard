@@ -1,5 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
+import { invalidatePublicData } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
 import {
   normalizeOptionalStudentText,
@@ -277,6 +278,7 @@ async function runStudentImport() {
         completedAt: new Date(),
       },
     })
+    invalidatePublicData()
   } catch (error) {
     await prisma.studentImportState.update({
       where: { id: STUDENT_IMPORT_ID },

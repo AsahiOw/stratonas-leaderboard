@@ -127,6 +127,7 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
           onPlayerClick={onPlayerClick}
           hideGuests={hideGuests}
           onToggleGuests={() => setHideGuests((v) => !v)}
+          initialEntries={entries}
         />
       )}
     </div>

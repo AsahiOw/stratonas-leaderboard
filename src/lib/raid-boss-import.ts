@@ -1,3 +1,4 @@
+import { invalidatePublicData } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
 
 export const RAID_BOSS_IMPORT_ID = 'schaledb-raid-bosses'
@@ -173,6 +174,7 @@ async function runRaidBossImport() {
         completedAt: new Date(),
       },
     })
+    invalidatePublicData()
   } catch (error) {
     await prisma.raidBossImportState.update({
       where: { id: RAID_BOSS_IMPORT_ID },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 import { normalizeStudentId } from '@/lib/students'
 
 export async function GET() {
@@ -45,5 +46,6 @@ export async function POST(req: Request) {
       isGuildMember,
     },
   })
+  invalidatePublicData()
   return NextResponse.json(player, { status: 201 })
 }

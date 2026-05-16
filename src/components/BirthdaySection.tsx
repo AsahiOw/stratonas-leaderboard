@@ -25,7 +25,7 @@ export function BirthdaySection() {
     let timer: number | undefined
 
     async function loadBirthdays() {
-      const res = await fetch('/api/birthdays/today', { cache: 'no-store' })
+      const res = await fetch('/api/birthdays/today')
       if (!res.ok) throw new Error('Birthday lookup failed')
       const body = (await res.json()) as BirthdayResponse
       if (alive) setData(body)

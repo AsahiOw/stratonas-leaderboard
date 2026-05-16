@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 import {
   normalizePortraitOffsetNumber,
   normalizePortraitScale,
@@ -57,5 +58,6 @@ export async function POST(req: Request) {
       portraitScale,
     },
   })
+  invalidatePublicData()
   return NextResponse.json(student, { status: 201 })
 }

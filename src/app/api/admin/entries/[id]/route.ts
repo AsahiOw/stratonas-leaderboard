@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
@@ -13,6 +14,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       score: Number(body.score) || 0,
     },
   })
+  invalidatePublicData()
   return NextResponse.json(entry)
 }
 
@@ -21,5 +23,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (guard) return guard
   const { id } = await params
   await prisma.raidEntry.delete({ where: { id } })
+  invalidatePublicData()
   return NextResponse.json({ ok: true })
 }

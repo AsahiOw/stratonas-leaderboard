@@ -1,26 +1,8 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { jsonWithPublicCache } from '@/lib/cache'
+import { getPublicPlayers } from '@/lib/public-data'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const players = await prisma.player.findMany({
-    where: { isGuildMember: true },
-    orderBy: { ign: 'asc' },
-    select: {
-      id: true,
-      ign: true,
-      username: true,
-      favouriteStudent: true,
-      favouriteStudentId: true,
-      favouriteStudentData: true,
-      club: true,
-      clubID: true,
-      clubId: true,
-      clubData: true,
-      userID: true,
-      joinedDate: true,
-    },
-  })
-  return NextResponse.json(players)
+  return jsonWithPublicCache(await getPublicPlayers())
 }

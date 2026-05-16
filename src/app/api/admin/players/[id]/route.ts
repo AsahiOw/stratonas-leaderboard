@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 import { normalizeStudentId } from '@/lib/students'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -37,6 +38,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       isGuildMember,
     },
   })
+  invalidatePublicData()
   return NextResponse.json(player)
 }
 
@@ -46,5 +48,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   await prisma.raidEntry.deleteMany({ where: { playerId: id } })
   await prisma.player.delete({ where: { id } })
+  invalidatePublicData()
   return NextResponse.json({ ok: true })
 }

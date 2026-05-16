@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 
 export async function GET() {
   const guard = await requireAdmin()
@@ -30,5 +31,6 @@ export async function POST(req: Request) {
   if (existing) return NextResponse.json({ error: 'Club already exists.' }, { status: 409 })
 
   const club = await prisma.club.create({ data: { name, uid, logo, color } })
+  invalidatePublicData()
   return NextResponse.json(club, { status: 201 })
 }

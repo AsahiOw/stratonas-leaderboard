@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 import {
   normalizePortraitOffsetNumber,
   normalizePortraitScale,
@@ -55,6 +56,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     data: { favouriteStudent: student.name },
   })
 
+  invalidatePublicData()
   return NextResponse.json(student)
 }
 
@@ -70,5 +72,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     data: { favouriteStudentId: null },
   })
   await prisma.student.delete({ where: { id } })
+  invalidatePublicData()
   return NextResponse.json({ ok: true })
 }

@@ -23,16 +23,23 @@ interface Props {
   onPlayerClick?: (playerId: string) => void
   hideGuests: boolean
   onToggleGuests: () => void
+  initialEntries?: TableEntry[]
 }
 
-export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onToggleGuests }: Props) {
-  const [full, setFull] = useState<TableEntry[]>([])
+export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onToggleGuests, initialEntries = [] }: Props) {
+  const [full, setFull] = useState<TableEntry[]>(initialEntries)
 
   useEffect(() => {
+    if (initialEntries.length > 0) {
+      setFull(initialEntries)
+      return
+    }
+
     fetch(`/api/raids/${raid.id}/entries`)
       .then((r) => r.json())
       .then((data: TableEntry[]) => setFull(data))
-  }, [raid.id])
+      .catch(() => undefined)
+  }, [initialEntries, raid.id])
 
   const filteredFull = (hideGuests
     ? full.filter((e) => e.isGuild).map((e, i) => ({ ...e, rank: i + 1 }))

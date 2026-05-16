@@ -1,20 +1,8 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { withRaidActivity } from '@/lib/raid-activity'
+import { jsonWithPublicCache } from '@/lib/cache'
+import { getPublicRaids } from '@/lib/public-data'
 
 export const dynamic = 'force-dynamic'
 
-const raidInclude = {
-  raidBoss: true,
-  type: true,
-  server: true,
-  terrain: true,
-} as const
-
 export async function GET() {
-  const raids = await prisma.raid.findMany({
-    include: raidInclude,
-    orderBy: [{ startDate: 'desc' }, { season: 'desc' }],
-  })
-  return NextResponse.json(withRaidActivity(raids))
+  return jsonWithPublicCache(await getPublicRaids())
 }

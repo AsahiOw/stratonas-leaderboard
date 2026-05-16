@@ -1,40 +1,18 @@
-import { NextResponse } from 'next/server'
-import { getBirthdayDay, getNextBirthdayRefreshAt } from '@/lib/birthdays'
-import { prisma } from '@/lib/prisma'
+import { getNextBirthdayRefreshAt } from '@/lib/birthdays'
+import { birthdayCacheControl, jsonWithPublicCache } from '@/lib/cache'
+import { getCurrentBirthdayDay, getPublicBirthdayStudents } from '@/lib/public-data'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const birthdayDay = getBirthdayDay()
-  const students = await prisma.student.findMany({
-    where: { birthDay: birthdayDay.key },
-    orderBy: { name: 'asc' },
-    select: {
-      id: true,
-      name: true,
-      image: true,
-      memorial: true,
-      familyName: true,
-      personalName: true,
-      school: true,
-      club: true,
-      schoolYear: true,
-      characterAge: true,
-      birthday: true,
-      birthDay: true,
-      hobby: true,
-      heightMetric: true,
-      weaponType: true,
-      tacticRole: true,
-      position: true,
-      weaponName: true,
-      accentColor: true,
-    },
+  const birthdayDay = getCurrentBirthdayDay()
+  const nextRefreshAt = getNextBirthdayRefreshAt()
+  const response = jsonWithPublicCache({
+    birthdayKey: birthdayDay.key,
+    nextRefreshAt: nextRefreshAt.toISOString(),
+    students: await getPublicBirthdayStudents(birthdayDay.key),
   })
 
-  return NextResponse.json({
-    birthdayKey: birthdayDay.key,
-    nextRefreshAt: getNextBirthdayRefreshAt().toISOString(),
-    students,
-  })
+  response.headers.set('Cache-Control', birthdayCacheControl(nextRefreshAt))
+  return response
 }

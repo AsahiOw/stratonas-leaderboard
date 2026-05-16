@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 import { resolveRaidServer, resolveRaidTerrain, resolveRaidType } from '@/lib/raid-lookups'
 
 const raidInclude = {
@@ -38,6 +39,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     },
     include: raidInclude,
   })
+  invalidatePublicData()
   return NextResponse.json(raid)
 }
 
@@ -47,5 +49,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params
   await prisma.raidEntry.deleteMany({ where: { raidId: id } })
   await prisma.raid.delete({ where: { id } })
+  invalidatePublicData()
   return NextResponse.json({ ok: true })
 }

@@ -1,19 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
-import { getRankedRaidEntries } from '@/lib/raid-entries'
+import { getPublicRaid, getPublicRaidEntries } from '@/lib/public-data'
 import { LeaderboardCardGrid } from '@/components/LeaderboardCardGrid'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { fmtDate, imageSrc } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
-
-const raidInclude = {
-  raidBoss: true,
-  type: true,
-  server: true,
-  terrain: true,
-} as const
 
 const divisions = [
   {
@@ -49,13 +41,10 @@ const divisions = [
 
 export default async function RaidLeaderboardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const raid = await prisma.raid.findUnique({
-    where: { id },
-    include: raidInclude,
-  })
+  const raid = await getPublicRaid(id)
   if (!raid) notFound()
 
-  const entries = await getRankedRaidEntries(id, 50, { guildOnly: true })
+  const entries = await getPublicRaidEntries(id, 50, true)
   const topPlayer = entries[0]
   const cardRaid = {
     raidBoss: raid.raidBoss,

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { Navbar } from '@/components/Navbar'
 import { RaidBlock } from '@/components/RaidBlock'
@@ -52,15 +52,19 @@ export function LeaderboardApp({ initialRaids }: Props) {
     admin: false,
   })
 
-  useEffect(() => {
-    initialRaids.forEach((raid) => {
-      fetch(`/api/raids/${raid.id}/entries`)
+  const loadRaidEntries = useCallback((raidIds: string[]) => {
+    const missingRaidIds = raidIds.filter((id) => !raidEntries[id])
+    if (missingRaidIds.length === 0) return
+
+    missingRaidIds.forEach((raidId) => {
+      fetch(`/api/raids/${raidId}/entries`)
         .then((r) => r.json())
         .then((entries: TableEntry[]) => {
-          setRaidEntries((prev) => ({ ...prev, [raid.id]: entries }))
+          setRaidEntries((prev) => ({ ...prev, [raidId]: entries }))
         })
+        .catch(() => undefined)
     })
-  }, [initialRaids])
+  }, [raidEntries])
 
   useEffect(() => {
     setVisitedTabs((prev) => prev[tab] ? prev : { ...prev, [tab]: true })
@@ -79,16 +83,33 @@ export function LeaderboardApp({ initialRaids }: Props) {
     setProfilePlayerId(playerId)
   }
 
-  function matchesServer(raid: RaidData): boolean {
+  const matchesServer = useCallback((raid: RaidData): boolean => {
     if (serverFilter === 'all') return true
     if (serverFilter === 'global') return raid.server.name === 'Global'
     if (serverFilter === 'jp') return raid.server.name === 'Japan'
     return true
-  }
+  }, [serverFilter])
 
-  const latestRaids = initialRaids.filter((r) => r.isActive && matchesServer(r))
-  const previousRaids = initialRaids.filter((r) => !r.isActive && matchesServer(r))
-  const previousCount = initialRaids.filter((r) => !r.isActive).length
+  const latestRaids = useMemo(
+    () => initialRaids.filter((r) => r.isActive && matchesServer(r)),
+    [initialRaids, matchesServer]
+  )
+  const previousRaids = useMemo(
+    () => initialRaids.filter((r) => !r.isActive && matchesServer(r)),
+    [initialRaids, matchesServer]
+  )
+  const previousCount = useMemo(
+    () => initialRaids.filter((r) => !r.isActive).length,
+    [initialRaids]
+  )
+
+  useEffect(() => {
+    loadRaidEntries(latestRaids.map((raid) => raid.id))
+  }, [latestRaids, loadRaidEntries])
+
+  useEffect(() => {
+    if (visitedTabs.previous) loadRaidEntries(previousRaids.map((raid) => raid.id))
+  }, [previousRaids, visitedTabs.previous, loadRaidEntries])
 
   function handleLogin() {
     setShowLogin(false)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 import { importRaidXlsx } from '@/lib/xlsx-raid-import'
 import { completeXlsxImportProgress, failXlsxImportProgress, resetXlsxImportProgress } from '@/lib/xlsx-import-progress'
 
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
       endDate,
     })
     completeXlsxImportProgress()
+    invalidatePublicData()
 
     return NextResponse.json(result)
   } catch (error) {

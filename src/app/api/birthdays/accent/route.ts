@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getBirthdayDay } from '@/lib/birthdays'
+import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
 import { normalizeStudentAccentColor, normalizeStudentId } from '@/lib/students'
 
@@ -27,5 +28,6 @@ export async function POST(req: Request) {
     data: { accentColor },
   })
 
+  if (result.count > 0) invalidatePublicData([PUBLIC_CACHE_TAGS.birthdays, PUBLIC_CACHE_TAGS.students])
   return NextResponse.json({ saved: result.count > 0 })
 }

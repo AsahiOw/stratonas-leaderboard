@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 
 const raidInclude = { raidBoss: true, type: true, server: true, terrain: true } as const
 
@@ -28,5 +29,6 @@ export async function POST(req: Request) {
       score:    Number(body.score) || 0,
     },
   })
+  invalidatePublicData()
   return NextResponse.json(entry, { status: 201 })
 }

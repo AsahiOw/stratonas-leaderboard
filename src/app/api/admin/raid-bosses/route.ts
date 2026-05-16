@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { invalidatePublicData } from '@/lib/cache'
 
 export async function GET() {
   const guard = await requireAdmin()
@@ -23,5 +24,6 @@ export async function POST(req: Request) {
       pattern:     body.pattern || 'hex',
     },
   })
+  invalidatePublicData()
   return NextResponse.json(boss, { status: 201 })
 }
