@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
+  const { id } = await params
 
   const body = await req.json()
   const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -15,32 +16,33 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const duplicate = await prisma.club.findFirst({
     where: {
-      id: { not: params.id },
+      id: { not: id },
       name: { equals: name, mode: 'insensitive' },
     },
   })
   if (duplicate) return NextResponse.json({ error: 'Club already exists.' }, { status: 409 })
 
   const club = await prisma.club.update({
-    where: { id: params.id },
+    where: { id },
     data: { name, uid, logo, color },
   })
   await prisma.player.updateMany({
-    where: { clubId: params.id },
+    where: { clubId: id },
     data: { club: name, clubID: uid },
   })
 
   return NextResponse.json(club)
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
+  const { id } = await params
 
   await prisma.player.updateMany({
-    where: { clubId: params.id },
+    where: { clubId: id },
     data: { clubId: null },
   })
-  await prisma.club.delete({ where: { id: params.id } })
+  await prisma.club.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

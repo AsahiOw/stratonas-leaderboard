@@ -11,10 +11,11 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
-  const id = normalizeStudentId(params.id)
+  const { id: rawId } = await params
+  const id = normalizeStudentId(rawId)
   if (!id) return NextResponse.json({ error: 'Invalid student id' }, { status: 400 })
 
   const body = await req.json()
@@ -57,10 +58,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return NextResponse.json(student)
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
-  const id = normalizeStudentId(params.id)
+  const { id: rawId } = await params
+  const id = normalizeStudentId(rawId)
   if (!id) return NextResponse.json({ error: 'Invalid student id' }, { status: 400 })
 
   await prisma.player.updateMany({

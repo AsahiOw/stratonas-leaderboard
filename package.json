@@ -7,7 +7,7 @@
     "dev:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-local.ps1",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test:student-lookup": "ts-node --project tsconfig.seed.json src/lib/student-name-matcher.test.ts",
     "postgres:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-postgres.ps1",
     "postgres:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-local-postgres.ps1",
@@ -29,13 +29,16 @@
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "exceljs": "^4.4.0",
-    "next": "14.2.21",
-    "next-auth": "^5.0.0-beta.25",
+    "next": "^16.2.6",
+    "next-auth": "^5.0.0-beta.31",
     "react": "^18",
     "react-dom": "^18"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
+  },
+  "overrides": {
+    "postcss": "$postcss"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -43,9 +46,9 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.20",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.21",
-    "postcss": "^8",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
+    "postcss": "^8.5.12",
     "prisma": "^5.22.0",
     "puppeteer": "^22.15.0",
     "tailwindcss": "^3.4.17",

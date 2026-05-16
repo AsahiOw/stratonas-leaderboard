@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
+  const { id } = await params
   const body = await req.json()
   const boss = await prisma.raidBoss.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       name:        body.name,
       description: body.description || '',
@@ -18,7 +19,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     },
   })
   await prisma.raid.updateMany({
-    where: { raidBossId: params.id },
+    where: { raidBossId: id },
     data: {
       color:   boss.color,
       color2:  boss.color2,
@@ -28,9 +29,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return NextResponse.json(boss)
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
-  await prisma.raidBoss.delete({ where: { id: params.id } })
+  const { id } = await params
+  await prisma.raidBoss.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

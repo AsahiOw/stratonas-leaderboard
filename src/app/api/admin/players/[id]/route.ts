@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { normalizeStudentId } from '@/lib/students'
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
+  const { id } = await params
   const body = await req.json()
   const isGuildMember = body.isGuildMember ?? true
   const clubData = isGuildMember && typeof body.clubId === 'string' && body.clubId.trim()
@@ -22,7 +23,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     ? await prisma.student.findUnique({ where: { id: favouriteStudentId } })
     : null
   const player = await prisma.player.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ign: body.ign,
       username: body.username,
@@ -39,10 +40,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return NextResponse.json(player)
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
-  await prisma.raidEntry.deleteMany({ where: { playerId: params.id } })
-  await prisma.player.delete({ where: { id: params.id } })
+  const { id } = await params
+  await prisma.raidEntry.deleteMany({ where: { playerId: id } })
+  await prisma.player.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

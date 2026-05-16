@@ -2,7 +2,7 @@ import fsPromises from 'fs/promises'
 import path from 'path'
 import { NextRequest, NextResponse } from 'next/server'
 
-const POSTERS_DIR = path.join(process.cwd(), 'Development_data', 'lobby-posters')
+const POSTERS_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), 'Development_data', 'lobby-posters')
 
 const POSTER_TYPES = [
   { ext: '.jpg', contentType: 'image/jpeg' },
@@ -10,6 +10,7 @@ const POSTER_TYPES = [
 ]
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 function posterBaseName(file: string) {
   const parsed = path.parse(file)
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     let filePath = ''
     let contentType = ''
     for (const posterType of POSTER_TYPES) {
-      const nextPath = path.join(POSTERS_DIR, `${posterBase}${posterType.ext}`)
+      const nextPath = path.join(/*turbopackIgnore: true*/ POSTERS_DIR, `${posterBase}${posterType.ext}`)
       try {
         const stats = await fsPromises.stat(nextPath)
         if (stats.isFile()) {

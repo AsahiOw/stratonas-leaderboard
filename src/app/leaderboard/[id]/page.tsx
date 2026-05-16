@@ -47,14 +47,15 @@ const divisions = [
   },
 ]
 
-export default async function RaidLeaderboardPage({ params }: { params: { id: string } }) {
+export default async function RaidLeaderboardPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const raid = await prisma.raid.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: raidInclude,
   })
   if (!raid) notFound()
 
-  const entries = await getRankedRaidEntries(params.id, 50, { guildOnly: true })
+  const entries = await getRankedRaidEntries(id, 50, { guildOnly: true })
   const topPlayer = entries[0]
   const cardRaid = {
     raidBoss: raid.raidBoss,

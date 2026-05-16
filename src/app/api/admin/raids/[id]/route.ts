@@ -10,9 +10,10 @@ const raidInclude = {
   terrain: true,
 } as const
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
+  const { id } = await params
   const body = await req.json()
   const boss = await prisma.raidBoss.findUnique({ where: { id: body.raidBossId } })
   const type = await resolveRaidType(body.typeId)
@@ -22,7 +23,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: 'Raid boss, type, server, and terrain are required' }, { status: 400 })
   }
   const raid = await prisma.raid.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       raidBossId: body.raidBossId,
       season:     Number(body.season) || 1,
@@ -40,10 +41,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return NextResponse.json(raid)
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
-  await prisma.raidEntry.deleteMany({ where: { raidId: params.id } })
-  await prisma.raid.delete({ where: { id: params.id } })
+  const { id } = await params
+  await prisma.raidEntry.deleteMany({ where: { raidId: id } })
+  await prisma.raid.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

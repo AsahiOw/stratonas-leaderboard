@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic'
 
 const raidInclude = { raidBoss: true, type: true, server: true, terrain: true } as const
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const { searchParams } = new URL(req.url)
   const ign = searchParams.get('ign')
   const playerInclude = {
@@ -22,7 +23,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   const player = ign
     ? await prisma.player.findFirst({ where: { ign }, ...playerInclude })
-    : await prisma.player.findUnique({ where: { id: params.id }, ...playerInclude })
+    : await prisma.player.findUnique({ where: { id }, ...playerInclude })
 
   if (!player) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 

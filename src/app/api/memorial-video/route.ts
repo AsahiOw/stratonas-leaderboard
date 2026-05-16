@@ -2,12 +2,13 @@ import fsPromises from 'fs/promises'
 import path from 'path'
 import { NextRequest, NextResponse } from 'next/server'
 
-const ORIGINAL_LOBBIES_DIR = path.join(process.cwd(), 'Development_data', 'lobbies')
-const OPTIMIZED_LOBBIES_DIR = path.join(process.cwd(), 'Development_data', 'lobbies-optimized')
+const ORIGINAL_LOBBIES_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), 'Development_data', 'lobbies')
+const OPTIMIZED_LOBBIES_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), 'Development_data', 'lobbies-optimized')
 const VIDEO_CONTENT_TYPE = 'video/mp4'
 const STREAM_CHUNK_SIZE = 1024 * 256
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 function parseRange(range: string | null, size: number) {
   if (!range) return null
@@ -29,7 +30,7 @@ function parseRange(range: string | null, size: number) {
 
 async function findVideoPath(file: string) {
   for (const dir of [OPTIMIZED_LOBBIES_DIR, ORIGINAL_LOBBIES_DIR]) {
-    const filePath = path.join(dir, file)
+    const filePath = path.join(/*turbopackIgnore: true*/ dir, file)
     try {
       const stats = await fsPromises.stat(filePath)
       if (stats.isFile()) return { filePath, stats }
