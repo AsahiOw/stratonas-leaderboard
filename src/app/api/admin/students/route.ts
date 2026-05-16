@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
-import { normalizePortraitOffsetNumber, normalizePortraitScale, normalizeStudentId, studentImageUrl } from '@/lib/students'
+import {
+  normalizePortraitOffsetNumber,
+  normalizePortraitScale,
+  normalizeStudentCardFields,
+  normalizeStudentId,
+  studentImageUrl,
+} from '@/lib/students'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +35,7 @@ export async function POST(req: Request) {
   const portraitOffsetX = normalizePortraitOffsetNumber(body.portraitOffsetX, 0)
   const portraitOffsetY = normalizePortraitOffsetNumber(body.portraitOffsetY, 0)
   const portraitScale = normalizePortraitScale(body.portraitScale)
+  const cardFields = normalizeStudentCardFields(body)
 
   if (!id || !name || !image) {
     return NextResponse.json({ error: 'Student id, name, and image are required' }, { status: 400 })
@@ -41,6 +48,7 @@ export async function POST(req: Request) {
       image,
       portrait,
       memorial,
+      ...cardFields,
       memorialOffsetX,
       memorialOffsetY,
       memorialScale,

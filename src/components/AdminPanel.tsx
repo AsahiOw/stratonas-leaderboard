@@ -21,6 +21,10 @@ interface Player {
 
 interface Student {
   id: number; name: string; image: string; portrait?: string | null; memorial?: string | null
+  familyName?: string | null; personalName?: string | null; school?: string | null; club?: string | null
+  schoolYear?: string | null; characterAge?: string | null; birthday?: string | null; birthDay?: string | null
+  hobby?: string | null; heightMetric?: string | null; weaponType?: string | null; tacticRole?: string | null
+  position?: string | null; weaponName?: string | null
   memorialOffsetX: number; memorialOffsetY: number; memorialScale: number
   portraitOffsetX: number; portraitOffsetY: number; portraitScale: number
 }
@@ -384,6 +388,20 @@ export function AdminPanel() {
     image: '',
     portrait: '',
     memorial: '',
+    familyName: '',
+    personalName: '',
+    school: '',
+    club: '',
+    schoolYear: '',
+    characterAge: '',
+    birthday: '',
+    birthDay: '',
+    hobby: '',
+    heightMetric: '',
+    weaponType: '',
+    tacticRole: '',
+    position: '',
+    weaponName: '',
     memorialOffsetX: '-7.6',
     memorialOffsetY: '0',
     memorialScale: '0.5',
@@ -401,6 +419,20 @@ export function AdminPanel() {
       image: s.image,
       portrait: s.portrait || '',
       memorial: s.memorial || '',
+      familyName: s.familyName || '',
+      personalName: s.personalName || '',
+      school: s.school || '',
+      club: s.club || '',
+      schoolYear: s.schoolYear || '',
+      characterAge: s.characterAge || '',
+      birthday: s.birthday || '',
+      birthDay: s.birthDay || '',
+      hobby: s.hobby || '',
+      heightMetric: s.heightMetric || '',
+      weaponType: s.weaponType || '',
+      tacticRole: s.tacticRole || '',
+      position: s.position || '',
+      weaponName: s.weaponName || '',
       memorialOffsetX: String(s.memorialOffsetX ?? -7.6),
       memorialOffsetY: String(s.memorialOffsetY ?? 0),
       memorialScale: String(s.memorialScale ?? 0.5),
@@ -422,6 +454,20 @@ export function AdminPanel() {
       image: sForm.image,
       portrait: sForm.portrait,
       memorial: sForm.memorial,
+      familyName: sForm.familyName,
+      personalName: sForm.personalName,
+      school: sForm.school,
+      club: sForm.club,
+      schoolYear: sForm.schoolYear,
+      characterAge: sForm.characterAge,
+      birthday: sForm.birthday,
+      birthDay: sForm.birthDay,
+      hobby: sForm.hobby,
+      heightMetric: sForm.heightMetric,
+      weaponType: sForm.weaponType,
+      tacticRole: sForm.tacticRole,
+      position: sForm.position,
+      weaponName: sForm.weaponName,
       memorialOffsetX: Number(sForm.memorialOffsetX),
       memorialOffsetY: Number(sForm.memorialOffsetY),
       memorialScale: Number(sForm.memorialScale),
@@ -660,6 +706,8 @@ export function AdminPanel() {
   ], normalizedSearch.clubs))
   const filteredStudents = students.filter((s) => searchable([
     s.id, s.name, s.image, s.portrait, s.memorial,
+    s.familyName, s.personalName, s.school, s.club, s.schoolYear, s.characterAge,
+    s.birthday, s.birthDay, s.hobby, s.heightMetric, s.weaponType, s.tacticRole, s.position, s.weaponName,
     s.memorialOffsetX, s.memorialOffsetY, s.memorialScale,
     s.portraitOffsetX, s.portraitOffsetY, s.portraitScale,
   ], normalizedSearch.students))
@@ -1032,7 +1080,7 @@ export function AdminPanel() {
                 Import running: {importState.processed.toLocaleString()} / {importState.total ? importState.total.toLocaleString() : '...'} processed
               </div>
             )}
-            {renderListControls('students', students.length, filteredStudents.length, visibleStudents.length, 'Search students by id, name, or media URLs...')}
+            {renderListControls('students', students.length, filteredStudents.length, visibleStudents.length, 'Search students by id, name, birthday, school, or media URLs...')}
 
             {/* Card list (mobile) */}
             <div className="sm:hidden flex flex-col gap-2.5">
@@ -1050,6 +1098,9 @@ export function AdminPanel() {
                       <div className="min-w-0">
                         <div className="font-semibold text-sm break-words">{s.name}</div>
                         <div className="text-[11px] text-muted font-mono">ID {s.id}</div>
+                        <div className="text-[11px] text-muted truncate max-w-[180px]">
+                          {s.birthDay || 'No birthday'} · {s.school || 'No school'}{s.club ? ` / ${s.club}` : ''}
+                        </div>
                         <div className="text-[11px] text-muted truncate max-w-[180px]">
                           Portrait: {s.portrait ? 'set' : '—'} · Memorial video: {s.memorial ? 'set' : '—'}
                         </div>
@@ -1081,7 +1132,7 @@ export function AdminPanel() {
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
-                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'PORTRAIT OFFSET', 'MEMORIAL OFFSET', 'IMAGE URL', 'MEMORIAL VIDEO', 'ACTIONS'].map((h) => (
+                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'BIRTHDAY', 'SCHOOL / CLUB', 'WEAPON / ROLE', 'PORTRAIT OFFSET', 'MEMORIAL OFFSET', 'IMAGE URL', 'MEMORIAL VIDEO', 'ACTIONS'].map((h) => (
                         <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                           {h}
                         </th>
@@ -1115,6 +1166,13 @@ export function AdminPanel() {
                         </td>
                         <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">{s.id}</td>
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{s.name}</td>
+                        <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">{s.birthDay || s.birthday || '—'}</td>
+                        <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">
+                          {s.school || '—'}{s.club ? ` / ${s.club}` : ''}
+                        </td>
+                        <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">
+                          {s.weaponType || '—'}{s.tacticRole ? ` / ${s.tacticRole}` : ''}
+                        </td>
                         <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">
                           {s.portraitOffsetX}, {s.portraitOffsetY} · {s.portraitScale}x
                         </td>
@@ -1719,6 +1777,134 @@ export function AdminPanel() {
                   onChange={e => setSForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="Student name"
                   required
+                />
+              </StField>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <StField label="FAMILY NAME">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.familyName}
+                  onChange={e => setSForm(f => ({ ...f, familyName: e.target.value }))}
+                  placeholder="e.g. Hayase"
+                />
+              </StField>
+              <StField label="PERSONAL NAME">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.personalName}
+                  onChange={e => setSForm(f => ({ ...f, personalName: e.target.value }))}
+                  placeholder="e.g. Yuuka"
+                />
+              </StField>
+              <StField label="BIRTHDAY DISPLAY">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.birthday}
+                  onChange={e => setSForm(f => ({ ...f, birthday: e.target.value }))}
+                  placeholder="e.g. March 14th"
+                />
+              </StField>
+              <StField label="BIRTHDAY KEY">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.birthDay}
+                  onChange={e => setSForm(f => ({ ...f, birthDay: e.target.value }))}
+                  placeholder="M/D, e.g. 3/14"
+                />
+              </StField>
+              <StField label="SCHOOL">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.school}
+                  onChange={e => setSForm(f => ({ ...f, school: e.target.value }))}
+                  placeholder="e.g. Millennium"
+                />
+              </StField>
+              <StField label="CLUB">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.club}
+                  onChange={e => setSForm(f => ({ ...f, club: e.target.value }))}
+                  placeholder="e.g. TheSeminar"
+                />
+              </StField>
+              <StField label="SCHOOL YEAR">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.schoolYear}
+                  onChange={e => setSForm(f => ({ ...f, schoolYear: e.target.value }))}
+                  placeholder="e.g. 2nd Year"
+                />
+              </StField>
+              <StField label="AGE">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.characterAge}
+                  onChange={e => setSForm(f => ({ ...f, characterAge: e.target.value }))}
+                  placeholder="e.g. 16 years old"
+                />
+              </StField>
+              <StField label="HEIGHT">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.heightMetric}
+                  onChange={e => setSForm(f => ({ ...f, heightMetric: e.target.value }))}
+                  placeholder="e.g. 156cm"
+                />
+              </StField>
+              <StField label="HOBBY">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.hobby}
+                  onChange={e => setSForm(f => ({ ...f, hobby: e.target.value }))}
+                  placeholder="e.g. Doing calculations"
+                />
+              </StField>
+              <StField label="WEAPON TYPE">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.weaponType}
+                  onChange={e => setSForm(f => ({ ...f, weaponType: e.target.value }))}
+                  placeholder="e.g. SMG"
+                />
+              </StField>
+              <StField label="TACTIC ROLE">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.tacticRole}
+                  onChange={e => setSForm(f => ({ ...f, tacticRole: e.target.value }))}
+                  placeholder="e.g. Tanker"
+                />
+              </StField>
+              <StField label="POSITION">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.position}
+                  onChange={e => setSForm(f => ({ ...f, position: e.target.value }))}
+                  placeholder="e.g. Front"
+                />
+              </StField>
+              <StField label="WEAPON NAME">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.weaponName}
+                  onChange={e => setSForm(f => ({ ...f, weaponName: e.target.value }))}
+                  placeholder="e.g. Logic & Reason"
                 />
               </StField>
             </div>

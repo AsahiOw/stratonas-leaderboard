@@ -62,6 +62,20 @@ model Student {
   image           String
   portrait        String?
   memorial        String?
+  familyName      String?
+  personalName    String?
+  school          String?
+  club            String?
+  schoolYear      String?
+  characterAge    String?
+  birthday        String?
+  birthDay        String?
+  hobby           String?
+  heightMetric    String?
+  weaponType      String?
+  tacticRole      String?
+  position        String?
+  weaponName      String?
   memorialOffsetX Float    @default(-7.6)
   memorialOffsetY Float    @default(0)
   memorialScale   Float    @default(0.5)
@@ -71,6 +85,7 @@ model Student {
   favoritedBy     Player[]
 
   @@index([name])
+  @@index([birthDay])
 }
 
 model StudentImportState {
