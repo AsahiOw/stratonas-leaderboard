@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
+import { SiteFooter } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'Stratonas — Guild Leaderboard',
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans bg-bg text-text min-h-screen antialiased" suppressHydrationWarning>
         <SessionProvider>
           {children}
+          <SiteFooter />
         </SessionProvider>
       </body>
     </html>
