@@ -49,6 +49,12 @@ export function normalizeStudentBirthDay(value: unknown): string | null {
   return `${month}/${day}`
 }
 
+export function normalizeStudentAccentColor(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return /^oklch\(\d*\.?\d+\s+\d*\.?\d+\s+\d*\.?\d+\)$/.test(trimmed) ? trimmed : null
+}
+
 export function normalizeStudentCardFields(body: Record<string, unknown>) {
   return {
     familyName: normalizeOptionalStudentText(body.familyName),
@@ -65,5 +71,6 @@ export function normalizeStudentCardFields(body: Record<string, unknown>) {
     tacticRole: normalizeOptionalStudentText(body.tacticRole),
     position: normalizeOptionalStudentText(body.position),
     weaponName: normalizeOptionalStudentText(body.weaponName),
+    accentColor: normalizeStudentAccentColor(body.accentColor),
   }
 }

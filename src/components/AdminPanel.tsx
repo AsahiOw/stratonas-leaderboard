@@ -24,7 +24,7 @@ interface Student {
   familyName?: string | null; personalName?: string | null; school?: string | null; club?: string | null
   schoolYear?: string | null; characterAge?: string | null; birthday?: string | null; birthDay?: string | null
   hobby?: string | null; heightMetric?: string | null; weaponType?: string | null; tacticRole?: string | null
-  position?: string | null; weaponName?: string | null
+  position?: string | null; weaponName?: string | null; accentColor?: string | null
   memorialOffsetX: number; memorialOffsetY: number; memorialScale: number
   portraitOffsetX: number; portraitOffsetY: number; portraitScale: number
 }
@@ -402,6 +402,7 @@ export function AdminPanel() {
     tacticRole: '',
     position: '',
     weaponName: '',
+    accentColor: '',
     memorialOffsetX: '-7.6',
     memorialOffsetY: '0',
     memorialScale: '0.5',
@@ -433,6 +434,7 @@ export function AdminPanel() {
       tacticRole: s.tacticRole || '',
       position: s.position || '',
       weaponName: s.weaponName || '',
+      accentColor: s.accentColor || '',
       memorialOffsetX: String(s.memorialOffsetX ?? -7.6),
       memorialOffsetY: String(s.memorialOffsetY ?? 0),
       memorialScale: String(s.memorialScale ?? 0.5),
@@ -468,6 +470,7 @@ export function AdminPanel() {
       tacticRole: sForm.tacticRole,
       position: sForm.position,
       weaponName: sForm.weaponName,
+      accentColor: sForm.accentColor,
       memorialOffsetX: Number(sForm.memorialOffsetX),
       memorialOffsetY: Number(sForm.memorialOffsetY),
       memorialScale: Number(sForm.memorialScale),
@@ -707,7 +710,7 @@ export function AdminPanel() {
   const filteredStudents = students.filter((s) => searchable([
     s.id, s.name, s.image, s.portrait, s.memorial,
     s.familyName, s.personalName, s.school, s.club, s.schoolYear, s.characterAge,
-    s.birthday, s.birthDay, s.hobby, s.heightMetric, s.weaponType, s.tacticRole, s.position, s.weaponName,
+    s.birthday, s.birthDay, s.hobby, s.heightMetric, s.weaponType, s.tacticRole, s.position, s.weaponName, s.accentColor,
     s.memorialOffsetX, s.memorialOffsetY, s.memorialScale,
     s.portraitOffsetX, s.portraitOffsetY, s.portraitScale,
   ], normalizedSearch.students))
@@ -1102,6 +1105,9 @@ export function AdminPanel() {
                           {s.birthDay || 'No birthday'} · {s.school || 'No school'}{s.club ? ` / ${s.club}` : ''}
                         </div>
                         <div className="text-[11px] text-muted truncate max-w-[180px]">
+                          Accent: {s.accentColor ? 'sampled' : 'pending'}
+                        </div>
+                        <div className="text-[11px] text-muted truncate max-w-[180px]">
                           Portrait: {s.portrait ? 'set' : '—'} · Memorial video: {s.memorial ? 'set' : '—'}
                         </div>
                         <div className="text-[11px] text-muted font-mono">
@@ -1132,7 +1138,7 @@ export function AdminPanel() {
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
-                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'BIRTHDAY', 'SCHOOL / CLUB', 'WEAPON / ROLE', 'PORTRAIT OFFSET', 'MEMORIAL OFFSET', 'IMAGE URL', 'MEMORIAL VIDEO', 'ACTIONS'].map((h) => (
+                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'BIRTHDAY', 'ACCENT', 'SCHOOL / CLUB', 'WEAPON / ROLE', 'PORTRAIT OFFSET', 'MEMORIAL OFFSET', 'IMAGE URL', 'MEMORIAL VIDEO', 'ACTIONS'].map((h) => (
                         <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                           {h}
                         </th>
@@ -1167,6 +1173,7 @@ export function AdminPanel() {
                         <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">{s.id}</td>
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{s.name}</td>
                         <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">{s.birthDay || s.birthday || '—'}</td>
+                        <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">{s.accentColor || '—'}</td>
                         <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">
                           {s.school || '—'}{s.club ? ` / ${s.club}` : ''}
                         </td>
@@ -1905,6 +1912,15 @@ export function AdminPanel() {
                   value={sForm.weaponName}
                   onChange={e => setSForm(f => ({ ...f, weaponName: e.target.value }))}
                   placeholder="e.g. Logic & Reason"
+                />
+              </StField>
+              <StField label="ACCENT COLOR">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.accentColor}
+                  onChange={e => setSForm(f => ({ ...f, accentColor: e.target.value }))}
+                  placeholder="oklch(0.620 0.180 240.0)"
                 />
               </StField>
             </div>

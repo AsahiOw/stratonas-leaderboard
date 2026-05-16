@@ -76,6 +76,7 @@ model Student {
   tacticRole      String?
   position        String?
   weaponName      String?
+  accentColor     String?
   memorialOffsetX Float    @default(-7.6)
   memorialOffsetY Float    @default(0)
   memorialScale   Float    @default(0.5)

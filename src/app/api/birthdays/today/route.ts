@@ -13,7 +13,6 @@ export async function GET() {
       id: true,
       name: true,
       image: true,
-      portrait: true,
       memorial: true,
       familyName: true,
       personalName: true,
@@ -29,6 +28,7 @@ export async function GET() {
       tacticRole: true,
       position: true,
       weaponName: true,
+      accentColor: true,
     },
   })
 

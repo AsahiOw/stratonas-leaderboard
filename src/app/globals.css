@@ -23,6 +23,9 @@
   --gold: #f0c040;
   --green: #34d399;
   --red: #f87171;
+  --font: "Segoe UI", "Inter", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --font-display: "Arial Narrow", "Segoe UI Condensed", "Segoe UI", sans-serif;
 }
 
 html, body {
