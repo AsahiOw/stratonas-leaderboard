@@ -7,6 +7,7 @@ import { StatsPage } from '@/components/StatsPage'
 import { AdminPanel } from '@/components/AdminPanel'
 import { PlayerProfile } from '@/components/PlayerProfile'
 import { LoginModal } from '@/components/LoginModal'
+import { BirthdaySection } from '@/components/BirthdaySection'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
 type Tab = 'leaderboard' | 'previous' | 'stats' | 'admin'
@@ -141,6 +142,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
                 />
               ))
             )}
+            <BirthdaySection />
           </div>
         )}
 

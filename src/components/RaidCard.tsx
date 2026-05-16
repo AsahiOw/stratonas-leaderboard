@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import localFont from 'next/font/local'
-import { DM_Sans, M_PLUS_1 } from 'next/font/google'
 import { imageSrc, hexToRgb } from '@/lib/utils'
 import { getMemorialOffset, getPortraitOffset } from '@/lib/portrait-offset'
 import type { TableEntry } from '@/components/LeaderboardTable'
@@ -89,17 +88,8 @@ const scoreFont = localFont({
   display: 'swap',
 })
 
-const titleFont1 = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
-  display: 'swap',
-})
-
-const titleFont2 = M_PLUS_1({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
-  display: 'swap',
-})
+const titleFont1Class = 'font-sans'
+const titleFont2Class = 'font-display'
 
 export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -359,7 +349,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
       <div className="absolute inset-0 z-[6] pointer-events-none">
         {/* Header */}
         <div
-          className={`absolute whitespace-nowrap leading-[1.15] ${titleFont1.className}`}
+          className={`absolute whitespace-nowrap leading-[1.15] ${titleFont1Class}`}
           style={{
             left: '2%',
             top: '5%',
@@ -375,7 +365,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
         {/* Season + terrain */}
         <div
-          className={`absolute whitespace-nowrap leading-[1.05] ${titleFont1.className}`}
+          className={`absolute whitespace-nowrap leading-[1.05] ${titleFont1Class}`}
           style={{
             left: '4%',
             top: '14%',
@@ -391,7 +381,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
         {/* Rank */}
         <div
-          className={`absolute whitespace-nowrap leading-[1.05] ${titleFont1.className}`}
+          className={`absolute whitespace-nowrap leading-[1.05] ${titleFont1Class}`}
           style={{
             left: '4%',
             top: '20.5%',
@@ -407,7 +397,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
         {/* Player name */}
         <div
-          className={`absolute whitespace-nowrap uppercase leading-none ${titleFont2.className}`}
+          className={`absolute whitespace-nowrap uppercase leading-none ${titleFont2Class}`}
           style={{
             left: '4%',
             top: '28.9%',
@@ -440,7 +430,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
         {/* Club name */}
         <div
-          className={`absolute whitespace-nowrap uppercase leading-[1.05] ${titleFont2.className}`}
+          className={`absolute whitespace-nowrap uppercase leading-[1.05] ${titleFont2Class}`}
           style={{
             left: '4%',
             top: '71.5%',

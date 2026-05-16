@@ -1,7 +1,13 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { prisma } from '@/lib/prisma'
-import { normalizeStudentName, studentImageUrl, studentPortraitUrl } from '@/lib/students'
+import {
+  normalizeOptionalStudentText,
+  normalizeStudentBirthDay,
+  normalizeStudentName,
+  studentImageUrl,
+  studentPortraitUrl,
+} from '@/lib/students'
 
 export const STUDENT_IMPORT_ID = 'schaledb-students'
 const SCHALE_STUDENTS_URL = 'https://schaledb.com/data/en/students.min.json'
@@ -12,6 +18,20 @@ const BATCH_SIZE = 50
 type SchaleStudent = {
   Id?: unknown
   Name?: unknown
+  FamilyName?: unknown
+  PersonalName?: unknown
+  School?: unknown
+  Club?: unknown
+  SchoolYear?: unknown
+  CharacterAge?: unknown
+  Birthday?: unknown
+  BirthDay?: unknown
+  Hobby?: unknown
+  CharHeightMetric?: unknown
+  WeaponType?: unknown
+  TacticRole?: unknown
+  Position?: unknown
+  Weapon?: { Name?: unknown } | null
 }
 
 export function defaultStudentImportState() {
@@ -168,9 +188,23 @@ async function runStudentImport() {
           image: studentImageUrl(id),
           portrait: studentPortraitUrl(id),
           memorial: memorials?.get(normalizeMemorialStudentName(name)) || null,
+          familyName: normalizeOptionalStudentText(student.FamilyName),
+          personalName: normalizeOptionalStudentText(student.PersonalName),
+          school: normalizeOptionalStudentText(student.School),
+          club: normalizeOptionalStudentText(student.Club),
+          schoolYear: normalizeOptionalStudentText(student.SchoolYear),
+          characterAge: normalizeOptionalStudentText(student.CharacterAge),
+          birthday: normalizeOptionalStudentText(student.Birthday),
+          birthDay: normalizeStudentBirthDay(student.BirthDay),
+          hobby: normalizeOptionalStudentText(student.Hobby),
+          heightMetric: normalizeOptionalStudentText(student.CharHeightMetric),
+          weaponType: normalizeOptionalStudentText(student.WeaponType),
+          tacticRole: normalizeOptionalStudentText(student.TacticRole),
+          position: normalizeOptionalStudentText(student.Position),
+          weaponName: normalizeOptionalStudentText(student.Weapon?.Name),
         }
       })
-      .filter((student): student is { id: number; name: string; image: string; portrait: string; memorial: string | null } => Boolean(student))
+      .filter((student): student is NonNullable<typeof student> => Boolean(student))
 
     await prisma.studentImportState.update({
       where: { id: STUDENT_IMPORT_ID },
@@ -194,6 +228,20 @@ async function runStudentImport() {
             image: student.image,
             portrait: student.portrait,
             ...(memorials ? { memorial: student.memorial } : {}),
+            familyName: student.familyName,
+            personalName: student.personalName,
+            school: student.school,
+            club: student.club,
+            schoolYear: student.schoolYear,
+            characterAge: student.characterAge,
+            birthday: student.birthday,
+            birthDay: student.birthDay,
+            hobby: student.hobby,
+            heightMetric: student.heightMetric,
+            weaponType: student.weaponType,
+            tacticRole: student.tacticRole,
+            position: student.position,
+            weaponName: student.weaponName,
           },
         }))
       )
