@@ -37,9 +37,11 @@ export function birthdayCacheControl(nextRefreshAt: Date, now = new Date()) {
 }
 
 export function invalidatePublicData(tags: string[] = Object.values(PUBLIC_CACHE_TAGS)) {
+  const revalidateTagNow = revalidateTag as (tag: string, profile?: string | { expire?: number }) => void
+
   tags.forEach((tag) => {
     try {
-      revalidateTag(tag, { expire: 0 })
+      revalidateTagNow(tag, { expire: 0 })
     } catch (error) {
       console.warn(`Unable to revalidate cache tag "${tag}"`, error)
     }
