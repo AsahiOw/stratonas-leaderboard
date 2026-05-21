@@ -63,7 +63,7 @@ export type XlsxRaidImportResult = {
 
 const REQUIRED_COLUMNS: RequiredColumn[] = ['UserId', 'Username', 'IGN', 'Score', 'Club', 'Rank', 'FavoriteStudent']
 const JP_REQUIRED_COLUMNS: RequiredColumn[] = ['IGN', 'Score', 'Club', 'Rank', 'FavoriteStudent']
-const IMPORT_SHEET_NAMES = ['Members', 'Guests'] as const
+const IMPORT_SHEET_NAMES = ['Guests', 'Members'] as const
 const TERRAIN_NAMES = ['Urban', 'Indoor', 'Outdoor']
 const COLUMN_ALIASES: Record<RequiredColumn | 'PFP', string[]> = {
   UserId: ['UserId', 'User ID', 'UID'],
@@ -385,8 +385,8 @@ export async function importRaidXlsx(options: {
   buffer: ArrayBuffer
   filename: string
   server: string
-  startDate: string
-  endDate: string
+  startDate?: string
+  endDate?: string
 }): Promise<XlsxRaidImportResult> {
   const parsed = parseRaidTitleFromFilename(options.filename)
   updateXlsxImportProgress({ stage: 'Loading workbook' })
@@ -412,6 +412,15 @@ export async function importRaidXlsx(options: {
     },
   })
 
+  if (!existingRaid && (!options.startDate || !options.endDate)) {
+    throw new Error('Start date and end date are required when importing a new raid.')
+  }
+
+  const raidDates = {
+    startDate: options.startDate ? new Date(options.startDate) : undefined,
+    endDate: options.endDate ? new Date(options.endDate) : undefined,
+  }
+
   const raid = existingRaid || await prisma.raid.create({
     data: {
       raidBossId: boss.id,
@@ -422,17 +431,17 @@ export async function importRaidXlsx(options: {
       color: boss.color,
       color2: boss.color2,
       pattern: boss.pattern,
-      startDate: new Date(options.startDate),
-      endDate: new Date(options.endDate),
+      startDate: raidDates.startDate!,
+      endDate: raidDates.endDate!,
     },
   })
 
-  if (existingRaid) {
+  if (existingRaid && (raidDates.startDate || raidDates.endDate)) {
     await prisma.raid.update({
       where: { id: existingRaid.id },
       data: {
-        startDate: new Date(options.startDate),
-        endDate: new Date(options.endDate),
+        ...(raidDates.startDate ? { startDate: raidDates.startDate } : {}),
+        ...(raidDates.endDate ? { endDate: raidDates.endDate } : {}),
         terrainId: terrain.id,
       },
     })

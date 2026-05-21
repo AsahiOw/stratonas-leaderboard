@@ -24,8 +24,8 @@ export async function POST(req: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'XLSX file is required.' }, { status: 400 })
     }
-    if (!server || !startDate || !endDate) {
-      return NextResponse.json({ error: 'Server, start date, and end date are required.' }, { status: 400 })
+    if (!server) {
+      return NextResponse.json({ error: 'Server is required.' }, { status: 400 })
     }
     if (!file.name.toLowerCase().endsWith('.xlsx')) {
       return NextResponse.json({ error: 'Only .xlsx files are supported.' }, { status: 400 })

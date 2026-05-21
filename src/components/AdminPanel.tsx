@@ -1487,7 +1487,6 @@ export function AdminPanel() {
                       type="date"
                       value={xlsxForm.startDate}
                       onChange={(e) => setXlsxForm((form) => ({ ...form, startDate: e.target.value }))}
-                      required
                     />
                   </StField>
                   <StField label="END DATE">
@@ -1496,7 +1495,6 @@ export function AdminPanel() {
                       type="date"
                       value={xlsxForm.endDate}
                       onChange={(e) => setXlsxForm((form) => ({ ...form, endDate: e.target.value }))}
-                      required
                     />
                   </StField>
                 </div>
