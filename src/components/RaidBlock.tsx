@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { RaidBanner } from '@/components/RaidBanner'
 import { LeaderboardTable, type TableEntry } from '@/components/LeaderboardTable'
 import { RaidDetailModal } from '@/components/RaidDetailModal'
+import { imageSrc } from '@/lib/utils'
 
 interface Raid {
   id: string
@@ -28,6 +29,97 @@ interface Props {
   defaultOpen?: boolean
 }
 
+const podiumRankStyles: Record<number, { rank: string; border: string; bg: string }> = {
+  1: { rank: '#ffe45c', border: '#ffe45c66', bg: '#ffe45c14' },
+  2: { rank: '#d8dee9', border: '#d8dee955', bg: '#d8dee90f' },
+  3: { rank: '#ff9f6a', border: '#ff9f6a66', bg: '#ff9f6a12' },
+}
+
+function TopThreePodium({
+  entries,
+  accent,
+  onPlayerClick,
+}: {
+  entries: TableEntry[]
+  accent: string
+  onPlayerClick?: (playerId: string) => void
+}) {
+  if (entries.length === 0) return null
+
+  return (
+    <div className="grid grid-cols-1 gap-2.5 border-b border-border bg-[#11111a] p-3 sm:grid-cols-3 sm:p-3.5">
+      {entries.map((entry) => {
+        const style = podiumRankStyles[entry.rank] || podiumRankStyles[3]
+        const clubColor = entry.clubColor || (entry.isGuild ? 'var(--green)' : 'var(--muted)')
+        const portrait = imageSrc(entry.favouriteStudentImage || entry.favouriteStudentPortrait)
+
+        return (
+          <article
+            key={`${entry.rank}-${entry.name}`}
+            className="relative isolate min-h-[108px] overflow-hidden rounded-md border px-4 py-3"
+            style={{
+              borderColor: style.border,
+              background: `linear-gradient(135deg, ${style.bg}, rgba(255,255,255,0.025) 44%, rgba(0,0,0,0.16))`,
+              boxShadow: entry.rank === 1 ? `0 0 24px ${style.bg}` : undefined,
+            }}
+          >
+            {portrait && (
+              <div className="absolute inset-y-0 right-0 z-0 w-[58%] opacity-38">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={portrait}
+                  alt=""
+                  className="h-full w-full object-cover object-[center_24%]"
+                  draggable={false}
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,#11111a_0%,rgba(17,17,26,0.46)_48%,rgba(17,17,26,0.14)_100%)]" />
+              </div>
+            )}
+
+            <div className="relative z-10 flex h-full items-center gap-3">
+              <div
+                className="font-mono text-[38px] font-black leading-none tracking-[-0.08em] sm:text-[42px]"
+                style={{ color: style.rank, textShadow: `0 0 16px ${style.bg}` }}
+              >
+                {String(entry.rank).padStart(2, '0')}
+              </div>
+              <div className="min-w-0">
+                <div className="mb-1 min-w-0">
+                  {entry.playerId ? (
+                    <button
+                      type="button"
+                      onClick={() => onPlayerClick?.(entry.playerId!)}
+                      className="block max-w-[170px] truncate border-0 bg-transparent p-0 text-left text-sm font-extrabold text-text hover:underline"
+                      style={{ textDecorationColor: entry.clubColor || accent }}
+                    >
+                      {entry.name}
+                    </button>
+                  ) : (
+                    <div className="max-w-[170px] truncate text-sm font-extrabold text-text">{entry.name}</div>
+                  )}
+                  <div className="font-mono text-[13px] font-black tabular-nums" style={{ color: style.rank }}>
+                    {entry.score.toLocaleString()}
+                  </div>
+                </div>
+                <span
+                  className="inline-flex max-w-full rounded-sm border px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
+                  style={{
+                    background: entry.clubColor ? `${entry.clubColor}18` : 'rgba(255,255,255,0.05)',
+                    borderColor: entry.clubColor ? `${entry.clubColor}45` : 'var(--border2)',
+                    color: clubColor,
+                  }}
+                >
+                  <span className="truncate">{entry.club || (entry.isGuild ? 'Guild' : 'Guest')}</span>
+                </span>
+              </div>
+            </div>
+          </article>
+        )
+      })}
+    </div>
+  )
+}
+
 export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen = true }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(defaultOpen)
@@ -37,6 +129,8 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
   const filteredEntries = hideGuests
     ? entries.filter((e) => e.isGuild).map((e, i) => ({ ...e, rank: i + 1 }))
     : entries
+  const podiumEntries = filteredEntries.slice(0, 3)
+  const tableEntries = capRows ? filteredEntries.slice(3, capRows) : filteredEntries.slice(3)
   const topPlayer = filteredEntries[0]
     ? { name: filteredEntries[0].name, score: filteredEntries[0].score }
     : null
@@ -69,11 +163,11 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
           className="bg-card border border-t-0 rounded-b-xl overflow-hidden"
           style={{ borderColor: `${raid.color}25` }}
         >
+          <TopThreePodium entries={podiumEntries} accent={raid.color} onPlayerClick={onPlayerClick} />
           <LeaderboardTable
-            players={filteredEntries}
+            players={tableEntries}
             accent={raid.color}
             onPlayerClick={onPlayerClick}
-            cap={capRows}
           />
           <div className="border-t border-border px-3 py-3 sm:px-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button

@@ -813,14 +813,14 @@ export function AdminPanel() {
       {drawerOpen && (
         <button
           aria-label="Close menu"
-          className="md:hidden fixed inset-0 z-40 bg-black/60"
+          className="md:hidden fixed inset-x-0 bottom-0 top-14 z-30 bg-black/60"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 md:w-48 md:shrink-0 bg-bg md:border-r md:border-border py-5 md:py-5 overflow-y-auto transition-transform duration-200 ease-out border-r border-border ${drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`fixed bottom-0 left-0 top-14 z-40 w-64 md:static md:z-auto md:w-48 md:shrink-0 bg-bg md:border-r md:border-border py-5 md:py-5 overflow-y-auto transition-transform duration-200 ease-out border-r border-border ${drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
       >
         <div className="flex items-center justify-between px-4 mb-3.5 md:px-4">
