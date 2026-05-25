@@ -98,7 +98,7 @@ export function PlayerProfile({ playerId, onClose }: Props) {
 
   const summaryStats = [
     { label: 'Total Score', val: totalScore.toLocaleString(), color: 'var(--accent)' },
-    { label: 'Best Rank',   val: bestRank ? `#${bestRank}` : '—', color: 'var(--gold)' },
+    { label: 'Best Rank', val: bestRank ? `#${bestRank}` : '—', color: 'var(--gold)' },
   ]
 
   return createPortal(
@@ -132,7 +132,7 @@ export function PlayerProfile({ playerId, onClose }: Props) {
                 <div className="text-[11px] text-muted mt-0.5">
                   Fav: <span className="text-accent">{favouriteStudentName || '—'}</span>
                   {' · '}UID: {player.userID}
-                  {' · '}Joined {fmtDate(player.joinedDate)}
+                  {' · '}Added Date: {fmtDate(player.joinedDate)}
                 </div>
               </div>
             </div>

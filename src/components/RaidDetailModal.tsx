@@ -65,17 +65,13 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onTo
         <div className="flex items-center gap-2">
           <button
             onClick={onToggleGuests}
-            className={`text-[11px] px-2.5 py-1 rounded border font-semibold tracking-[0.04em] transition-colors ${
-              hideGuests
+            className={`text-[11px] px-2.5 py-1 rounded border font-semibold tracking-[0.04em] transition-colors ${hideGuests
                 ? 'bg-accent/10 border-accent/30 text-accent'
                 : 'bg-transparent border-border text-muted hover:text-muted2 hover:border-border2'
-            }`}
+              }`}
           >
             {hideGuests ? 'Guild Only' : 'All Players'}
           </button>
-          <span className="text-xs text-muted2">
-            <span className="text-green font-semibold">GUILD</span> badge = your members
-          </span>
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-border">

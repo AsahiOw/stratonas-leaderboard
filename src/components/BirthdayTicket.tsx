@@ -20,6 +20,7 @@ export interface BirthdayStudent {
   tacticRole?: string | null
   weaponName?: string | null
   accentColor?: string | null
+  daysUntilBirthday?: number
 }
 
 const MONTH_ABBR = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
@@ -44,6 +45,17 @@ function parseBirthday(birthday?: string | null) {
     month: MONTH_ABBR[month - 1] || '---',
     day: Number.isInteger(day) ? String(day).padStart(2, '0') : '--',
   }
+}
+
+function countdownLabel(days?: number | null) {
+  if (days == null) return ''
+  if (days === 0) return 'TODAY'
+  if (days === 1) return 'TOMORROW'
+  if (days < 7) return `IN ${days} DAYS`
+  if (days < 14) return '1 WEEK'
+  if (days < 30) return `IN ${Math.round(days / 7)} WKS`
+  if (days < 60) return '1 MONTH'
+  return `IN ${Math.round(days / 30)} MOS`
 }
 
 function rgbToHsl(r: number, g: number, b: number) {
@@ -313,6 +325,55 @@ export function BirthdayTicket({ student }: { student: BirthdayStudent }) {
               <span className="truncate">{student.weaponType || student.weaponName || 'Weapon unknown'}</span>
             </div>
           </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+export function UpcomingBirthdayCard({ student }: { student: BirthdayStudent }) {
+  const { month, day } = parseBirthday(student.birthDay)
+  const poster = imageSrc(student.image)
+  const accent = useSampledAccent(student.id, poster, student.accentColor)
+  const countdown = countdownLabel(student.daysUntilBirthday)
+  const isToday = student.daysUntilBirthday === 0
+  const cardStyle = {
+    '--birthday-accent': accent,
+    borderColor: `color-mix(in oklab, ${accent} 34%, rgba(13,13,18,0.08))`,
+  } as React.CSSProperties
+
+  return (
+    <article
+      className="relative flex w-[140px] shrink-0 flex-col overflow-hidden rounded-[5px] border bg-[#f4f1ea] text-[#0d0d12] shadow-[0_10px_20px_-16px_rgba(0,0,0,0.42)]"
+      style={cardStyle}
+      aria-label={`Upcoming birthday for ${student.name}${student.birthday || student.birthDay ? ` on ${student.birthday || student.birthDay}` : ''}`}
+    >
+      <div className="absolute inset-x-0 top-0 z-20 h-0.5 bg-[var(--birthday-accent)]" />
+      <div className="relative aspect-square overflow-hidden bg-[#ebe6db]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={poster}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover object-[center_28%]"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_55%,color-mix(in_oklab,var(--birthday-accent)_18%,rgba(13,13,18,0.05))_100%)]" />
+        {countdown && (
+          <div className={`absolute bottom-1.5 left-1.5 z-10 inline-flex max-w-[calc(100%-12px)] items-center gap-1.5 rounded-[3px] px-1.5 py-1 font-mono text-[8px] font-bold uppercase tracking-[0.16em] backdrop-blur-sm ${isToday ? 'bg-[var(--birthday-accent)] text-[#0d0d12]' : 'bg-black/80 text-[#f4f1ea]'}`}>
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isToday ? 'animate-pulse bg-[#0d0d12]' : 'bg-[var(--birthday-accent)]'}`} />
+            <span className="truncate">{countdown}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-1 px-2.5 pb-2.5 pt-2">
+        <div className="flex items-baseline gap-1.5 leading-none">
+          <span className="font-mono text-[8.5px] font-bold tracking-[0.22em] text-[var(--birthday-accent)]">{month}</span>
+          <span className="font-serif text-[26px] italic leading-none tracking-[-0.03em]">{day}</span>
+        </div>
+        <div className="truncate font-serif text-[19px] italic leading-none tracking-[-0.015em]">{student.name}</div>
+        <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden font-mono text-[8px] uppercase tracking-[0.16em] text-black/50 before:h-px before:w-2.5 before:shrink-0 before:bg-[var(--birthday-accent)]">
+          <span className="truncate">{student.school || 'School unknown'}</span>
         </div>
       </div>
     </article>

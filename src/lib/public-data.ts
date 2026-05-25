@@ -2,7 +2,7 @@ import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getActiveRaidIds, withRaidActivity } from '@/lib/raid-activity'
 import { getRankedRaidEntries } from '@/lib/raid-entries'
-import { getBirthdayDay } from '@/lib/birthdays'
+import { getBirthdayDay, getDaysUntilBirthday } from '@/lib/birthdays'
 import { PUBLIC_CACHE_TAGS, PUBLIC_DATA_REVALIDATE_SECONDS } from '@/lib/cache'
 
 const raidInclude = {
@@ -19,6 +19,18 @@ function clubName(club?: string | null) {
 
 function isGuestClub(club: string) {
   return club.toLowerCase() === 'guest'
+}
+
+function baseStudentName(name: string) {
+  return name
+    .replace(/\s*\([^)]*\)\s*$/g, '')
+    .replace(/\s*[\-*]\s*[^-*()]+$/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function isStudentVariant(name: string) {
+  return baseStudentName(name) !== name.trim().toLowerCase()
 }
 
 function avg(total: number, count: number) {
@@ -123,6 +135,68 @@ export const getPublicBirthdayStudents = unstable_cache(
     },
   }),
   ['public-birthday-students'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.birthdays, PUBLIC_CACHE_TAGS.students],
+  }
+)
+
+export const getPublicUpcomingBirthdayStudents = unstable_cache(
+  async (_birthdayKey: string, take = 8, maxDays = 60) => {
+    const students = await prisma.student.findMany({
+      where: { birthDay: { not: null } },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        memorial: true,
+        familyName: true,
+        personalName: true,
+        school: true,
+        club: true,
+        schoolYear: true,
+        characterAge: true,
+        birthday: true,
+        birthDay: true,
+        hobby: true,
+        heightMetric: true,
+        weaponType: true,
+        tacticRole: true,
+        position: true,
+        weaponName: true,
+        accentColor: true,
+      },
+    })
+
+    const upcoming = students
+      .map((student) => ({ ...student, daysUntilBirthday: getDaysUntilBirthday(student.birthDay) }))
+      .filter((student): student is typeof student & { daysUntilBirthday: number } => (
+        student.daysUntilBirthday !== null &&
+        student.daysUntilBirthday > 0 &&
+        student.daysUntilBirthday <= maxDays &&
+        !isStudentVariant(student.name)
+      ))
+      .sort((a, b) => a.daysUntilBirthday - b.daysUntilBirthday || a.name.localeCompare(b.name))
+
+    const uniqueStudents = new Map<string, (typeof upcoming)[number]>()
+    upcoming.forEach((student) => {
+      const baseName = baseStudentName(student.name)
+      const existing = uniqueStudents.get(baseName)
+      if (!existing) {
+        uniqueStudents.set(baseName, student)
+        return
+      }
+
+      if (isStudentVariant(existing.name) && !isStudentVariant(student.name)) {
+        uniqueStudents.set(baseName, student)
+      }
+    })
+
+    return Array.from(uniqueStudents.values())
+      .slice(0, take)
+  },
+  ['public-upcoming-birthday-students'],
   {
     revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
     tags: [PUBLIC_CACHE_TAGS.birthdays, PUBLIC_CACHE_TAGS.students],
