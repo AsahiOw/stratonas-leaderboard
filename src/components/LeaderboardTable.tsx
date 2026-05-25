@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { Avatar } from '@/components/ui/Avatar'
 import { hexToRgb } from '@/lib/utils'
@@ -11,6 +12,7 @@ export interface TableEntry {
   score: number
   isGuild: boolean
   club?: string | null
+  clubId?: string | null
   clubColor?: string | null
   clubLogo?: string | null
   favouriteStudent?: string | null
@@ -96,8 +98,12 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
                         </span>
                       )}
                       {p.isGuild ? (
-                        <span
-                          className="text-[10px] px-1.5 py-px rounded border font-semibold tracking-[0.05em]"
+                        <Link
+                          href={p.clubId ? `/clubs/${p.clubId}` : '#'}
+                          onClick={(event) => {
+                            if (!p.clubId) event.preventDefault()
+                          }}
+                          className="text-[10px] px-1.5 py-px rounded border font-semibold tracking-[0.05em] no-underline hover:underline"
                           style={{
                             background: p.clubColor ? `${p.clubColor}18` : 'rgba(52,211,153,0.12)',
                             borderColor: p.clubColor ? `${p.clubColor}45` : 'rgba(52,211,153,0.25)',
@@ -105,7 +111,7 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
                           }}
                         >
                           {p.club || 'GUILD'}
-                        </span>
+                        </Link>
                       ) : p.club ? (
                         <span
                           className="text-[10px] px-1.5 py-px rounded bg-[rgba(255,255,255,0.05)] border font-semibold tracking-[0.05em]"

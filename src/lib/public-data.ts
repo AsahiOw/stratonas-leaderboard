@@ -12,13 +12,21 @@ const raidInclude = {
   terrain: true,
 } as const
 
-function clubName(club?: string | null) {
+export function clubName(club?: string | null) {
   const trimmed = club?.trim()
   return trimmed || 'Guest'
 }
 
-function isGuestClub(club: string) {
+export function isGuestClub(club: string) {
   return club.toLowerCase() === 'guest'
+}
+
+function playerClubName(player: { clubData?: { name: string } | null; club?: string | null }) {
+  return player.clubData?.name || clubName(player.club)
+}
+
+function playerClubId(player: { clubId?: string | null; clubData?: { id: string } | null }) {
+  return player.clubId || player.clubData?.id || null
 }
 
 function baseStudentName(name: string) {
@@ -35,6 +43,36 @@ function isStudentVariant(name: string) {
 
 function avg(total: number, count: number) {
   return count > 0 ? Math.round(total / count) : 0
+}
+
+function compareDateDesc(a?: Date | string | null, b?: Date | string | null) {
+  const aTime = a ? new Date(a).getTime() : 0
+  const bTime = b ? new Date(b).getTime() : 0
+  return bTime - aTime
+}
+
+function rankLookup(entries: Array<{ raidId: string; playerId: string; score: number }>) {
+  const byRaid = new Map<string, Array<{ raidId: string; playerId: string; score: number }>>()
+  entries.forEach((entry) => {
+    const rows = byRaid.get(entry.raidId) || []
+    rows.push(entry)
+    byRaid.set(entry.raidId, rows)
+  })
+
+  const ranks = new Map<string, number>()
+  byRaid.forEach((rows) => {
+    rows
+      .sort((a, b) => b.score - a.score)
+      .forEach((entry, index) => {
+        ranks.set(`${entry.raidId}:${entry.playerId}`, index + 1)
+      })
+  })
+  return ranks
+}
+
+function bestRankFrom(ranks: number[]) {
+  const realRanks = ranks.filter((rank) => rank > 0)
+  return realRanks.length ? Math.min(...realRanks) : null
 }
 
 export const getPublicRaids = unstable_cache(
@@ -242,14 +280,222 @@ export const getPublicPlayerProfile = unstable_cache(
       ...entry,
       rank: rankByRaidPlayer.get(`${entry.raidId}:${player.id}`) || 0,
       raid: { ...entry.raid, isActive: activeRaidIds.has(entry.raidId) },
-    }))
+    })).sort((a, b) => compareDateDesc(a.raid.startDate, b.raid.startDate) || b.score - a.score)
 
-    return { ...player, entries: entriesWithRank }
+    const totalScore = entriesWithRank.reduce((sum, entry) => sum + entry.score, 0)
+    const podiums = entriesWithRank.filter((entry) => entry.rank > 0 && entry.rank <= 3).length
+    const rankOnes = entriesWithRank.filter((entry) => entry.rank === 1).length
+    const top10s = entriesWithRank.filter((entry) => entry.rank > 0 && entry.rank <= 10).length
+    const top50s = entriesWithRank.filter((entry) => entry.rank > 0 && entry.rank <= 50).length
+    const playerRankedEntries = entriesWithRank.filter((entry) => entry.rank > 0)
+    const latestEntry = entriesWithRank[0] || null
+    const participatedServerIds = new Set(entriesWithRank.map((entry) => entry.raid.serverId).filter(Boolean))
+    const relevantRaidCount = participatedServerIds.size > 0
+      ? raids.filter((raid) => participatedServerIds.has(raid.serverId)).length
+      : 0
+    const bestScoreEntry = [...entriesWithRank].sort((a, b) => b.score - a.score)[0] || null
+
+    return {
+      ...player,
+      entries: entriesWithRank,
+      journey: {
+        totalEntries: entriesWithRank.length,
+        totalScore,
+        averageScore: avg(totalScore, entriesWithRank.length),
+        bestRank: bestRankFrom(entriesWithRank.map((entry) => entry.rank)),
+        podiums,
+        rankOnes,
+        top10s,
+        top50s,
+        averageRank: avg(playerRankedEntries.reduce((sum, entry) => sum + entry.rank, 0), playerRankedEntries.length),
+        bestScore: bestScoreEntry?.score || null,
+        bestScoreRaid: bestScoreEntry ? `${bestScoreEntry.raid.raidBoss.name} S${bestScoreEntry.raid.season}` : null,
+        participationRate: relevantRaidCount > 0 ? Math.round((entriesWithRank.length / relevantRaidCount) * 100) : 0,
+        latestRank: latestEntry?.rank || null,
+        latestRaid: latestEntry ? `${latestEntry.raid.raidBoss.name} S${latestEntry.raid.season}` : null,
+      },
+    }
   },
   ['public-player-profile'],
   {
     revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
     tags: [PUBLIC_CACHE_TAGS.players, PUBLIC_CACHE_TAGS.raidEntries],
+  }
+)
+
+export const getPublicClubSummaries = unstable_cache(
+  async () => {
+    const [clubs, entries] = await Promise.all([
+      prisma.club.findMany({
+        include: { players: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.raidEntry.findMany({
+        include: {
+          player: { include: { clubData: true } },
+          raid: { include: raidInclude },
+        },
+      }),
+    ])
+
+    const ranks = rankLookup(entries)
+
+    return clubs
+      .filter((club) => !isGuestClub(club.name))
+      .map((club) => {
+        const clubEntries = entries.filter((entry) => playerClubId(entry.player) === club.id)
+        const totalScore = clubEntries.reduce((sum, entry) => sum + entry.score, 0)
+        const rankedEntries = clubEntries.map((entry) => ({
+          ...entry,
+          rank: ranks.get(`${entry.raidId}:${entry.playerId}`) || 0,
+        }))
+        const bestEntry = [...rankedEntries]
+          .filter((entry) => entry.rank > 0)
+          .sort((a, b) => a.rank - b.rank || b.score - a.score)[0] || null
+        const recentEntry = [...rankedEntries]
+          .sort((a, b) => compareDateDesc(a.raid.startDate, b.raid.startDate))[0] || null
+
+        return {
+          id: club.id,
+          name: club.name,
+          uid: club.uid,
+          logo: club.logo,
+          color: club.color,
+          totalScore,
+          totalEntries: clubEntries.length,
+          activePlayerCount: club.players.filter((player) => player.isGuildMember).length,
+          rosterCount: club.players.length,
+          averageScore: avg(totalScore, clubEntries.length),
+          bestRank: bestEntry?.rank || null,
+          bestRaid: bestEntry ? `${bestEntry.raid.raidBoss.name} S${bestEntry.raid.season}` : null,
+          podiums: rankedEntries.filter((entry) => entry.rank > 0 && entry.rank <= 3).length,
+          recentRaid: recentEntry ? `${recentEntry.raid.raidBoss.name} S${recentEntry.raid.season}` : null,
+        }
+      })
+      .sort((a, b) => b.totalScore - a.totalScore || b.totalEntries - a.totalEntries || a.name.localeCompare(b.name))
+      .map((club, index) => ({ ...club, rank: index + 1 }))
+  },
+  ['public-club-summaries'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.clubs, PUBLIC_CACHE_TAGS.players, PUBLIC_CACHE_TAGS.raidEntries],
+  }
+)
+
+export const getPublicClubProfile = unstable_cache(
+  async (id: string) => {
+    const club = await prisma.club.findUnique({
+      where: { id },
+      include: {
+        players: {
+          include: {
+            favouriteStudentData: true,
+            entries: { include: { raid: { include: raidInclude } } },
+          },
+          orderBy: { ign: 'asc' },
+        },
+      },
+    })
+    if (!club || isGuestClub(club.name)) return null
+
+    const raidIds = Array.from(new Set(club.players.flatMap((player) => player.entries.map((entry) => entry.raidId))))
+    const rankedSource = raidIds.length
+      ? await prisma.raidEntry.findMany({
+        where: { raidId: { in: raidIds } },
+        select: { raidId: true, playerId: true, score: true },
+      })
+      : []
+    const ranks = rankLookup(rankedSource)
+
+    const roster = club.players.map((player) => {
+      const entries = player.entries
+        .map((entry) => ({
+          ...entry,
+          rank: ranks.get(`${entry.raidId}:${player.id}`) || 0,
+        }))
+        .sort((a, b) => compareDateDesc(a.raid.startDate, b.raid.startDate) || b.score - a.score)
+      const totalScore = entries.reduce((sum, entry) => sum + entry.score, 0)
+
+      return {
+        id: player.id,
+        ign: player.ign,
+        username: player.username,
+        userID: player.userID,
+        isGuildMember: player.isGuildMember,
+        favouriteStudent: player.favouriteStudentData?.name || player.favouriteStudent,
+        favouriteStudentImage: player.favouriteStudentData?.image || null,
+        totalScore,
+        totalEntries: entries.length,
+        averageScore: avg(totalScore, entries.length),
+        bestRank: bestRankFrom(entries.map((entry) => entry.rank)),
+        podiums: entries.filter((entry) => entry.rank > 0 && entry.rank <= 3).length,
+        latestEntry: entries[0]
+          ? {
+            raidId: entries[0].raidId,
+            raidName: `${entries[0].raid.raidBoss.name} S${entries[0].raid.season}`,
+            terrain: entries[0].raid.terrain.name,
+            server: entries[0].raid.server.name,
+            rank: entries[0].rank,
+            score: entries[0].score,
+          }
+          : null,
+      }
+    })
+
+    const allEntries = roster.flatMap((player) => club.players
+      .find((row) => row.id === player.id)?.entries
+      .map((entry) => ({
+        ...entry,
+        playerId: player.id,
+        playerName: player.ign,
+        rank: ranks.get(`${entry.raidId}:${player.id}`) || 0,
+      })) || [])
+    const totalScore = roster.reduce((sum, player) => sum + player.totalScore, 0)
+    const bestEntry = [...allEntries]
+      .filter((entry) => entry.rank > 0)
+      .sort((a, b) => a.rank - b.rank || b.score - a.score)[0] || null
+
+    return {
+      id: club.id,
+      name: club.name,
+      uid: club.uid,
+      logo: club.logo,
+      color: club.color,
+      roster,
+      stats: {
+        totalScore,
+        totalEntries: roster.reduce((sum, player) => sum + player.totalEntries, 0),
+        activePlayerCount: roster.filter((player) => player.isGuildMember).length,
+        averageScore: avg(totalScore, roster.reduce((sum, player) => sum + player.totalEntries, 0)),
+        bestRank: bestEntry?.rank || null,
+        bestRaid: bestEntry ? `${bestEntry.raid.raidBoss.name} S${bestEntry.raid.season}` : null,
+        podiums: roster.reduce((sum, player) => sum + player.podiums, 0),
+      },
+    }
+  },
+  ['public-club-profile'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.clubs, PUBLIC_CACHE_TAGS.players, PUBLIC_CACHE_TAGS.raidEntries],
+  }
+)
+
+export const getPublicCommunityHub = unstable_cache(
+  async () => {
+    const [clubSummaries, stats] = await Promise.all([
+      getPublicClubSummaries(),
+      getPublicStats(),
+    ])
+
+    return {
+      topClubs: clubSummaries.slice(0, 24),
+      featuredPlayers: stats.topPlayers.slice(0, clubSummaries.length),
+    }
+  },
+  ['public-community-hub-v2'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.community, PUBLIC_CACHE_TAGS.raids, PUBLIC_CACHE_TAGS.clubs, PUBLIC_CACHE_TAGS.players, PUBLIC_CACHE_TAGS.raidEntries],
   }
 )
 
@@ -259,7 +505,7 @@ export const getPublicStats = unstable_cache(
       prisma.player.findMany(),
       prisma.raid.findMany({ include: raidInclude, orderBy: [{ startDate: 'desc' }, { season: 'desc' }] }),
       prisma.raidEntry.findMany({
-        include: { player: true, raid: { include: raidInclude } },
+        include: { player: { include: { clubData: true } }, raid: { include: raidInclude } },
         orderBy: { score: 'desc' },
       }),
     ])
@@ -286,6 +532,7 @@ export const getPublicStats = unstable_cache(
       playerId: string
       name: string
       club: string
+      clubId: string | null
       totalScore: number
       entryCount: number
       bestRank: number | null
@@ -297,6 +544,7 @@ export const getPublicStats = unstable_cache(
         playerId: player.id,
         name: player.ign,
         club: clubName(player.club),
+        clubId: player.clubId,
         totalScore: 0,
         entryCount: 0,
         bestRank: null,
@@ -309,7 +557,8 @@ export const getPublicStats = unstable_cache(
         const current = playerStats.get(entry.player.id) || {
           playerId: entry.player.id,
           name: entry.player.ign,
-          club: clubName(entry.player.club),
+          club: playerClubName(entry.player),
+          clubId: playerClubId(entry.player),
           totalScore: 0,
           entryCount: 0,
           bestRank: null,
@@ -317,8 +566,8 @@ export const getPublicStats = unstable_cache(
         }
         current.totalScore += entry.score
         current.entryCount += 1
-        current.bestRank = current.bestRank === null ? entry.rank : Math.min(current.bestRank, entry.rank)
-        if (entry.rank <= 3) current.podiums += 1
+        if (entry.rank > 0) current.bestRank = current.bestRank === null ? entry.rank : Math.min(current.bestRank, entry.rank)
+        if (entry.rank > 0 && entry.rank <= 3) current.podiums += 1
         playerStats.set(entry.player.id, current)
       })
     })
@@ -326,12 +575,12 @@ export const getPublicStats = unstable_cache(
     const topPlayers = Array.from(playerStats.values())
       .filter((player) => player.entryCount > 0)
       .sort((a, b) => b.totalScore - a.totalScore || b.entryCount - a.entryCount || a.name.localeCompare(b.name))
-      .slice(0, 12)
       .map((player, index) => ({
         rank: index + 1,
         playerId: player.playerId,
         name: player.name,
         club: player.club,
+        clubId: player.clubId,
         totalScore: player.totalScore,
         entryCount: player.entryCount,
         averageScore: avg(player.totalScore, player.entryCount),
@@ -340,6 +589,7 @@ export const getPublicStats = unstable_cache(
       }))
 
     const clubStats = new Map<string, {
+      id: string | null
       name: string
       totalScore: number
       entryCount: number
@@ -347,8 +597,11 @@ export const getPublicStats = unstable_cache(
     }>()
 
     entries.forEach((entry) => {
-      const club = clubName(entry.player.club)
-      const current = clubStats.get(club) || {
+      const club = playerClubName(entry.player)
+      const clubId = playerClubId(entry.player)
+      const key = clubId || club
+      const current = clubStats.get(key) || {
+        id: clubId,
         name: club,
         totalScore: 0,
         entryCount: 0,
@@ -357,27 +610,29 @@ export const getPublicStats = unstable_cache(
       current.totalScore += entry.score
       current.entryCount += 1
       current.playerIds.add(entry.player.id)
-      clubStats.set(club, current)
+      clubStats.set(key, current)
     })
 
     players.forEach((player) => {
       const club = clubName(player.club)
-      const current = clubStats.get(club) || {
+      const key = player.clubId || club
+      const current = clubStats.get(key) || {
+        id: player.clubId,
         name: club,
         totalScore: 0,
         entryCount: 0,
         playerIds: new Set<string>(),
       }
       current.playerIds.add(player.id)
-      clubStats.set(club, current)
+      clubStats.set(key, current)
     })
 
     const clubStandings = Array.from(clubStats.values())
       .filter((club) => !isGuestClub(club.name))
       .sort((a, b) => b.totalScore - a.totalScore || b.entryCount - a.entryCount || a.name.localeCompare(b.name))
-      .slice(0, 12)
       .map((club, index) => ({
         rank: index + 1,
+        id: club.id,
         name: club.name,
         totalScore: club.totalScore,
         entryCount: club.entryCount,
@@ -467,7 +722,7 @@ export const getPublicStats = unstable_cache(
       },
     }
   },
-  ['public-stats'],
+  ['public-stats-v3'],
   {
     revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
     tags: [PUBLIC_CACHE_TAGS.stats, PUBLIC_CACHE_TAGS.raids, PUBLIC_CACHE_TAGS.raidEntries, PUBLIC_CACHE_TAGS.players],

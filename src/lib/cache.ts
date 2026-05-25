@@ -9,6 +9,8 @@ export const PUBLIC_CACHE_TAGS = {
   raidEntries: 'public:raid-entries',
   raidBosses: 'public:raid-bosses',
   players: 'public:players',
+  clubs: 'public:clubs',
+  community: 'public:community',
   stats: 'public:stats',
   students: 'public:students',
   birthdays: 'public:birthdays',

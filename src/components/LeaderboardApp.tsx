@@ -4,13 +4,14 @@ import { useSession, signOut } from 'next-auth/react'
 import { Navbar } from '@/components/Navbar'
 import { RaidBlock } from '@/components/RaidBlock'
 import { StatsPage } from '@/components/StatsPage'
+import { CommunityPage } from '@/components/CommunityPage'
 import { AdminPanel } from '@/components/AdminPanel'
 import { PlayerProfile } from '@/components/PlayerProfile'
 import { LoginModal } from '@/components/LoginModal'
 import { BirthdaySection } from '@/components/BirthdaySection'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
-type Tab = 'leaderboard' | 'previous' | 'stats' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'stats' | 'community' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 
 interface RaidData {
@@ -49,6 +50,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
     leaderboard: true,
     previous: false,
     stats: false,
+    community: false,
     admin: false,
   })
 
@@ -116,7 +118,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
     setTab('admin')
   }
 
-  const containerMax = tab === 'admin' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerMax = tab === 'admin' || tab === 'community' ? 'max-w-[1100px]' : 'max-w-[940px]'
   const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
@@ -202,6 +204,13 @@ export function LeaderboardApp({ initialRaids }: Props) {
               <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Statistics</h2>
             </div>
             <StatsPage onPlayerClick={(pid) => setProfilePlayerId(pid)} />
+          </div>
+        )}
+
+        {/* COMMUNITY */}
+        {visitedTabs.community && (
+          <div className={`pt-7 ${tab === 'community' ? '' : 'hidden'}`}>
+            <CommunityPage />
           </div>
         )}
 

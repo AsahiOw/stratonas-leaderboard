@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-type Tab = 'leaderboard' | 'previous' | 'stats' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'stats' | 'community' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 
 interface Props {
@@ -24,6 +24,7 @@ export function Navbar({
     { id: 'leaderboard' as Tab, label: 'Leaderboard' },
     { id: 'previous' as Tab, label: 'Previous Raids' },
     { id: 'stats' as Tab, label: 'Statistic' },
+    { id: 'community' as Tab, label: 'Community' },
     ...(loggedIn ? [{ id: 'admin' as Tab, label: 'Admin' }] : []),
   ]
 
@@ -52,7 +53,15 @@ export function Navbar({
       <nav className="sticky top-0 z-50 bg-[rgba(13,13,19,0.94)] backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-14">
           {/* Logo */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setTab('leaderboard')
+              setMenuOpen(false)
+            }}
+            className="flex items-center gap-2.5 shrink-0 rounded-md bg-transparent p-0 text-left text-text transition-colors hover:text-accent"
+            aria-label="Go to leaderboard home"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/assets/icons/icon.gif"
@@ -60,7 +69,7 @@ export function Navbar({
               className="w-8 h-8 rounded-full object-cover border border-border"
             />
             <span className="font-bold text-lg tracking-tight">Stratonas</span>
-          </div>
+          </button>
 
           {/* Desktop tabs */}
           <div className="hidden md:flex items-center gap-0.5">

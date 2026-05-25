@@ -24,6 +24,7 @@ export async function getRankedRaidEntries(raidId: string, take?: number, option
     score: e.score,
     isGuild: e.player.isGuildMember,
     club: e.player.clubData?.name || e.player.club,
+    clubId: e.player.clubId || e.player.clubData?.id || null,
     clubColor: e.player.clubData?.color || null,
     clubLogo: e.player.clubData?.logo || null,
     favouriteStudent: e.player.favouriteStudentData?.name || e.player.favouriteStudent,

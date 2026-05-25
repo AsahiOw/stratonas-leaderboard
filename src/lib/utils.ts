@@ -19,3 +19,15 @@ export function imageSrc(url: string | null | undefined, fallback = ''): string 
   if (url.startsWith('/')) return url
   return proxyImage(url)
 }
+
+export function memorialPosterSrc(memorial: string | null | undefined, fallback = ''): string {
+  if (!memorial?.startsWith('/api/memorial-video')) return fallback
+
+  try {
+    const url = new URL(memorial, 'http://localhost')
+    const file = url.searchParams.get('file')
+    return file ? `/api/memorial-poster?file=${encodeURIComponent(file)}&v=final-frame` : fallback
+  } catch {
+    return fallback
+  }
+}

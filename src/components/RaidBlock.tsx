@@ -101,8 +101,13 @@ function TopThreePodium({
                     {entry.score.toLocaleString()}
                   </div>
                 </div>
-                <span
+                <a
+                  href={entry.clubId ? `/clubs/${entry.clubId}` : undefined}
                   className="inline-flex max-w-full rounded-sm border px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
+                  onClick={(event) => {
+                    if (!entry.clubId) event.preventDefault()
+                    event.stopPropagation()
+                  }}
                   style={{
                     background: entry.clubColor ? `${entry.clubColor}18` : 'rgba(255,255,255,0.05)',
                     borderColor: entry.clubColor ? `${entry.clubColor}45` : 'var(--border2)',
@@ -110,7 +115,7 @@ function TopThreePodium({
                   }}
                 >
                   <span className="truncate">{entry.club || (entry.isGuild ? 'Guild' : 'Guest')}</span>
-                </span>
+                </a>
               </div>
             </div>
           </article>

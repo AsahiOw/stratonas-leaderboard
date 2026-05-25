@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getPublicRaid, getPublicRaidEntries } from '@/lib/public-data'
 import { LeaderboardCardGrid } from '@/components/LeaderboardCardGrid'
 import { ServerBadge } from '@/components/ui/ServerBadge'
+import { PublicHeader } from '@/components/PublicHeader'
 import { fmtDate, imageSrc } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -58,14 +59,15 @@ export default async function RaidLeaderboardPage({ params }: { params: Promise<
 
   return (
     <main className="min-h-screen bg-bg pb-16">
-      <div className="mx-auto w-full max-w-[1180px] px-4 pt-5 sm:px-5 sm:pt-7">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-muted2 hover:text-text transition-colors"
-          >
-            ← Back to leaderboard
+      <PublicHeader
+        actions={(
+          <Link href="/" className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted2 transition-colors hover:text-text">
+            Back to leaderboard
           </Link>
+        )}
+      />
+      <div className="mx-auto w-full max-w-[1180px] px-4 pt-5 sm:px-5 sm:pt-7">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <div className="flex items-center gap-2 text-[11px] text-muted font-mono">
             <span>{fmtDate(raid.startDate)}</span>
             <span>→</span>
