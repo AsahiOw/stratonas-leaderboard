@@ -130,7 +130,7 @@ export function BirthdaySection() {
         <div className={birthdayStudents.length > 0 ? 'mt-3' : ''}>
           <div className="mb-3 flex items-center gap-3">
             <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-muted2">
-              Upcoming · next {upcomingData?.maxDays || 60} days
+              Upcoming Birthday · next {upcomingData?.maxDays || 60} days
             </div>
             <div className="h-px flex-1 bg-border" />
             <div className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">

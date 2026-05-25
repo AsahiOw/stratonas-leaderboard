@@ -15,6 +15,26 @@ export function SiteFooter() {
             Asahi
           </a>
         </p>
+        <p>
+          Made possible by{' '}
+          <a
+            href="https://schaledb.com/home"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-accent transition-colors hover:text-text"
+          >
+            ScaleDB
+          </a>{' '}
+          and{' '}
+          <a
+            href="https://www.youtube.com/@JaymieArclight/videos"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-accent transition-colors hover:text-text"
+          >
+            Jaymie
+          </a>
+        </p>
         <p className="max-w-5xl text-muted2">
           This is a personal project with no data collecting. Stratonas Leaderboard is not affiliated with Nexon, Nexon Games, or Yostar. All game artwork,
           information, and assets used on this website are the property and copyright of their respective owners.
