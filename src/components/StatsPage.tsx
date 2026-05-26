@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { ReturnLocationLink } from '@/components/ReturnLocationLink'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StatCard } from '@/components/ui/StatCard'
 import { BarChart } from '@/components/ui/BarChart'
@@ -303,9 +303,9 @@ export function StatsPage({ onPlayerClick }: Props) {
                     </td>
                     <td className="px-3 py-3 text-muted2">
                       {player.clubId ? (
-                        <Link href={`/clubs/${player.clubId}`} className="text-muted2 hover:text-text hover:underline">
+                        <ReturnLocationLink href={`/clubs/${player.clubId}`} returnTab="stats" className="text-muted2 hover:text-text hover:underline">
                           {player.club}
-                        </Link>
+                        </ReturnLocationLink>
                       ) : player.club}
                     </td>
                     <td className="px-3 py-3 font-mono font-bold text-accent">{fmtNum(player.totalScore)}</td>
@@ -346,9 +346,9 @@ export function StatsPage({ onPlayerClick }: Props) {
                     <td className="px-3 py-3 font-mono text-muted2">#{club.rank}</td>
                     <td className="px-3 py-3 font-semibold whitespace-nowrap">
                       {club.id ? (
-                        <Link href={`/clubs/${club.id}`} className="text-text hover:text-accent hover:underline">
+                        <ReturnLocationLink href={`/clubs/${club.id}`} returnTab="stats" className="text-text hover:text-accent hover:underline">
                           {club.name}
-                        </Link>
+                        </ReturnLocationLink>
                       ) : club.name}
                     </td>
                     <td className="px-3 py-3 font-mono font-bold text-accent">{fmtNum(club.totalScore)}</td>

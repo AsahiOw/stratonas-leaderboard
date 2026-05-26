@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { ReturnLocationLink } from '@/components/ReturnLocationLink'
 import { imageSrc } from '@/lib/utils'
 
 interface CommunityData {
@@ -89,7 +89,7 @@ export function CommunityPage() {
           ) : (
             <div className="flex flex-col gap-2.5">
               {visibleClubs.map((club) => (
-                <Link key={club.id} href={`/clubs/${club.id}`} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-border bg-bg/35 px-4 py-3 no-underline transition-colors hover:border-border2 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto]">
+                <ReturnLocationLink key={club.id} href={`/clubs/${club.id}`} returnTab="community" className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-border bg-bg/35 px-4 py-3 no-underline transition-colors hover:border-border2 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto]">
                   <div className="w-9 shrink-0 font-mono text-lg font-black" style={{ color: club.color }}>#{club.rank}</div>
                   {club.logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -102,7 +102,7 @@ export function CommunityPage() {
                     <div className="text-xs text-muted">{club.activePlayerCount} players · {club.totalEntries} entries · {club.podiums} podiums</div>
                   </div>
                   <div className="col-span-3 font-mono text-sm font-bold text-accent sm:col-span-1 sm:text-right">{fmtNum(club.totalScore)}</div>
-                </Link>
+                </ReturnLocationLink>
               ))}
               {canShowMoreClubs && (
                 <button
@@ -122,7 +122,7 @@ export function CommunityPage() {
           <div className="mb-4 text-xs text-muted">Players with strong overall contribution.</div>
           <div className="flex flex-col gap-2.5">
             {visibleFeaturedPlayers.map((player) => (
-              <Link key={player.playerId} href={`/players/${player.playerId}`} className="flex items-center gap-3 rounded-xl border border-border bg-bg/35 px-4 py-3 no-underline hover:border-border2">
+              <ReturnLocationLink key={player.playerId} href={`/players/${player.playerId}`} returnTab="community" className="flex items-center gap-3 rounded-xl border border-border bg-bg/35 px-4 py-3 no-underline hover:border-border2">
                 <div className="font-mono text-lg font-black text-muted2">#{player.rank}</div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold text-text">{player.name}</div>
@@ -132,7 +132,7 @@ export function CommunityPage() {
                   <div className="font-mono text-sm font-bold text-accent">{fmtNum(player.totalScore)}</div>
                   <div className="text-[11px] text-muted">Best {player.bestRank ? `#${player.bestRank}` : '-'}</div>
                 </div>
-              </Link>
+              </ReturnLocationLink>
             ))}
           </div>
         </section>

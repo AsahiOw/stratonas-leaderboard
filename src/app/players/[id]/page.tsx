@@ -4,6 +4,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { PublicHeader } from '@/components/PublicHeader'
+import { PlayerBackLink } from '@/components/PlayerBackLink'
 import { fmtDate, imageSrc, memorialPosterSrc } from '@/lib/utils'
 import { getPublicPlayerProfile } from '@/lib/public-data'
 
@@ -35,16 +36,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
     <main className="min-h-screen bg-bg pb-16">
       <PublicHeader
         actions={(
-          <>
-            <Link href="/" className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted2 transition-colors hover:text-text">
-              Back to leaderboard
-            </Link>
-            {clubId && (
-              <Link href={`/clubs/${clubId}`} className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted2 transition-colors hover:text-text">
-                Club page
-              </Link>
-            )}
-          </>
+          <PlayerBackLink />
         )}
       />
       <div className="mx-auto w-full max-w-[1040px] px-4 pt-5 sm:px-5 sm:pt-7">

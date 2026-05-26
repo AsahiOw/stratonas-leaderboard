@@ -93,9 +93,8 @@ const titleFont2Class = 'font-display'
 
 export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const touchReleaseTimerRef = useRef<number | null>(null)
   const [videoReady, setVideoReady] = useState(false)
-  const [isInteracting, setIsInteracting] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   // clubAccent: drives border/shadow/badge-glow; falls back to raid color
   const clubAccent = safeHex(entry.clubColor, safeHex(raid.color, '#4f8ef7'))
@@ -120,8 +119,9 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
   // Curved-slash path — quadratic bezier from design defaults
   // cx=1161.8 (116.18% of W), cy=304 (mid + 14% offset), control bends to x=−314
   const slashPath = 'M 1161.8 -1121 Q -314 304 1161.8 1729 L 5161.8 172971 L 5161.8 -1121 Z'
-  const shouldMountVideo = Boolean(entry.favouriteStudentMemorial && isInteracting)
-  const shouldPlayVideo = shouldMountVideo && isInteracting
+  const canPlayVideo = Boolean(entry.favouriteStudentMemorial)
+  const shouldMountVideo = canPlayVideo && isPlaying
+  const shouldPlayVideo = shouldMountVideo
   const videoPreload = 'auto'
 
   useEffect(() => {
@@ -185,48 +185,31 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
   }, [shouldPlayVideo, background])
 
   useEffect(() => {
-    return () => {
-      if (touchReleaseTimerRef.current !== null) window.clearTimeout(touchReleaseTimerRef.current)
+    if (!canPlayVideo && isPlaying) {
+      setIsPlaying(false)
     }
-  }, [])
+  }, [canPlayVideo, isPlaying])
 
-  const clearTouchReleaseTimer = () => {
-    if (touchReleaseTimerRef.current !== null) {
-      window.clearTimeout(touchReleaseTimerRef.current)
-      touchReleaseTimerRef.current = null
-    }
-  }
-
-  const stopTouchPlaybackSoon = () => {
-    clearTouchReleaseTimer()
-    touchReleaseTimerRef.current = window.setTimeout(() => {
-      setIsInteracting(false)
-      touchReleaseTimerRef.current = null
-    }, 120)
+  const togglePlayback = () => {
+    if (!canPlayVideo) return
+    setVideoReady(false)
+    setIsPlaying((current) => !current)
   }
 
   return (
     <article
-      className="relative isolate aspect-[1000/475] overflow-hidden rounded-md border bg-card"
+      className="relative isolate aspect-[1000/475] select-none overflow-hidden rounded-md border bg-card touch-manipulation cursor-pointer"
+      role="button"
+      tabIndex={0}
+      aria-pressed={isPlaying}
       data-video-mode={videoMode}
-      data-video-interacting={isInteracting}
-      onPointerEnter={(event) => {
-        if (event.pointerType === 'mouse') setIsInteracting(true)
-      }}
-      onPointerLeave={(event) => {
-        if (event.pointerType === 'mouse') setIsInteracting(false)
-      }}
-      onPointerDown={(event) => {
-        if (event.pointerType === 'mouse') return
-        clearTouchReleaseTimer()
-        setIsInteracting(true)
-        event.currentTarget.setPointerCapture?.(event.pointerId)
-      }}
-      onPointerUp={(event) => {
-        if (event.pointerType !== 'mouse') stopTouchPlaybackSoon()
-      }}
-      onPointerCancel={(event) => {
-        if (event.pointerType !== 'mouse') setIsInteracting(false)
+      data-video-interacting={isPlaying}
+      onClick={togglePlayback}
+      onContextMenu={(event) => event.preventDefault()}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        togglePlayback()
       }}
       style={{
         borderColor: `${clubAccent}${elevated ? '80' : '40'}`,
@@ -242,6 +225,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
         <img
           src={poster}
           alt=""
+          draggable={false}
           onError={(e) => {
             const img = e.currentTarget
             if (!img.src.endsWith(FALLBACK_BG)) img.src = FALLBACK_BG
@@ -268,6 +252,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
             muted
             playsInline
             preload={videoPreload}
+            draggable={false}
             onLoadedData={() => setVideoReady(true)}
             onCanPlay={() => setVideoReady(true)}
             onError={(e) => {
@@ -313,6 +298,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
         <img
           src={clubLogo}
           alt=""
+          draggable={false}
           onError={(e) => {
             const img = e.currentTarget
             if (!img.src.endsWith(FALLBACK_CLUB)) img.src = FALLBACK_CLUB
@@ -330,6 +316,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
         <img
           src={portrait}
           alt={entry.favouriteStudent || entry.name}
+          draggable={false}
           onError={(e) => {
             const img = e.currentTarget
             if (!img.src.endsWith(FALLBACK_PORTRAIT)) img.src = FALLBACK_PORTRAIT

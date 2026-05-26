@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import Link from 'next/link'
+import { ReturnLocationLink } from '@/components/ReturnLocationLink'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { Avatar } from '@/components/ui/Avatar'
 import { hexToRgb } from '@/lib/utils'
@@ -30,9 +30,10 @@ interface Props {
   accent: string
   onPlayerClick?: (playerId: string) => void
   cap?: number
+  returnTab?: string
 }
 
-export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props) {
+export function LeaderboardTable({ players, accent, onPlayerClick, cap, returnTab = 'leaderboard' }: Props) {
   const [hov, setHov] = useState<number | null>(null)
   const shown = cap ? players.slice(0, cap) : players
   const glow = `rgba(${hexToRgb(accent)},0.07)`
@@ -98,20 +99,31 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap }: Props)
                         </span>
                       )}
                       {p.isGuild ? (
-                        <Link
-                          href={p.clubId ? `/clubs/${p.clubId}` : '#'}
-                          onClick={(event) => {
-                            if (!p.clubId) event.preventDefault()
-                          }}
-                          className="text-[10px] px-1.5 py-px rounded border font-semibold tracking-[0.05em] no-underline hover:underline"
-                          style={{
-                            background: p.clubColor ? `${p.clubColor}18` : 'rgba(52,211,153,0.12)',
-                            borderColor: p.clubColor ? `${p.clubColor}45` : 'rgba(52,211,153,0.25)',
-                            color: clubColor,
-                          }}
-                        >
-                          {p.club || 'GUILD'}
-                        </Link>
+                        p.clubId ? (
+                          <ReturnLocationLink
+                            href={`/clubs/${p.clubId}`}
+                            returnTab={returnTab}
+                            className="text-[10px] px-1.5 py-px rounded border font-semibold tracking-[0.05em] no-underline hover:underline"
+                            style={{
+                              background: p.clubColor ? `${p.clubColor}18` : 'rgba(52,211,153,0.12)',
+                              borderColor: p.clubColor ? `${p.clubColor}45` : 'rgba(52,211,153,0.25)',
+                              color: clubColor,
+                            }}
+                          >
+                            {p.club || 'GUILD'}
+                          </ReturnLocationLink>
+                        ) : (
+                          <span
+                            className="text-[10px] px-1.5 py-px rounded border font-semibold tracking-[0.05em]"
+                            style={{
+                              background: p.clubColor ? `${p.clubColor}18` : 'rgba(52,211,153,0.12)',
+                              borderColor: p.clubColor ? `${p.clubColor}45` : 'rgba(52,211,153,0.25)',
+                              color: clubColor,
+                            }}
+                          >
+                            {p.club || 'GUILD'}
+                          </span>
+                        )
                       ) : p.club ? (
                         <span
                           className="text-[10px] px-1.5 py-px rounded bg-[rgba(255,255,255,0.05)] border font-semibold tracking-[0.05em]"

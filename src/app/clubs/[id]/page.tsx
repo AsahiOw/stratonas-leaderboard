@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ClubRoster } from '@/components/ClubRoster'
+import { ReturnBackLink } from '@/components/PlayerBackLink'
 import { PublicHeader } from '@/components/PublicHeader'
 import { imageSrc } from '@/lib/utils'
 import { getPublicClubProfile } from '@/lib/public-data'
@@ -27,9 +27,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
     <main className="min-h-screen bg-bg pb-16">
       <PublicHeader
         actions={(
-          <Link href="/" className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted2 transition-colors hover:text-text">
-            Back to leaderboard
-          </Link>
+          <ReturnBackLink />
         )}
       />
       <div className="mx-auto w-full max-w-[1120px] px-4 pt-5 sm:px-5 sm:pt-7">

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { ServerBadge } from '@/components/ui/ServerBadge'
+import { ReturnLocationLink } from '@/components/ReturnLocationLink'
 import { fmtDate, imageSrc, memorialPosterSrc } from '@/lib/utils'
 
 interface RaidInfo {
@@ -63,6 +64,7 @@ interface PlayerData {
 interface Props {
   playerId: string
   onClose: () => void
+  returnTab?: string
 }
 
 function fmtCompactScore(value: number) {
@@ -72,7 +74,14 @@ function fmtCompactScore(value: number) {
   return value.toLocaleString()
 }
 
-export function PlayerProfile({ playerId, onClose }: Props) {
+function returnLabel(tab: string) {
+  if (tab === 'stats') return 'Back to Statistics'
+  if (tab === 'community') return 'Back to Community'
+  if (tab === 'previous') return 'Back to History'
+  return 'Back to Leaderboard'
+}
+
+export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: Props) {
   const [player, setPlayer] = useState<PlayerData | null>(null)
   // Portal into document.body so this overlay sits above any other modal
   // (e.g. the full-rankings RaidDetailModal at z-[300]) and is not bounded
@@ -170,9 +179,9 @@ export function PlayerProfile({ playerId, onClose }: Props) {
                 </div>
                 <div className="text-xs text-muted mt-0.5">
                   @{player.username} · {clubId ? (
-                    <Link href={`/clubs/${clubId}`} className="text-muted2 hover:text-text hover:underline">
+                    <ReturnLocationLink href={`/clubs/${clubId}`} returnTab={returnTab} className="text-muted2 hover:text-text hover:underline">
                       {clubName}
-                    </Link>
+                    </ReturnLocationLink>
                   ) : clubName}{' '}
                   <span className="text-border2">({player.clubID})</span>
                 </div>
@@ -185,10 +194,9 @@ export function PlayerProfile({ playerId, onClose }: Props) {
             </div>
             <button
               onClick={onClose}
-              aria-label="Close"
-              className="bg-transparent border-0 text-muted hover:text-text cursor-pointer text-xl leading-none w-9 h-9 inline-flex items-center justify-center rounded-md hover:bg-card2 transition-colors shrink-0"
+              className="shrink-0 rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-semibold text-muted2 transition-colors hover:border-border2 hover:text-text"
             >
-              ✕
+              {returnLabel(returnTab)}
             </button>
           </div>
 
@@ -216,9 +224,14 @@ export function PlayerProfile({ playerId, onClose }: Props) {
             <div className="mb-5 sm:mb-6">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="text-[11px] font-bold text-muted tracking-[0.1em]">PLAYER JOURNEY</div>
-                <Link href={`/players/${player.id}`} className="text-[11px] font-semibold hover:underline" style={{ color: accent }}>
+                <ReturnLocationLink
+                  href={`/players/${player.id}`}
+                  returnTab={returnTab}
+                  className="text-[11px] font-semibold hover:underline"
+                  style={{ color: accent }}
+                >
                   Open full profile
-                </Link>
+                </ReturnLocationLink>
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {[

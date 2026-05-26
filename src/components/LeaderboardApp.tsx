@@ -13,6 +13,7 @@ import type { TableEntry } from '@/components/LeaderboardTable'
 
 type Tab = 'leaderboard' | 'previous' | 'stats' | 'community' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
+type ReturnLocation = { tab: Tab; scrollY: number }
 
 interface RaidData {
   id: string
@@ -45,6 +46,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
   const [serverFilter, setServerFilter] = useState<ServerFilter>('all')
   const [showLogin, setShowLogin] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
+  const [pendingReturnScroll, setPendingReturnScroll] = useState<number | null>(null)
   const [raidEntries, setRaidEntries] = useState<Record<string, TableEntry[]>>({})
   const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
     leaderboard: true,
@@ -67,6 +69,39 @@ export function LeaderboardApp({ initialRaids }: Props) {
         .catch(() => undefined)
     })
   }, [raidEntries])
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem('stratonas:return-location')
+      if (!raw) return
+
+      window.sessionStorage.removeItem('stratonas:return-location')
+      const saved = JSON.parse(raw) as Partial<ReturnLocation>
+      const tabs: Tab[] = ['leaderboard', 'previous', 'stats', 'community', 'admin']
+      if (!saved.tab || !tabs.includes(saved.tab) || saved.tab === 'admin') return
+
+      setTab(saved.tab)
+      setVisitedTabs((prev) => ({ ...prev, [saved.tab as Tab]: true }))
+      setPendingReturnScroll(typeof saved.scrollY === 'number' ? saved.scrollY : 0)
+    } catch {
+      window.sessionStorage.removeItem('stratonas:return-location')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (pendingReturnScroll === null) return
+
+    const scrollToSavedPlace = () => window.scrollTo({ top: pendingReturnScroll, behavior: 'auto' })
+    const frame = window.requestAnimationFrame(scrollToSavedPlace)
+    const timers = [120, 400, 900, 1500].map((delay) => window.setTimeout(scrollToSavedPlace, delay))
+    const done = window.setTimeout(() => setPendingReturnScroll(null), 1700)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      timers.forEach((timer) => window.clearTimeout(timer))
+      window.clearTimeout(done)
+    }
+  }, [pendingReturnScroll])
 
   useEffect(() => {
     setVisitedTabs((prev) => prev[tab] ? prev : { ...prev, [tab]: true })
@@ -162,6 +197,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
                   entries={raidEntries[r.id] || []}
                   onPlayerClick={handlePlayerClick}
                   capRows={10}
+                  returnTab="leaderboard"
                 />
               ))
             )}
@@ -190,6 +226,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
                   onPlayerClick={handlePlayerClick}
                   capRows={10}
                   defaultOpen={false}
+                  returnTab="previous"
                 />
               ))
             )}
@@ -236,7 +273,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
       </div>
 
       {showLogin && <LoginModal onLogin={handleLogin} onClose={() => setShowLogin(false)} />}
-      {profilePlayerId && <PlayerProfile playerId={profilePlayerId} onClose={() => setProfilePlayerId(null)} />}
+      {profilePlayerId && <PlayerProfile playerId={profilePlayerId} returnTab={tab} onClose={() => setProfilePlayerId(null)} />}
     </div>
   )
 }

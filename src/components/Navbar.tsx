@@ -22,7 +22,7 @@ export function Navbar({
 
   const tabs = [
     { id: 'leaderboard' as Tab, label: 'Leaderboard' },
-    { id: 'previous' as Tab, label: 'Previous Raids' },
+    { id: 'previous' as Tab, label: 'History' },
     { id: 'stats' as Tab, label: 'Statistic' },
     { id: 'community' as Tab, label: 'Community' },
     ...(loggedIn ? [{ id: 'admin' as Tab, label: 'Admin' }] : []),
@@ -78,8 +78,8 @@ export function Navbar({
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`rounded-md px-3.5 py-1.5 text-sm transition-colors inline-flex items-center gap-1.5 ${tab === t.id
-                    ? 'bg-accent/[0.12] text-accent font-semibold'
-                    : 'text-muted2 hover:text-text hover:bg-white/5'
+                  ? 'bg-accent/[0.12] text-accent font-semibold'
+                  : 'text-muted2 hover:text-text hover:bg-white/5'
                   }`}
               >
                 {t.label}
@@ -101,8 +101,8 @@ export function Navbar({
                     key={s}
                     onClick={() => setServerFilter(s)}
                     className={`rounded px-2.5 py-1 text-xs uppercase tracking-[0.05em] transition-colors ${serverFilter === s
-                        ? 'bg-border2 text-text font-semibold'
-                        : 'text-muted hover:text-text'
+                      ? 'bg-border2 text-text font-semibold'
+                      : 'text-muted hover:text-text'
                       }`}
                   >
                     {s}
@@ -113,8 +113,8 @@ export function Navbar({
             <button
               onClick={onLoginClick}
               className={`rounded-lg px-4 py-1.5 text-[13px] font-semibold border transition-colors ${loggedIn
-                  ? 'bg-red/[0.12] text-red border-red/30 hover:bg-red/20'
-                  : 'bg-accent/[0.12] text-accent border-accent/30 hover:bg-accent/20'
+                ? 'bg-red/[0.12] text-red border-red/30 hover:bg-red/20'
+                : 'bg-accent/[0.12] text-accent border-accent/30 hover:bg-accent/20'
                 }`}
             >
               {loggedIn ? '→ Logout' : '⊙ Admin Login'}
@@ -154,8 +154,8 @@ export function Navbar({
                 key={t.id}
                 onClick={() => handleTabSelect(t.id)}
                 className={`w-full inline-flex items-center justify-between rounded-lg px-4 min-h-11 text-sm transition-colors ${tab === t.id
-                    ? 'bg-accent/15 text-accent font-semibold border border-accent/30'
-                    : 'text-muted2 bg-card border border-border'
+                  ? 'bg-accent/15 text-accent font-semibold border border-accent/30'
+                  : 'text-muted2 bg-card border border-border'
                   }`}
               >
                 <span>{t.label}</span>
@@ -176,8 +176,8 @@ export function Navbar({
                       key={s}
                       onClick={() => setServerFilter(s)}
                       className={`flex-1 rounded-md py-2 text-xs uppercase tracking-[0.05em] transition-colors ${serverFilter === s
-                          ? 'bg-border2 text-text font-semibold'
-                          : 'text-muted hover:text-text'
+                        ? 'bg-border2 text-text font-semibold'
+                        : 'text-muted hover:text-text'
                         }`}
                     >
                       {s}
@@ -190,8 +190,8 @@ export function Navbar({
             <button
               onClick={handleLogin}
               className={`mt-2 w-full rounded-lg min-h-11 px-4 text-sm font-semibold border transition-colors ${loggedIn
-                  ? 'bg-red/[0.12] text-red border-red/30'
-                  : 'bg-accent/[0.12] text-accent border-accent/30'
+                ? 'bg-red/[0.12] text-red border-red/30'
+                : 'bg-accent/[0.12] text-accent border-accent/30'
                 }`}
             >
               {loggedIn ? '→ Logout' : '⊙ Admin Login'}

@@ -54,7 +54,7 @@ export function ClubRoster({ roster, clubColor }: Props) {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search roster..."
+          placeholder="Search player..."
           className="w-full rounded-lg border border-border bg-bg px-3.5 py-2 text-sm text-text outline-none placeholder:text-muted focus:border-accent/60 sm:w-[260px]"
         />
       </div>
