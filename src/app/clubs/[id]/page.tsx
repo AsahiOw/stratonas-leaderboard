@@ -11,6 +11,14 @@ function fmtNum(value: number | null | undefined) {
   return typeof value === 'number' ? value.toLocaleString() : '-'
 }
 
+function fmtCompactScore(value: number | null | undefined) {
+  if (typeof value !== 'number') return '-'
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1).replace('.', ',')}B`
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace('.', ',')}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace('.', ',')}K`
+  return value.toLocaleString()
+}
+
 export default async function ClubPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const club = await getPublicClubProfile(id)
@@ -55,7 +63,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
               </div>
               <div className="grid grid-cols-2 gap-2 sm:min-w-[360px] sm:grid-cols-4">
                 {[
-                  ['Total Score', fmtNum(club.stats.totalScore), 'var(--accent)'],
+                  ['Total Score', fmtCompactScore(club.stats.totalScore), 'var(--accent)'],
                   ['Entries', fmtNum(club.stats.totalEntries), 'var(--green)'],
                   ['Players', fmtNum(club.stats.activePlayerCount), club.color],
                   ['Podiums', fmtNum(club.stats.podiums), '#a78bfa'],
