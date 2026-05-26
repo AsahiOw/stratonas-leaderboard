@@ -17,6 +17,14 @@ function fmtNum(value: number | null | undefined) {
   return typeof value === 'number' ? value.toLocaleString() : '-'
 }
 
+function fmtCompactScore(value: number | null | undefined) {
+  if (typeof value !== 'number') return '-'
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1).replace('.', ',')}B`
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace('.', ',')}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace('.', ',')}K`
+  return value.toLocaleString()
+}
+
 export default async function PlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const player = await getPublicPlayerProfile(id)
@@ -67,7 +75,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:min-w-[300px] sm:grid-cols-4">
                   {[
-                    ['Total', fmtNum(journey?.totalScore), accent],
+                    ['Total', fmtCompactScore(journey?.totalScore), accent],
                     ['Best', journey?.bestRank ? `#${journey.bestRank}` : '-', 'var(--gold)'],
                     ['Entries', fmtNum(journey?.totalEntries), 'var(--green)'],
                     ['Podiums', fmtNum(journey?.podiums), '#a78bfa'],
