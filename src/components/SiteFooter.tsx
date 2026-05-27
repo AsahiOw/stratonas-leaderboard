@@ -2,9 +2,9 @@ export function SiteFooter() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="border-t border-border bg-card2/80 px-4 py-6 text-center text-xs sm:text-sm text-text">
-      <div className="mx-auto flex max-w-[1180px] flex-col items-center gap-2 leading-relaxed">
-        <p>
+    <footer className="border-t border-border bg-card2/80 px-4 py-4 text-center text-xs text-text sm:text-sm">
+      <div className="mx-auto flex max-w-[1180px] flex-col items-center gap-1.5 leading-relaxed">
+        <p className="max-w-5xl">
           © {currentYear} Stratonas Leaderboard · Made by{' '}
           <a
             href="https://github.com/AsahiOw"
@@ -13,10 +13,8 @@ export function SiteFooter() {
             className="font-semibold text-accent transition-colors hover:text-text"
           >
             Asahi
-          </a>
-        </p>
-        <p>
-          Made possible by{' '}
+          </a>{' '}
+          · Credit to {' '}
           <a
             href="https://schaledb.com/home"
             target="_blank"
@@ -33,6 +31,15 @@ export function SiteFooter() {
             className="font-semibold text-accent transition-colors hover:text-text"
           >
             Jaymie
+          </a>
+          {' '}· Join{' '}
+          <a
+            href="https://discord.gg/FVYejmTYaQ"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-accent transition-colors hover:text-text"
+          >
+            Stratonas Discord
           </a>
         </p>
         <p className="max-w-5xl text-muted2">

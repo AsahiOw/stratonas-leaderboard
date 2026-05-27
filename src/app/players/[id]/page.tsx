@@ -54,22 +54,22 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.08),rgba(13,13,19,0.9))]" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.24),rgba(13,13,19,0.96))] sm:bg-[linear-gradient(to_bottom,rgba(13,13,19,0.08),rgba(13,13,19,0.9))]" />
               </>
             )}
-            <div className="absolute inset-x-0 bottom-0 px-5 py-5 sm:px-6" style={{ background: `linear-gradient(to top,${accent}24,transparent)` }}>
+            <div className="absolute inset-x-0 bottom-0 px-5 py-5 [text-shadow:0_1px_12px_rgba(0,0,0,0.95)] sm:px-6 sm:[text-shadow:none]" style={{ background: `linear-gradient(to top,rgba(13,13,19,0.74),${accent}24,transparent)` }}>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex min-w-0 items-center gap-4">
                   <Avatar initials={initials} color={accent} size={68} image={player.favouriteStudentData?.image} alt={favouriteStudentName || player.ign} />
-                  <div className="min-w-0">
+                  <div className="min-w-0 rounded-lg bg-bg/45 px-3 py-2 backdrop-blur-[2px] sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
                     <h1 className="break-words text-2xl font-bold tracking-[-0.03em] sm:text-3xl">{player.ign}</h1>
-                    <div className="mt-1 text-sm text-muted2">
+                    <div className="mt-1 text-sm [color:#d9d9e8] sm:text-muted2">
                       @{player.username} · {clubId ? (
                         <Link href={`/clubs/${clubId}`} className="hover:underline" style={{ color: accent }}>{clubName}</Link>
                       ) : clubName}
                     </div>
-                    <div className="mt-1 text-xs text-muted">
-                      Fav: <span className="text-muted2">{favouriteStudentName || '-'}</span> · Added {fmtDate(player.joinedDate)}
+                    <div className="mt-1 text-xs [color:#c7c7d8] sm:text-muted">
+                      Fav: <span className="[color:#f1f1fa] sm:text-muted2">{favouriteStudentName || '-'}</span> · Added {fmtDate(player.joinedDate)}
                     </div>
                   </div>
                 </div>
@@ -80,9 +80,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
                     ['Entries', fmtNum(journey?.totalEntries), 'var(--green)'],
                     ['Podiums', fmtNum(journey?.podiums), '#a78bfa'],
                   ].map(([label, value, color]) => (
-                    <div key={label} className="rounded-lg border border-border bg-bg/55 px-3 py-2 text-center backdrop-blur-sm">
+                    <div key={label} className="rounded-lg border border-border bg-bg/75 px-3 py-2 text-center shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-md sm:bg-bg/55 sm:shadow-none sm:backdrop-blur-sm">
                       <div className="font-mono text-lg font-bold" style={{ color }}>{value}</div>
-                      <div className="text-[10px] uppercase tracking-[0.08em] text-muted">{label}</div>
+                      <div className="text-[10px] uppercase tracking-[0.08em] text-muted2 sm:text-muted">{label}</div>
                     </div>
                   ))}
                 </div>
