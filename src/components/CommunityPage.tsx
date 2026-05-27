@@ -66,7 +66,7 @@ export function CommunityPage() {
     <div className="mx-auto max-w-[1040px] pb-10">
       <div className="mb-5">
         <div className="mb-1.5 text-[11px] font-bold tracking-[0.14em] text-muted">COMMUNITY ARCHIVE</div>
-        <h2 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">Stratonas Community</h2>
+        <h2 className="text-xl font-bold tracking-[-0.02em] sm:text-2xl">Stratónas Community</h2>
         <p className="mt-1.5 text-[13px] text-muted2">Search clubs, open club pages, and find active player profiles.</p>
       </div>
 

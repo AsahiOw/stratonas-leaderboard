@@ -20,7 +20,7 @@ export function PublicHeader({ actions }: PublicHeaderProps) {
             alt=""
             className="h-8 w-8 rounded-full border border-border object-cover"
           />
-          <span className="text-lg font-bold tracking-tight">Stratonas</span>
+          <span className="text-lg font-bold tracking-tight">Stratónas</span>
         </Link>
         {actions && (
           <div className="flex min-w-0 items-center justify-end gap-2">

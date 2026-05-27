@@ -179,7 +179,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
               <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.18),rgba(13,13,19,0.82))]" />
               <div className="relative px-4 pb-3 sm:pb-4">
                 <h1 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-[-0.03em] leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.75)]">
-                  Stratonas <span className="text-accent">Leaderboard</span>
+                  Stratónas <span className="text-accent">Leaderboard</span>
                 </h1>
                 <p className="text-muted2 text-sm mt-2 px-2 drop-shadow-[0_1px_8px_rgba(0,0,0,0.75)]">
                   Latest raid updates

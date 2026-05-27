@@ -68,7 +68,7 @@ export function Navbar({
               alt=""
               className="w-8 h-8 rounded-full object-cover border border-border"
             />
-            <span className="font-bold text-lg tracking-tight">Stratonas</span>
+            <span className="font-bold text-lg tracking-tight">Stratónas</span>
           </button>
 
           {/* Desktop tabs */}

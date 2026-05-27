@@ -109,7 +109,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
   const memorialOffset = getMemorialOffset(entry.favouriteStudentMemorialOffset)
   const portraitOffset = getPortraitOffset(entry.favouriteStudentId, entry.favouriteStudentPortraitOffset)
   const seasonLabel = `S${raid.season}: ${raid.raidBoss.name} ${raid.terrain.name}`
-  const headerLabel = `Stratonas ${raid.type.name} Leaderboard`
+  const headerLabel = `Stratónas ${raid.type.name} Leaderboard`
 
   // Two-tone overlay: left 25% tint, feather 71%–77%, right fully opaque
   const leftCol = rgba(tintColor, 0.25)

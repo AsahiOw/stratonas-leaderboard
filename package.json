@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-local.ps1",
+    "dev:local": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",

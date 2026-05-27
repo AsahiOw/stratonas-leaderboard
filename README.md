@@ -1,8 +1,20 @@
 # Stratonas Guild Leaderboard
 
-A self-hosted, fully local, dark-themed gaming leaderboard web app.
+A self-hosted, dark-themed gaming leaderboard web app for Stratonas guild raid scores, player profiles, clubs, birthdays, and Blue Archive student media.
 
-**Stack:** Next.js 14 · PostgreSQL 16 · Prisma · NextAuth v5 · Tailwind CSS · Docker Compose
+**Stack:** Next.js 16 · React 18 · TypeScript 5 · PostgreSQL 16 · Prisma 5 · NextAuth v5 beta · Tailwind CSS 3 · Docker Compose
+
+The application stores its primary data in PostgreSQL and can run entirely on your own machine or server. Some admin import workflows can optionally call external services, such as SchaleDB/wiki sources for student and raid-boss metadata, Discord/image hosts for proxied images, and Anthropic Claude for profile-picture student matching during XLSX imports.
+
+## What This App Includes
+
+- Public leaderboard, raid detail, player profile, club profile, community, stats, and birthday views.
+- Admin-only CRUD for players, clubs, raids, raid entries, students, raid bosses, and lookup data.
+- XLSX import for raid score submissions, using `exceljs`.
+- Optional AI-assisted favorite-student matching for profile pictures, using `@anthropic-ai/sdk`.
+- Local memorial video/poster serving from `Development_data`.
+- Prisma migrations, seed/admin scripts, and Docker-based PostgreSQL.
+- Security headers, CSP, same-origin write protection, and cache controls.
 
 ---
 
@@ -56,6 +68,7 @@ This is the fastest way to work on the app after PostgreSQL is installed on your
 - Node.js 20+
 - PostgreSQL 16 installed locally
 - FFmpeg, required for memorial video processing
+- npm, which is used by the checked-in `package-lock.json`
 
 On macOS:
 
@@ -128,7 +141,7 @@ npm run postgres:stop
 
 ## Memorial Videos
 
-Raid cards use optimized local MP4 memorial videos and final-frame poster images.
+Raid cards can use optimized local MP4 memorial videos and final-frame poster images. These media files are not committed to git.
 
 ### Folder Layout
 
@@ -227,7 +240,7 @@ npm run db:docker:stop
 
 ## Production (Docker)
 
-Production uses the same app image but stores PostgreSQL data in a separate folder:
+Production uses the same app image but stores PostgreSQL data in a separate folder. The Docker image is built with Next.js `output: "standalone"` and the container runs `prisma migrate deploy` before starting the Next.js server.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.production.yml up --build
@@ -296,13 +309,16 @@ Backups are saved to `./backups/stratonas_YYYY-MM-DD_HH-MM.sql`
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string used inside Docker. Use host `db` in `.env.docker`; host-run npm scripts convert it to `localhost`. URL-encode special password characters such as `@` as `%40`. | `postgresql://stratonas:stratonas@db:5432/stratonas` |
+| `DATABASE_URL` | PostgreSQL connection string. Use host `db` in `.env.docker`; use `localhost` in `.env` when running commands from your machine. Some host-run npm scripts convert `db:5432` to `localhost:5432`. URL-encode special password characters such as `@` as `%40`. | Docker: `postgresql://stratonas:stratonas@db:5432/stratonas`; local: `postgresql://stratonas:stratonas@localhost:5432/stratonas` |
 | `POSTGRES_USER` | DB username | `stratonas` |
 | `POSTGRES_PASSWORD` | DB password | `stratonas` |
 | `POSTGRES_DB` | Database name | `stratonas` |
 | `NEXTAUTH_SECRET` | JWT/session secret. Generate one with `openssl rand -base64 32` and keep it stable after deployment. | dev value |
 | `NEXTAUTH_URL` | App URL for NextAuth callbacks | `http://localhost:3000` |
 | `AUTH_TRUST_HOST` | Allows Auth.js to trust the incoming Docker/proxy host. Keep `true` for this self-hosted Docker setup. | `true` |
+| `ANTHROPIC_API_KEY` | Optional. Used only when XLSX import needs Claude image matching for profile-picture fallback. | unset |
+
+`NEXTAUTH_SECRET` and `AUTH_TRUST_HOST` are Auth.js/NextAuth v5 settings. This app currently uses credentials login with JWT sessions and role checks stored on the user record.
 
 ## Local Data Folders
 
@@ -323,11 +339,18 @@ PostgreSQL files are stored directly inside this project:
 src/
 ├── app/
 │   ├── globals.css          # Design tokens (CSS variables)
-│   ├── layout.tsx           # Root layout with fonts
+│   ├── layout.tsx           # Root layout and NextAuth session provider
 │   ├── page.tsx             # Main leaderboard (server component)
+│   ├── players/[id]/        # Public player profile page
+│   ├── clubs/[id]/          # Public club profile page
+│   ├── leaderboard/[id]/    # Raid leaderboard page
 │   └── api/                 # API routes
 │       ├── raids/           # Public raid endpoints
 │       ├── players/         # Public player endpoints
+│       ├── clubs/           # Public club endpoints
+│       ├── birthdays/       # Birthday widgets/data
+│       ├── community/       # Community hub data
+│       ├── memorial-*       # Local media routes
 │       ├── stats/           # Aggregated stats
 │       ├── health/          # Health check
 │       └── admin/           # Admin CRUD (session-guarded)
@@ -347,8 +370,18 @@ src/
     ├── prisma.ts
     ├── auth.ts
     ├── auth-guard.ts
+    ├── public-data.ts       # Cached public Prisma queries
+    ├── cache.ts             # Cache-control and tag invalidation helpers
+    ├── xlsx-raid-import.ts  # XLSX score import pipeline
+    ├── student-import.ts    # Student import/update logic
     └── utils.ts
 ```
+
+Other important folders:
+
+- `prisma/` contains the Prisma schema, migrations, seed script, and admin creation script.
+- `scripts/` contains local PostgreSQL helpers, media-processing scripts, backup script, and memorial scraping utilities.
+- `Development_data/` and `Production_data/` are local runtime data folders and are intentionally not committed.
 
 ---
 
@@ -359,19 +392,37 @@ src/
 |--------|------|-------------|
 | GET | `/api/raids` | All raids |
 | GET | `/api/raids/[id]/entries` | Ranked entries for a raid |
-| GET | `/api/players` | All players |
+| GET | `/api/raid-bosses` | Public raid boss list |
+| GET | `/api/players` | Public player list |
 | GET | `/api/players/[id]` | Player + raid history |
+| GET | `/api/clubs` | Club summaries |
+| GET | `/api/clubs/[id]` | Club roster and stats |
+| GET | `/api/community` | Community hub data |
 | GET | `/api/stats` | Aggregated stats |
+| GET | `/api/birthdays/today` | Students with birthdays today |
+| GET | `/api/birthdays/upcoming` | Upcoming student birthdays |
+| POST | `/api/birthdays/accent` | Birthday accent/theme data |
+| GET | `/api/memorial-video` | Streams local memorial MP4 files |
+| GET | `/api/memorial-poster` | Serves local memorial poster images |
+| GET | `/api/image-proxy` | HTTPS image proxy with an allowlist |
 | GET | `/api/health` | `{ status: "ok" }` |
 
 ### Admin (requires ADMIN session)
 | Method | Path | Description |
 |--------|------|-------------|
-| POST/PUT/DELETE | `/api/admin/players` `/api/admin/players/[id]` | Player CRUD |
-| POST/PUT/DELETE | `/api/admin/clubs` `/api/admin/clubs/[id]` | Club CRUD |
-| POST/PUT/DELETE | `/api/admin/raids` `/api/admin/raids/[id]` | Raid CRUD |
-| POST/PUT/DELETE | `/api/admin/entries` `/api/admin/entries/[id]` | Entry CRUD |
+| GET/POST/PUT/DELETE | `/api/admin/players` `/api/admin/players/[id]` | Player CRUD |
+| GET/POST/PUT/DELETE | `/api/admin/clubs` `/api/admin/clubs/[id]` | Club CRUD |
+| GET/POST/PUT/DELETE | `/api/admin/raids` `/api/admin/raids/[id]` | Raid CRUD |
+| GET/POST/PUT/DELETE | `/api/admin/raid-bosses` `/api/admin/raid-bosses/[id]` | Raid boss CRUD |
+| GET/POST/PUT/DELETE | `/api/admin/entries` `/api/admin/entries/[id]` | Entry CRUD |
+| GET/POST/PUT/DELETE | `/api/admin/students` `/api/admin/students/[id]` | Student management |
+| GET | `/api/admin/raid-lookups` | Raid type/server/terrain lookup data |
 | POST | `/api/admin/import/xlsx` | Import Top 50 raid entries from XLSX |
+| GET | `/api/admin/import/xlsx/status` | XLSX import progress |
+| POST | `/api/admin/students/import` | Import/update students |
+| GET | `/api/admin/students/import/status` | Student import progress |
+| POST | `/api/admin/raid-bosses/import` | Import/update raid bosses |
+| GET | `/api/admin/raid-bosses/import/status` | Raid boss import progress |
 
 ### XLSX Import Filenames
 
@@ -381,5 +432,7 @@ Raid XLSX imports must include raid type, season, boss, and terrain in the filen
 Total Assault S74_ Gregorius Indoor.xlsx
 ```
 
-Valid terrain suffixes are `Urban`, `Indoor`, and `Outdoor`. Finder/browser suffixes after the terrain, such as `(read-only)`, are accepted.
+Valid terrain suffixes are `Urban`, `Indoor`, and `Outdoor`. Finder/browser suffixes after the terrain, such as `(copy)`, are accepted.
 Boss names are matched against the Bosses table case-insensitively, with punctuation and spacing ignored. For example, `ShiroKuro` in a filename matches `Shiro & Kuro` in the Bosses table. Manual aliases are also supported, such as `Kaiten` matching `KAITEN FX Mk.0`.
+
+The importer supports Global-style sheets with `Guests` and `Members` tabs and required columns such as `UserId`, `Username`, `IGN`, `Score`, `Club`, `Rank`, and `FavoriteStudent`. It also supports a JP-style reduced column set with `IGN`, `Score`, `Club`, `Rank`, and `FavoriteStudent`.

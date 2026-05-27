@@ -58,7 +58,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
                 <div className="min-w-0">
                   <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: club.color }}>Club Archive</div>
                   <h1 className="break-words text-2xl font-bold tracking-[-0.03em] sm:text-3xl">{club.name}</h1>
-                  <div className="mt-1 text-sm text-muted2">{club.uid ? `UID ${club.uid}` : 'Stratonas club page'}</div>
+                  <div className="mt-1 text-sm text-muted2">{club.uid ? `UID ${club.uid}` : 'Stratónas club page'}</div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:min-w-[360px] sm:grid-cols-4">
