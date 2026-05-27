@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
@@ -67,6 +67,9 @@ interface Props {
   returnTab?: string
 }
 
+type LoaderStage = 'dot' | 'line' | 'waiting' | 'reveal' | 'content'
+type CloseStage = 'open' | 'closing'
+
 function fmtCompactScore(value: number) {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1).replace('.', ',')}B`
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace('.', ',')}M`
@@ -83,6 +86,11 @@ function returnLabel(tab: string) {
 
 export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: Props) {
   const [player, setPlayer] = useState<PlayerData | null>(null)
+  const [fetchedPlayer, setFetchedPlayer] = useState<PlayerData | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [loaderStage, setLoaderStage] = useState<LoaderStage>('dot')
+  const [closeStage, setCloseStage] = useState<CloseStage>('open')
+  const closeTimersRef = useRef<number[]>([])
   // Portal into document.body so this overlay sits above any other modal
   // (e.g. the full-rankings RaidDetailModal at z-[300]) and is not bounded
   // by an ancestor that creates a containing block for fixed elements.
@@ -92,32 +100,127 @@ export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: 
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    return () => {
+      document.body.style.overflow = prev
+      closeTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    }
   }, [])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  })
+
+  function handleClose() {
+    if (closeStage !== 'open') return
+
+    setCloseStage('closing')
+    closeTimersRef.current = [
+      window.setTimeout(onClose, 220),
+    ]
+  }
 
   useEffect(() => {
+    let cancelled = false
+
+    setPlayer(null)
+    setFetchedPlayer(null)
+    setLoadError(false)
+    setLoaderStage('dot')
+
+    const lineTimer = window.setTimeout(() => {
+      if (!cancelled) setLoaderStage('line')
+    }, 90)
+    const waitingTimer = window.setTimeout(() => {
+      if (!cancelled) setLoaderStage('waiting')
+    }, 520)
+
     fetch(`/api/players/${playerId}`)
-      .then((r) => r.json())
-      .then(setPlayer)
+      .then((r) => {
+        if (!r.ok) throw new Error('Unable to load player profile')
+        return r.json()
+      })
+      .then((data: PlayerData) => {
+        if (!cancelled) setFetchedPlayer(data)
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true)
+      })
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(lineTimer)
+      window.clearTimeout(waitingTimer)
+    }
   }, [playerId])
+
+  useEffect(() => {
+    if (loaderStage !== 'waiting' || (!fetchedPlayer && !loadError)) return
+
+    setLoaderStage('reveal')
+  }, [loaderStage, fetchedPlayer, loadError])
+
+  useEffect(() => {
+    if (loaderStage !== 'reveal') return
+
+    const revealTimer = window.setTimeout(() => {
+      if (fetchedPlayer) setPlayer(fetchedPlayer)
+      setLoaderStage('content')
+    }, 340)
+
+    return () => window.clearTimeout(revealTimer)
+  }, [loaderStage, fetchedPlayer, loadError])
 
   if (!mounted) return null
 
   if (!player) {
+    const expanded = loaderStage === 'reveal' || loaderStage === 'content'
+    const lined = loaderStage !== 'dot'
+    const showError = loaderStage === 'content' && loadError
+    const modalShell = expanded
+    const lineShell = !modalShell && lined
+    const dotShell = !modalShell && !lineShell
+
     return createPortal(
       <div
-        className="fixed inset-0 z-[400] bg-black/[0.78] flex items-center justify-center"
-        onClick={onClose}
+        className={`fixed inset-0 z-[400] flex items-center justify-center bg-black/[0.78] transition-opacity duration-[250ms] ease-out ${
+          closeStage === 'closing' ? 'opacity-0' : 'opacity-100'
+        }`}
+        onClick={handleClose}
       >
-        <div className="text-muted text-sm">Loading...</div>
+        <div
+          className={`relative overflow-hidden transition-[width,height,border-radius,background-color,border-color,box-shadow,opacity,transform] duration-200 ease-out ${
+            closeStage === 'closing'
+              ? 'scale-95 opacity-0'
+              : modalShell
+              ? 'scrollbar-hidden flex h-[100dvh] w-[100vw] flex-col rounded-none border-0 bg-card shadow-[0_30px_80px_rgba(0,0,0,0.7)] sm:h-[560px] sm:max-h-[88vh] sm:w-[min(92vw,600px)] sm:rounded-[18px] sm:border sm:border-border2'
+              : lineShell
+                ? 'h-1.5 w-[min(76vw,600px)] rounded-[3px] border-0 bg-accent/60 shadow-[0_0_28px_rgba(79,142,247,0.28)]'
+                : dotShell
+                  ? 'h-3 w-3 rounded-full border border-accent/40 bg-accent shadow-[0_0_26px_rgba(79,142,247,0.45)]'
+                : 'h-3 w-3 rounded-full border border-accent/40 bg-accent shadow-[0_0_26px_rgba(79,142,247,0.45)]'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {showError && (
+            <div className={`flex h-full flex-col items-center justify-center px-6 text-center transition-opacity duration-150 ${closeStage === 'closing' ? 'opacity-0' : 'opacity-100'}`}>
+              <div className="mb-2 text-base font-bold text-text">Unable to load player profile</div>
+              <div className="mb-5 max-w-sm text-sm leading-6 text-muted2">
+                The profile request failed. Please close this window and try again.
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="rounded-lg border border-border bg-card2 px-4 py-2 text-sm font-semibold text-muted2 transition-colors hover:border-border2 hover:text-text"
+              >
+                {returnLabel(returnTab)}
+              </button>
+            </div>
+          )}
+        </div>
       </div>,
       document.body
     )
@@ -144,11 +247,15 @@ export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: 
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[400] bg-black/[0.78] flex items-stretch sm:items-center justify-center p-0 sm:p-6"
-      onClick={onClose}
+      className={`fixed inset-0 z-[400] flex items-stretch justify-center bg-black/[0.78] p-0 transition-opacity duration-200 ease-out sm:items-center sm:p-6 ${
+        closeStage === 'closing' ? 'opacity-0' : 'opacity-100'
+      }`}
+      onClick={handleClose}
     >
       <div
-        className="scrollbar-hidden bg-card border-0 sm:border sm:border-border2 sm:rounded-[18px] w-full h-full sm:h-auto sm:max-w-[600px] sm:max-h-[88vh] overflow-auto shadow-[0_30px_80px_rgba(0,0,0,0.7)]"
+        className={`scrollbar-hidden fade-up h-full w-full overflow-auto border-0 bg-card shadow-[0_30px_80px_rgba(0,0,0,0.7)] transition-[opacity,transform] duration-200 ease-out sm:h-auto sm:max-w-[600px] sm:max-h-[88vh] sm:rounded-[18px] sm:border sm:border-border2 ${
+          closeStage === 'closing' ? 'translate-y-2 scale-[0.97] opacity-0' : 'translate-y-0 scale-100 opacity-100'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative min-h-[150px] overflow-hidden border-b border-border bg-bg">
@@ -193,7 +300,7 @@ export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: 
               </div>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="shrink-0 rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-semibold text-muted2 transition-colors hover:border-border2 hover:text-text"
             >
               {returnLabel(returnTab)}

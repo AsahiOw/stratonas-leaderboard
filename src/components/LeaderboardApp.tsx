@@ -9,11 +9,14 @@ import { AdminPanel } from '@/components/AdminPanel'
 import { PlayerProfile } from '@/components/PlayerProfile'
 import { LoginModal } from '@/components/LoginModal'
 import { BirthdaySection } from '@/components/BirthdaySection'
+import { HomeIntro } from '@/components/HomeIntro'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
 type Tab = 'leaderboard' | 'previous' | 'stats' | 'community' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type ReturnLocation = { tab: Tab; scrollY: number }
+const INTRO_OPEN_KEY = 'stratonas:intro-open'
+const LEGACY_INTRO_DISMISSED_KEY = 'stratonas:intro-dismissed'
 
 interface RaidData {
   id: string
@@ -45,6 +48,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
   const [tab, setTab] = useState<Tab>('leaderboard')
   const [serverFilter, setServerFilter] = useState<ServerFilter>('all')
   const [showLogin, setShowLogin] = useState(false)
+  const [showIntro, setShowIntro] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
   const [pendingReturnScroll, setPendingReturnScroll] = useState<number | null>(null)
   const [raidEntries, setRaidEntries] = useState<Record<string, TableEntry[]>>({})
@@ -69,6 +73,16 @@ export function LeaderboardApp({ initialRaids }: Props) {
         .catch(() => undefined)
     })
   }, [raidEntries])
+
+  useEffect(() => {
+    window.localStorage.removeItem(LEGACY_INTRO_DISMISSED_KEY)
+
+    const storedIntroOpen = window.localStorage.getItem(INTRO_OPEN_KEY)
+    const nextIntroOpen = storedIntroOpen === null ? true : storedIntroOpen === 'true'
+
+    setShowIntro(nextIntroOpen)
+    if (storedIntroOpen === null) window.localStorage.setItem(INTRO_OPEN_KEY, 'true')
+  }, [])
 
   useEffect(() => {
     try {
@@ -153,6 +167,31 @@ export function LeaderboardApp({ initialRaids }: Props) {
     setTab('admin')
   }
 
+  function scrollToTop() {
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  }
+
+  function setIntroOpen(open: boolean) {
+    setShowIntro(open)
+    window.localStorage.setItem(INTRO_OPEN_KEY, open ? 'true' : 'false')
+  }
+
+  function handleIntroToggle() {
+    if (tab !== 'leaderboard') {
+      setTab('leaderboard')
+      setIntroOpen(true)
+      scrollToTop()
+      return
+    }
+
+    setShowIntro((current) => {
+      const next = !current
+      window.localStorage.setItem(INTRO_OPEN_KEY, next ? 'true' : 'false')
+      if (next) scrollToTop()
+      return next
+    })
+  }
+
   const containerMax = tab === 'admin' || tab === 'community' ? 'max-w-[1100px]' : 'max-w-[940px]'
   const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
@@ -166,12 +205,15 @@ export function LeaderboardApp({ initialRaids }: Props) {
         serverFilter={serverFilter}
         setServerFilter={setServerFilter}
         previousRaidCount={previousCount}
+        introOpen={tab === 'leaderboard' && showIntro}
+        onIntroToggle={handleIntroToggle}
       />
 
       <div className={`mx-auto w-full ${containerMax} ${containerPad}`}>
         {/* LEADERBOARD */}
         {tab === 'leaderboard' && (
-          <div>
+          <div key={`leaderboard-${serverFilter}`} className="view-transition">
+            <HomeIntro open={showIntro} onClose={() => setIntroOpen(false)} />
             <div
               className="relative overflow-hidden rounded-2xl border border-border mt-5 mb-5 min-h-[180px] sm:min-h-[220px] flex items-end justify-center text-center bg-cover bg-center"
               style={{ backgroundImage: 'url(/assets/images/banner.gif)' }}
@@ -207,7 +249,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
 
         {/* PREVIOUS RAIDS */}
         {tab === 'previous' && (
-          <div>
+          <div key={`previous-${serverFilter}`} className="view-transition">
             <div className="pt-7 pb-5">
               <div className="text-[11px] font-bold text-muted tracking-[0.14em] mb-1.5">◈ ARCHIVED RAIDS</div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Previous Rankings</h2>
@@ -235,7 +277,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
 
         {/* STATS */}
         {visitedTabs.stats && (
-          <div className={`pt-7 ${tab === 'stats' ? '' : 'hidden'}`}>
+          <div className={`pt-7 ${tab === 'stats' ? 'view-transition' : 'hidden'}`}>
             <div className="mb-5">
               <div className="text-[11px] font-bold text-muted tracking-[0.14em] mb-1.5">◈ SEASON OVERVIEW</div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Statistics</h2>
@@ -246,14 +288,14 @@ export function LeaderboardApp({ initialRaids }: Props) {
 
         {/* COMMUNITY */}
         {visitedTabs.community && (
-          <div className={`pt-7 ${tab === 'community' ? '' : 'hidden'}`}>
+          <div className={`pt-7 ${tab === 'community' ? 'view-transition' : 'hidden'}`}>
             <CommunityPage />
           </div>
         )}
 
         {/* ADMIN */}
         {tab === 'admin' && !isAdmin && (
-          <div className="text-center py-20 text-muted">
+          <div className="view-transition text-center py-20 text-muted">
             <div className="text-4xl mb-4">🔒</div>
             <div className="text-lg font-semibold text-muted2 mb-2">Admin Access Required</div>
             <div className="text-sm mb-6">Please log in to manage leaderboard data.</div>
@@ -266,7 +308,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
           </div>
         )}
         {visitedTabs.admin && isAdmin && (
-          <div className={tab === 'admin' ? '' : 'hidden'}>
+          <div className={tab === 'admin' ? 'view-transition' : 'hidden'}>
             <AdminPanel />
           </div>
         )}

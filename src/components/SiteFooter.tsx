@@ -39,7 +39,7 @@ export function SiteFooter() {
             rel="noopener noreferrer"
             className="font-semibold text-accent transition-colors hover:text-text"
           >
-            Stratónas Discord
+            Stratónas
           </a>
         </p>
         <p className="max-w-5xl text-muted2">
