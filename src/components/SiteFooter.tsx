@@ -21,7 +21,7 @@ export function SiteFooter() {
             rel="noopener noreferrer"
             className="font-semibold text-accent transition-colors hover:text-text"
           >
-            ScaleDB
+            SchaleDB
           </a>{' '}
           and{' '}
           <a
