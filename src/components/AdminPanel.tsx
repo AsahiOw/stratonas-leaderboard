@@ -201,6 +201,8 @@ export function AdminPanel() {
   const [reviewStudentQueries, setReviewStudentQueries] = useState<Record<string, string>>({})
   const [studentAliases, setStudentAliases] = useState<StudentAliasRule[]>([])
   const [studentMatchRules, setStudentMatchRules] = useState<StudentMatchRule[]>([])
+  const [showMatchingHelp, setShowMatchingHelp] = useState(false)
+  const [ruleTypeFilter, setRuleTypeFilter] = useState('all')
   const [importState, setImportState] = useState<ImportState | null>(null)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [bossImportState, setBossImportState] = useState<ImportState | null>(null)
@@ -845,6 +847,63 @@ export function AdminPanel() {
     showToast(rule.enabled ? 'Rule disabled.' : 'Rule enabled.')
     loadStudentMatchRules()
   }
+
+  const ruleTypeOptions = [
+    {
+      value: 'variant_prefix',
+      label: 'Variant Prefix',
+      summary: 'For short codes that mean a costume or variant.',
+      patternLabel: 'VARIANT NAME',
+      patternPlaceholder: 'christmas',
+      valueLabel: 'SHORT CODE',
+      valuePlaceholder: 'XMAS',
+      example: 'XMAS Serika -> Serika (Christmas)',
+    },
+    {
+      value: 'base_alias',
+      label: 'Base Alias',
+      summary: 'For nicknames or alternate spellings of a student base name.',
+      patternLabel: 'ALIAS',
+      patternPlaceholder: 'alice',
+      valueLabel: 'BASE NAME',
+      valuePlaceholder: 'aris',
+      example: 'Alice Maid -> Aris (Maid)',
+    },
+    {
+      value: 'variant_alias',
+      label: 'Variant Alias',
+      summary: 'For alternate words that mean the same variant.',
+      patternLabel: 'ALIAS WORD',
+      patternPlaceholder: 'battle',
+      valueLabel: 'VARIANT NAME',
+      valuePlaceholder: 'armed',
+      example: 'Battle Hoshino -> Hoshino (Armed)',
+    },
+    {
+      value: 'ignored_token',
+      label: 'Ignored Token',
+      summary: 'For noisy words or emote names that should be removed.',
+      patternLabel: 'TOKEN',
+      patternPlaceholder: 'panpakapan',
+      valueLabel: 'VALUE',
+      valuePlaceholder: 'unused',
+      example: 'Arisuuu :panpakapan: -> Arisuuu',
+    },
+    {
+      value: 'student_alias',
+      label: 'Direct Alias',
+      summary: 'For direct text mappings. Usually Approved Alias is safer.',
+      patternLabel: 'INPUT TEXT',
+      patternPlaceholder: 'kuroko',
+      valueLabel: 'STUDENT NAME',
+      valuePlaceholder: 'Shiroko*Terror',
+      example: 'Kuroko -> Shiroko*Terror',
+    },
+  ]
+  const selectedRuleType = ruleTypeOptions.find((option) => option.value === ruleForm.type) || ruleTypeOptions[0]
+  const filteredStudentMatchRules = ruleTypeFilter === 'all'
+    ? studentMatchRules
+    : studentMatchRules.filter((rule) => rule.type === ruleTypeFilter)
 
   const latestRaidCount = raids.filter(r => r.isActive).length
   const currentNav = navItems.find((n) => n.id === sec)
@@ -1861,6 +1920,52 @@ export function AdminPanel() {
               </div>
             </div>
 
+            <div className="bg-card border border-border rounded-xl px-4 py-3 sm:px-5 mb-4">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between gap-3 text-left"
+                onClick={() => setShowMatchingHelp((value) => !value)}
+              >
+                <div>
+                  <div className="font-bold text-[15px]">Matching Rule Help</div>
+                  <div className="text-xs text-muted mt-1">Open this when you need to choose which rule type to add.</div>
+                </div>
+                <div className="text-xs font-semibold text-accent">{showMatchingHelp ? 'Hide' : 'Show'}</div>
+              </button>
+
+              {showMatchingHelp && (
+                <div className="mt-4">
+                  <div className="text-xs text-muted2 mb-3">
+                    Use Approved Alias for one weird exact input. Use Matching Rules for patterns that repeat.
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                    {[
+                      ['Approved Alias', 'One exact imported value.', 'Input', 'Arisuuu :panpakapan:', 'Student', 'Aris'],
+                      ['Variant Prefix', 'Short code for a variant/costume.', 'Rule', 'christmas → XMAS', 'Example', 'XMAS Serika → Serika (Christmas)'],
+                      ['Base Alias', 'Nickname or alternate spelling for a base name.', 'Rule', 'alice → aris', 'Example', 'Alice Maid → Aris (Maid)'],
+                      ['Variant Alias', 'Different word for the same variant.', 'Rule', 'battle → armed', 'Example', 'Battle Hoshino → Hoshino (Armed)'],
+                      ['Ignored Token', 'Noise word to remove before matching.', 'Rule', 'panpakapan', 'Example', 'Arisuuu :panpakapan: → Arisuuu'],
+                      ['Direct Alias Rule', 'Manual text mapping inside rule list. Usually use Approved Alias instead.', 'Rule', 'kuroko → Shiroko*Terror', 'Example', 'Kuroko → Shiroko*Terror'],
+                    ].map(([title, description, labelA, valueA, labelB, valueB]) => (
+                      <div key={title} className="bg-bg border border-border rounded-lg p-3">
+                        <div className="text-[10px] uppercase tracking-[0.08em] text-muted font-semibold">{title}</div>
+                        <div className="text-muted2 mt-1">{description}</div>
+                        <div className="mt-2 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1">
+                          <div className="text-muted">{labelA}</div>
+                          <div className="font-mono text-text break-words">{valueA}</div>
+                          <div className="text-muted">{labelB}</div>
+                          <div className="font-mono text-text break-words">{valueB}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs text-muted mt-3">
+                    If you are unsure, use Approved Alias from the review screen. It is the safest option.
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <div className="bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
                 <div className="font-bold text-[15px] mb-3">Approved Aliases</div>
@@ -1889,7 +1994,7 @@ export function AdminPanel() {
                     <button type="submit" className={submitBtnClass}>Save Alias</button>
                   </div>
                 </form>
-                <div className="mt-4 space-y-2 max-h-[360px] overflow-auto pr-1">
+                <div className="mt-4 space-y-2 max-h-[650px] overflow-auto pr-1">
                   {studentAliases.length === 0 && <div className="text-xs text-muted">No approved aliases yet.</div>}
                   {studentAliases.map((alias) => (
                     <div key={alias.id} className="flex items-center justify-between gap-3 bg-bg border border-border rounded-lg px-3 py-2">
@@ -1910,40 +2015,58 @@ export function AdminPanel() {
                     <select
                       className={inputClass}
                       value={ruleForm.type}
-                      onChange={e => setRuleForm(f => ({ ...f, type: e.target.value }))}
+                      onChange={e => setRuleForm(f => ({ ...f, type: e.target.value, value: e.target.value === 'ignored_token' ? '' : f.value }))}
                     >
-                      <option value="variant_prefix">Variant Prefix</option>
-                      <option value="base_alias">Base Alias</option>
-                      <option value="variant_alias">Variant Alias</option>
-                      <option value="ignored_token">Ignored Token</option>
-                      <option value="student_alias">Direct Alias</option>
+                      {ruleTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select>
                   </StField>
-                  <StField label="PATTERN">
+                  <StField label={selectedRuleType.patternLabel}>
                     <input
                       className={inputClass}
                       value={ruleForm.pattern}
                       onChange={e => setRuleForm(f => ({ ...f, pattern: e.target.value }))}
-                      placeholder="e.g. christmas"
+                      placeholder={`e.g. ${selectedRuleType.patternPlaceholder}`}
                       required
                     />
                   </StField>
-                  <StField label="VALUE">
+                  <StField label={selectedRuleType.valueLabel}>
                     <input
                       className={inputClass}
                       value={ruleForm.value}
                       onChange={e => setRuleForm(f => ({ ...f, value: e.target.value }))}
-                      placeholder={ruleForm.type === 'ignored_token' ? 'unused' : 'e.g. XMAS'}
+                      placeholder={ruleForm.type === 'ignored_token' ? 'not needed' : `e.g. ${selectedRuleType.valuePlaceholder}`}
                       required={ruleForm.type !== 'ignored_token'}
+                      disabled={ruleForm.type === 'ignored_token'}
                     />
                   </StField>
                   <div className="sm:col-span-3">
                     <button type="submit" className={submitBtnClass}>Save Rule</button>
                   </div>
                 </form>
-                <div className="mt-4 space-y-2 max-h-[360px] overflow-auto pr-1">
-                  {studentMatchRules.length === 0 && <div className="text-xs text-muted">No rules configured.</div>}
-                  {studentMatchRules.map((rule) => (
+                <div className="mt-4">
+                  <div className="text-[10px] uppercase tracking-[0.08em] text-muted font-semibold mb-2">View Rules</div>
+                  <div className="flex flex-wrap gap-2">
+                    {[{ value: 'all', label: 'All' }, ...ruleTypeOptions].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                          ruleTypeFilter === option.value
+                            ? 'bg-accent text-white border-accent'
+                            : 'bg-bg text-muted2 border-border hover:text-text hover:border-border2'
+                        }`}
+                        onClick={() => setRuleTypeFilter(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2 max-h-[553px] overflow-auto pr-1">
+                  {filteredStudentMatchRules.length === 0 && <div className="text-xs text-muted">No rules in this view.</div>}
+                  {filteredStudentMatchRules.map((rule) => (
                     <div key={rule.id} className="flex items-center justify-between gap-3 bg-bg border border-border rounded-lg px-3 py-2">
                       <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-[0.08em] text-muted font-semibold">{rule.type.replace(/_/g, ' ')}</div>
