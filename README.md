@@ -4,14 +4,14 @@ A self-hosted, dark-themed gaming leaderboard web app for Stratonas guild raid s
 
 **Stack:** Next.js 16 · React 18 · TypeScript 5 · PostgreSQL 16 · Prisma 5 · NextAuth v5 beta · Tailwind CSS 3 · Docker Compose
 
-The application stores its primary data in PostgreSQL and can run entirely on your own machine or server. Some admin import workflows can optionally call external services, such as SchaleDB/wiki sources for student and raid-boss metadata, Discord/image hosts for proxied images, and Anthropic Claude for profile-picture student matching during XLSX imports.
+The application stores its primary data in PostgreSQL and can run entirely on your own machine or server. Some admin import workflows can optionally call external services, such as SchaleDB/wiki sources for student and raid-boss metadata, and Discord/image hosts for proxied images.
 
 ## What This App Includes
 
 - Public leaderboard, raid detail, player profile, club profile, community, stats, and birthday views.
 - Admin-only CRUD for players, clubs, raids, raid entries, students, raid bosses, and lookup data.
 - XLSX import for raid score submissions, using `exceljs`.
-- Optional AI-assisted favorite-student matching for profile pictures, using `@anthropic-ai/sdk`.
+- Database-configurable favorite-student matching and XLSX review tools with PFP previews.
 - Local memorial video/poster serving from `Development_data`.
 - Prisma migrations, seed/admin scripts, and Docker-based PostgreSQL.
 - Security headers, CSP, same-origin write protection, and cache controls.
@@ -316,8 +316,6 @@ Backups are saved to `./backups/stratonas_YYYY-MM-DD_HH-MM.sql`
 | `NEXTAUTH_SECRET` | JWT/session secret. Generate one with `openssl rand -base64 32` and keep it stable after deployment. | dev value |
 | `NEXTAUTH_URL` | App URL for NextAuth callbacks | `http://localhost:3000` |
 | `AUTH_TRUST_HOST` | Allows Auth.js to trust the incoming Docker/proxy host. Keep `true` for this self-hosted Docker setup. | `true` |
-| `ANTHROPIC_API_KEY` | Optional. Used only when XLSX import needs Claude image matching for profile-picture fallback. | unset |
-
 `NEXTAUTH_SECRET` and `AUTH_TRUST_HOST` are Auth.js/NextAuth v5 settings. This app currently uses credentials login with JWT sessions and role checks stored on the user record.
 
 ## Local Data Folders
@@ -419,6 +417,8 @@ Other important folders:
 | GET | `/api/admin/raid-lookups` | Raid type/server/terrain lookup data |
 | POST | `/api/admin/import/xlsx` | Import Top 50 raid entries from XLSX |
 | GET | `/api/admin/import/xlsx/status` | XLSX import progress |
+| GET/POST | `/api/admin/import/xlsx/review` `/api/admin/import/xlsx/review/[id]/resolve` | Review and resolve uncertain favorite-student matches |
+| GET/POST/PUT/DELETE | `/api/admin/student-match-rules` `/api/admin/student-match-rules/[id]` | Manage favorite-student aliases and matching rules |
 | POST | `/api/admin/students/import` | Import/update students |
 | GET | `/api/admin/students/import/status` | Student import progress |
 | POST | `/api/admin/raid-bosses/import` | Import/update raid bosses |

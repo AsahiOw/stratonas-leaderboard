@@ -5,81 +5,103 @@ type StudentVariant = {
   variant: string
 }
 
+export type StudentMatchConfig = {
+  variantPrefixes: Record<string, string[]>
+  studentAliases: Record<string, string>
+  baseAliases: Record<string, string>
+  variantAliases: Record<string, string>
+  ignoredDescriptorTokens: Set<string>
+}
+
 export type StudentLookup = {
   aliases: Map<string, StudentRecord>
   variantsByBase: Map<string, StudentRecord[]>
   baseStudents: Map<string, StudentRecord>
   searchableNames: Array<{ normalized: string; student: StudentRecord }>
   students: StudentRecord[]
+  config: StudentMatchConfig
 }
 
-const VARIANT_PREFIXES: Record<string, string[]> = {
-  armed: ['A'],
-  swimsuit: ['S'],
-  maid: ['M'],
-  'new year': ['NY'],
-  hotspring: ['HS'],
-  'hot spring': ['HS'],
-  dress: ['D'],
-  band: ['B'],
-  bunny: ['B'],
-  casual: ['C'],
-  'cheer squad': ['C'],
-  'pop idol': ['I'],
-  pajamas: ['P'],
-  magical: ['M'],
-  school: ['U'],
-  track: ['T'],
-  camp: ['C'],
-  idol: ['I'],
-  pajama: ['P'],
-  uniform: ['U'],
+export type StudentMatchResult =
+  | { status: 'matched'; student: StudentRecord; confidence: 1; normalizedInput: string }
+  | { status: 'suggested'; student: StudentRecord; confidence: number; normalizedInput: string }
+  | { status: 'unmatched'; student: null; confidence: 0; normalizedInput: string }
+
+export const DEFAULT_STUDENT_MATCH_CONFIG: StudentMatchConfig = {
+  variantPrefixes: {
+    armed: ['A'],
+    swimsuit: ['S'],
+    maid: ['M'],
+    'new year': ['NY'],
+    hotspring: ['HS'],
+    'hot spring': ['HS'],
+    dress: ['D'],
+    band: ['B'],
+    bunny: ['B'],
+    casual: ['C'],
+    'cheer squad': ['C'],
+    'pop idol': ['I'],
+    pajamas: ['P'],
+    magical: ['M'],
+    school: ['U'],
+    track: ['T'],
+    camp: ['C'],
+    idol: ['I'],
+    pajama: ['P'],
+    uniform: ['U'],
+  },
+  studentAliases: {
+    'b hoshi': 'Hoshino (Armed)',
+    'b hoshino': 'Hoshino (Armed)',
+    'c sena': 'Sena (Casual)',
+    'i sakurako': 'Sakurako (Pop Idol)',
+    kuroko: 'Shiroko*Terror',
+    'm reisa': 'Reisa (Magical)',
+    miku: 'Hatsune Miku',
+    'p noa': 'Noa (Pajamas)',
+    'p yuuka': 'Yuuka (Pajamas)',
+    't shiroko': 'Shiroko*Terror',
+    'u akane': 'Akane (School)',
+    'ah ru': 'Aru',
+  },
+  baseAliases: {
+    alice: 'aris',
+    arisu: 'aris',
+    hoshi: 'hoshino',
+    kokonut: 'kokona',
+    shino: 'hoshino',
+  },
+  variantAliases: {
+    battle: 'armed',
+    chear: 'cheer squad',
+    cheer: 'cheer squad',
+  },
+  ignoredDescriptorTokens: new Set([
+    'best',
+    'chibi',
+    'emoji',
+    'fav',
+    'favorite',
+    'icon',
+    'l2d',
+    'love',
+    'mommy',
+    'pfp',
+    'profile',
+    'smirk',
+    'student',
+  ]),
 }
 
-const MANUAL_STUDENT_ALIASES: Record<string, string> = {
-  'b hoshi': 'Hoshino (Armed)',
-  'b hoshino': 'Hoshino (Armed)',
-  'c sena': 'Sena (Casual)',
-  'i sakurako': 'Sakurako (Pop Idol)',
-  kuroko: 'Shiroko*Terror',
-  'm reisa': 'Reisa (Magical)',
-  miku: 'Hatsune Miku',
-  'p noa': 'Noa (Pajamas)',
-  'p yuuka': 'Yuuka (Pajamas)',
-  't shiroko': 'Shiroko*Terror',
-  'u akane': 'Akane (School)',
-  'Ah Ru': 'Aru'
+function mergeConfig(config?: Partial<StudentMatchConfig>): StudentMatchConfig {
+  return {
+    variantPrefixes: config?.variantPrefixes || DEFAULT_STUDENT_MATCH_CONFIG.variantPrefixes,
+    studentAliases: config?.studentAliases || DEFAULT_STUDENT_MATCH_CONFIG.studentAliases,
+    baseAliases: config?.baseAliases || DEFAULT_STUDENT_MATCH_CONFIG.baseAliases,
+    variantAliases: config?.variantAliases || DEFAULT_STUDENT_MATCH_CONFIG.variantAliases,
+    ignoredDescriptorTokens: config?.ignoredDescriptorTokens || DEFAULT_STUDENT_MATCH_CONFIG.ignoredDescriptorTokens,
+  }
 }
-
-const BASE_ALIASES: Record<string, string> = {
-  alice: 'aris',
-  arisu: 'aris',
-  hoshi: 'hoshino',
-  kokonut: 'kokona',
-  shino: 'hoshino',
-}
-
-const VARIANT_ALIASES: Record<string, string> = {
-  battle: 'armed',
-  chear: 'cheer squad',
-  cheer: 'cheer squad',
-}
-
-const IGNORED_DESCRIPTOR_TOKENS = new Set([
-  'best',
-  'chibi',
-  'emoji',
-  'fav',
-  'favorite',
-  'icon',
-  'l2d',
-  'love',
-  'mommy',
-  'pfp',
-  'profile',
-  'smirk',
-  'student',
-])
 
 export function normalizeStudentLookup(value: string): string {
   return value
@@ -91,14 +113,14 @@ export function normalizeStudentLookup(value: string): string {
     .replace(/\s+/g, ' ')
 }
 
-function canonicalBase(base: string) {
+function canonicalBase(base: string, config: StudentMatchConfig) {
   const normalized = normalizeStudentLookup(base)
-  return BASE_ALIASES[normalized] || normalized
+  return config.baseAliases[normalized] || normalized
 }
 
-function canonicalVariant(variant: string) {
+function canonicalVariant(variant: string, config: StudentMatchConfig) {
   const normalized = normalizeStudentLookup(variant)
-  return VARIANT_ALIASES[normalized] || normalized
+  return config.variantAliases[normalized] || normalized
 }
 
 function studentVariant(name: string): StudentVariant | null {
@@ -121,9 +143,9 @@ function studentVariant(name: string): StudentVariant | null {
   return null
 }
 
-function variantPrefixes(variant: string): string[] {
-  const normalized = canonicalVariant(variant)
-  const configured = VARIANT_PREFIXES[normalized] || []
+function variantPrefixes(variant: string, config: StudentMatchConfig): string[] {
+  const normalized = canonicalVariant(variant, config)
+  const configured = config.variantPrefixes[normalized] || []
   const words = normalized.split(' ').filter(Boolean)
   const firstWordInitial = words[0]?.slice(0, 1).toUpperCase()
   const acronym = words.map((word) => word[0]).join('').toUpperCase()
@@ -140,20 +162,21 @@ function addAlias(aliases: Map<string, StudentRecord>, alias: string, student: S
   if (normalized) aliases.set(normalized, student)
 }
 
-function studentAliases(name: string): string[] {
+function studentAliases(name: string, config: StudentMatchConfig): string[] {
   const aliases = new Set([name])
   const variantData = studentVariant(name)
   if (variantData) {
     const base = variantData.base
     const variant = variantData.variant
-    variantPrefixes(variant).forEach((prefix) => {
+    variantPrefixes(variant, config).forEach((prefix) => {
       aliases.add(`${prefix} ${base}`)
       aliases.add(`${prefix}.${base}`)
+      aliases.add(`${base} ${prefix}`)
     })
     aliases.add(`${base} ${variant}`)
     aliases.add(`${variant} ${base}`)
 
-    const canonical = canonicalVariant(variant)
+    const canonical = canonicalVariant(variant, config)
     if (canonical !== normalizeStudentLookup(variant)) {
       aliases.add(`${base} ${canonical}`)
       aliases.add(`${canonical} ${base}`)
@@ -172,13 +195,13 @@ function findPrefixedVariant(normalized: string, studentLookup: StudentLookup) {
   if (!match) return null
 
   const prefix = match[1].toUpperCase()
-  const base = canonicalBase(match[2])
+  const base = canonicalBase(match[2], studentLookup.config)
   const variants = studentLookup.variantsByBase.get(base) || []
   if (variants.length === 0) return null
 
   const matchingVariants = variants.filter((student) => {
     const variantData = studentVariant(student.name)
-    return variantData ? variantPrefixes(variantData.variant).includes(prefix) : false
+    return variantData ? variantPrefixes(variantData.variant, studentLookup.config).includes(prefix) : false
   })
   if (matchingVariants.length === 1) return matchingVariants[0]
 
@@ -198,7 +221,7 @@ function findPrefixedVariantWithExtraTokens(normalized: string, studentLookup: S
 
     return variants.filter((student) => {
       const variantData = studentVariant(student.name)
-      return variantData ? variantPrefixes(variantData.variant).includes(prefix) : false
+      return variantData ? variantPrefixes(variantData.variant, studentLookup.config).includes(prefix) : false
     })
   })
 
@@ -213,15 +236,15 @@ function findVariantByWords(normalized: string, studentLookup: StudentLookup) {
     const left = words.slice(0, split).join(' ')
     const right = words.slice(split).join(' ')
     const candidates = [
-      { base: canonicalBase(left), variant: canonicalVariant(right) },
-      { base: canonicalBase(right), variant: canonicalVariant(left) },
+      { base: canonicalBase(left, studentLookup.config), variant: canonicalVariant(right, studentLookup.config) },
+      { base: canonicalBase(right, studentLookup.config), variant: canonicalVariant(left, studentLookup.config) },
     ]
 
     for (const candidate of candidates) {
       const variants = studentLookup.variantsByBase.get(candidate.base) || []
       const match = variants.find((student) => {
         const variantData = studentVariant(student.name)
-        return variantData ? canonicalVariant(variantData.variant) === candidate.variant : false
+        return variantData ? canonicalVariant(variantData.variant, studentLookup.config) === candidate.variant : false
       })
       if (match) return match
     }
@@ -230,10 +253,10 @@ function findVariantByWords(normalized: string, studentLookup: StudentLookup) {
   return null
 }
 
-function stripIgnoredTokens(normalized: string) {
+function stripIgnoredTokens(normalized: string, studentLookup: StudentLookup) {
   return normalized
     .split(' ')
-    .filter((token) => !IGNORED_DESCRIPTOR_TOKENS.has(token))
+    .filter((token) => !studentLookup.config.ignoredDescriptorTokens.has(token))
     .join(' ')
 }
 
@@ -294,27 +317,31 @@ function findBaseStudentWithExtraTokens(normalized: string, studentLookup: Stude
   return findUnique(matches)
 }
 
-export function buildStudentLookupFromRecords(students: StudentRecord[]): StudentLookup {
+export function buildStudentLookupFromRecords(
+  students: StudentRecord[],
+  configOverride?: Partial<StudentMatchConfig>,
+): StudentLookup {
+  const config = mergeConfig(configOverride)
   const aliases = new Map<string, StudentRecord>()
   const variantsByBase = new Map<string, StudentRecord[]>()
   const baseStudents = new Map<string, StudentRecord>()
 
   students.forEach((student) => {
-    studentAliases(student.name).forEach((alias) => addAlias(aliases, alias, student))
+    studentAliases(student.name, config).forEach((alias) => addAlias(aliases, alias, student))
 
     const variantData = studentVariant(student.name)
     if (variantData) {
-      const normalizedBase = canonicalBase(variantData.base)
+      const normalizedBase = canonicalBase(variantData.base, config)
       const variants = variantsByBase.get(normalizedBase) || []
       variants.push(student)
       variantsByBase.set(normalizedBase, variants)
       return
     }
 
-    baseStudents.set(canonicalBase(student.name), student)
+    baseStudents.set(canonicalBase(student.name, config), student)
   })
 
-  Object.entries(MANUAL_STUDENT_ALIASES).forEach(([alias, target]) => {
+  Object.entries(config.studentAliases).forEach(([alias, target]) => {
     const student = aliases.get(normalizeStudentLookup(target))
     if (student) addAlias(aliases, alias, student)
   })
@@ -324,24 +351,24 @@ export function buildStudentLookupFromRecords(students: StudentRecord[]): Studen
       const variantData = studentVariant(student.name)
       return [
         { normalized: normalizeStudentLookup(student.name), student },
-        variantData ? { normalized: canonicalBase(variantData.base), student } : null,
+        variantData ? { normalized: canonicalBase(variantData.base, config), student } : null,
       ]
     })
     .filter((entry): entry is { normalized: string; student: StudentRecord } => Boolean(entry?.normalized))
 
-  Object.entries(BASE_ALIASES).forEach(([alias, target]) => {
+  Object.entries(config.baseAliases).forEach(([alias, target]) => {
     const student = baseStudents.get(target)
     if (student) searchableNames.push({ normalized: alias, student })
   })
 
-  return { aliases, variantsByBase, baseStudents, searchableNames, students }
+  return { aliases, variantsByBase, baseStudents, searchableNames, students, config }
 }
 
 export function resolveStudentFromLookup(raw: string, studentLookup: StudentLookup): StudentRecord | null {
   const normalized = normalizeStudentLookup(raw)
   if (!normalized) return null
 
-  const manualAlias = MANUAL_STUDENT_ALIASES[normalized]
+  const manualAlias = studentLookup.config.studentAliases[normalized]
   if (manualAlias) return studentLookup.aliases.get(normalizeStudentLookup(manualAlias)) || null
 
   const exact = studentLookup.aliases.get(normalized)
@@ -353,10 +380,10 @@ export function resolveStudentFromLookup(raw: string, studentLookup: StudentLook
   const variantByWords = findVariantByWords(normalized, studentLookup)
   if (variantByWords) return variantByWords
 
-  const base = studentLookup.baseStudents.get(canonicalBase(normalized))
+  const base = studentLookup.baseStudents.get(canonicalBase(normalized, studentLookup.config))
   if (base) return base
 
-  const stripped = stripIgnoredTokens(splitCompactKnownWords(normalized, studentLookup))
+  const stripped = stripIgnoredTokens(splitCompactKnownWords(normalized, studentLookup), studentLookup)
   if (stripped && stripped !== normalized) {
     const strippedMatch = resolveStudentFromLookup(stripped, studentLookup)
     if (strippedMatch) return strippedMatch
@@ -369,4 +396,92 @@ export function resolveStudentFromLookup(raw: string, studentLookup: StudentLook
   if (baseWithExtraTokens) return baseWithExtraTokens
 
   return findContainedStudent(normalized, studentLookup)
+}
+
+function levenshteinDistance(a: string, b: string) {
+  if (a === b) return 0
+  if (!a) return b.length
+  if (!b) return a.length
+
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+  const current = Array.from({ length: b.length + 1 }, () => 0)
+
+  for (let i = 1; i <= a.length; i += 1) {
+    current[0] = i
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + cost,
+      )
+    }
+    previous.splice(0, previous.length, ...current)
+  }
+
+  return previous[b.length]
+}
+
+function tokenOverlapScore(a: string, b: string) {
+  const aTokens = new Set(a.split(' ').filter(Boolean))
+  const bTokens = new Set(b.split(' ').filter(Boolean))
+  if (aTokens.size === 0 || bTokens.size === 0) return 0
+  const overlap = Array.from(aTokens).filter((token) => bTokens.has(token)).length
+  return overlap / Math.max(aTokens.size, bTokens.size)
+}
+
+function similarityScore(a: string, b: string) {
+  const distance = levenshteinDistance(a, b)
+  const editScore = 1 - distance / Math.max(a.length, b.length, 1)
+  const tokenScore = tokenOverlapScore(a, b)
+  return Math.max(editScore, tokenScore)
+}
+
+function fuzzyCandidates(studentLookup: StudentLookup) {
+  const seen = new Set<string>()
+  return [
+    ...studentLookup.aliases.entries(),
+    ...studentLookup.searchableNames.map(({ normalized, student }) => [normalized, student] as const),
+  ].filter(([normalized, student]) => {
+    const key = `${normalized}:${student.id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return normalized.length >= 2
+  })
+}
+
+export function suggestStudentFromLookup(raw: string, studentLookup: StudentLookup): StudentMatchResult {
+  const normalized = normalizeStudentLookup(raw)
+  if (!normalized) return { status: 'unmatched', student: null, confidence: 0, normalizedInput: normalized }
+
+  const deterministic = resolveStudentFromLookup(raw, studentLookup)
+  if (deterministic) return { status: 'matched', student: deterministic, confidence: 1, normalizedInput: normalized }
+
+  const stripped = stripIgnoredTokens(splitCompactKnownWords(normalized, studentLookup), studentLookup) || normalized
+  const candidates = fuzzyCandidates(studentLookup)
+    .map(([candidate, student]) => ({
+      student,
+      confidence: Math.max(similarityScore(normalized, candidate), similarityScore(stripped, candidate)),
+    }))
+    .sort((a, b) => b.confidence - a.confidence)
+
+  const best = candidates[0]
+  if (!best || best.confidence < 0.75) {
+    return { status: 'unmatched', student: null, confidence: 0, normalizedInput: normalized }
+  }
+
+  const sameScoreMatches = candidates.filter((candidate) => Math.abs(candidate.confidence - best.confidence) < 0.02)
+  const uniqueBest = findUnique(sameScoreMatches.map((candidate) => candidate.student))
+  if (!uniqueBest) return { status: 'unmatched', student: null, confidence: 0, normalizedInput: normalized }
+
+  if (best.confidence >= 0.92) {
+    return { status: 'matched', student: uniqueBest, confidence: 1, normalizedInput: normalized }
+  }
+
+  return {
+    status: 'suggested',
+    student: uniqueBest,
+    confidence: Number(best.confidence.toFixed(4)),
+    normalizedInput: normalized,
+  }
 }
