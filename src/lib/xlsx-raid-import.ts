@@ -1,10 +1,10 @@
-import Anthropic from '@anthropic-ai/sdk'
 import ExcelJS from 'exceljs'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { resolveClub } from '@/lib/clubs'
 import { resolveRaidServer, resolveRaidTerrain, resolveRaidType } from '@/lib/raid-lookups'
-import { buildStudentLookupFromRecords, resolveStudentFromLookup, type StudentLookup } from '@/lib/student-name-matcher'
+import { buildStudentLookupFromDatabase } from '@/lib/student-match-config'
+import { normalizeStudentLookup, suggestStudentFromLookup, type StudentLookup, type StudentMatchResult } from '@/lib/student-name-matcher'
 import { updateXlsxImportProgress } from '@/lib/xlsx-import-progress'
 
 type ParsedRaidTitle = {
@@ -59,6 +59,14 @@ export type XlsxRaidImportResult = {
   entriesUpdated: number
   skippedRows: Array<{ row: number; reason: string }>
   unmatchedFavoriteStudents: string[]
+  reviewItems: Array<{
+    id: string
+    playerId: string
+    rawFavoriteStudent: string | null
+    pfpUrl: string | null
+    suggestedStudentId: number | null
+    suggestedConfidence: number | null
+  }>
 }
 
 const REQUIRED_COLUMNS: RequiredColumn[] = ['UserId', 'Username', 'IGN', 'Score', 'Club', 'Rank', 'FavoriteStudent']
@@ -99,15 +107,20 @@ function numberValue(value: unknown): number {
 }
 
 function extractImageUrl(cell: ExcelJS.Cell): string {
+  const extract = (value: string) => {
+    const imageMatch = value.match(/@?(?:_xlfn\.)?IMAGE\(\s*"([^"]+)"/i)
+    if (imageMatch?.[1]) return imageMatch[1].trim()
+    const urlMatch = value.match(/https:\/\/[^\s")]+/i)
+    return urlMatch?.[0]?.trim() ?? ''
+  }
+
   const val = cell.value
   if (typeof val === 'object' && val !== null && 'formula' in val) {
     const formula = (val as { formula: string }).formula
-    const match = formula.match(/IMAGE\("([^"]+)"/i)
-    return match?.[1] ?? ''
+    return extract(formula)
   }
   const str = stringValue(val)
-  const match = str.match(/IMAGE\("([^"]+)"/i)
-  return match?.[1] ?? ''
+  return extract(str)
 }
 
 function columnKey(value: string) {
@@ -170,70 +183,59 @@ async function resolveRaidBossByName(name: string) {
   }) || null
 }
 
-async function identifyStudentFromPfp(pfpUrl: string, studentNames: string[]): Promise<string> {
-  console.log(`[PFP] Fetching image: ${pfpUrl}`)
-  let res: Response
-  try {
-    res = await fetch(pfpUrl)
-  } catch (err) {
-    console.log(`[PFP] Fetch failed: ${err}`)
-    return ''
-  }
-  if (!res.ok) {
-    console.log(`[PFP] HTTP ${res.status} for ${pfpUrl}`)
-    return ''
-  }
-
-  const buffer = await res.arrayBuffer()
-  const base64 = Buffer.from(buffer).toString('base64')
-  const bytes = new Uint8Array(buffer)
-  let contentType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/jpeg'
-  if (bytes[0] === 0x89 && bytes[1] === 0x50) contentType = 'image/png'
-  else if (bytes[0] === 0x47 && bytes[1] === 0x49) contentType = 'image/gif'
-  else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[8] === 0x57 && bytes[9] === 0x45) contentType = 'image/webp'
-  console.log(`[PFP] Detected content type: ${contentType}, size: ${buffer.byteLength} bytes`)
-
-  const client = new Anthropic()
-  const nameList = studentNames.join('\n')
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 64,
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: contentType, data: base64 } },
-        { type: 'text', text: `This is a Blue Archive student profile picture. Which student from the list below does this image show? Reply with only the exact name from the list, nothing else.\n\n${nameList}` },
-      ],
-    }],
-  })
-  const textBlock = message.content.find(c => c.type === 'text')
-  const identified = textBlock?.type === 'text' ? textBlock.text.trim() : ''
-  console.log(`[PFP] Claude identified: "${identified}"`)
-  return identified
-}
-
 async function resolveFavoriteStudent(
   raw: string,
   studentLookup: StudentLookup,
-  options: { pfpUrl?: string; allowImageFallback?: boolean } = {},
+  options: { pfpUrl?: string } = {},
 ) {
-  let student = resolveStudentFromLookup(raw, studentLookup)
-  if (!student && options.allowImageFallback && options.pfpUrl) {
-    console.log(`[PFP] Name lookup failed for "${raw}", trying image match...`)
-    const identified = await identifyStudentFromPfp(options.pfpUrl, studentLookup.students.map((record) => record.name))
-    if (identified) {
-      student = resolveStudentFromLookup(identified, studentLookup)
-      console.log(`[PFP] DB match after image: ${student ? `"${student.name}" (id ${student.id})` : 'none'}`)
+  const match: StudentMatchResult = raw.trim()
+    ? suggestStudentFromLookup(raw, studentLookup)
+    : { status: 'unmatched', student: null, confidence: 0, normalizedInput: '' }
+
+  if (!match.student || match.status !== 'matched') {
+    return {
+      favouriteStudent: raw || '',
+      favouriteStudentId: null as number | null,
+      match,
+      needsReview: Boolean(raw.trim() || options.pfpUrl),
     }
   }
 
-  if (!student) return { favouriteStudent: raw || '', favouriteStudentId: null as number | null }
-  return { favouriteStudent: student.name, favouriteStudentId: student.id }
+  const student = match.student
+  return { favouriteStudent: student.name, favouriteStudentId: student.id, match, needsReview: false }
 }
 
 async function buildStudentLookup() {
-  const students = await prisma.student.findMany({ select: { id: true, name: true } })
-  return buildStudentLookupFromRecords(students)
+  return buildStudentLookupFromDatabase()
+}
+
+async function createReviewItem(input: {
+  raidId: string
+  playerId: string
+  rawFavoriteStudent: string
+  pfpUrl?: string
+  match: StudentMatchResult
+}) {
+  const normalizedRawFavoriteStudent = normalizeStudentLookup(input.rawFavoriteStudent)
+  await prisma.xlsxImportReviewItem.deleteMany({
+    where: {
+      raidId: input.raidId,
+      playerId: input.playerId,
+      status: 'pending',
+    },
+  })
+
+  return prisma.xlsxImportReviewItem.create({
+    data: {
+      raidId: input.raidId,
+      playerId: input.playerId,
+      rawFavoriteStudent: input.rawFavoriteStudent.trim() || null,
+      normalizedRawFavoriteStudent,
+      pfpUrl: input.pfpUrl || null,
+      suggestedStudentId: input.match.status === 'suggested' ? input.match.student.id : null,
+      suggestedConfidence: input.match.status === 'suggested' ? input.match.confidence : null,
+    },
+  })
 }
 
 function columnMap(sheet: ExcelJS.Worksheet, requiredColumns: RequiredColumn[]) {
@@ -453,6 +455,7 @@ export async function importRaidXlsx(options: {
   const studentLookup = await buildStudentLookup()
   const skippedRows: XlsxRaidImportResult['skippedRows'] = []
   const unmatchedFavoriteStudents = new Set<string>()
+  const reviewItems: XlsxRaidImportResult['reviewItems'] = []
   const seenClubs = new Set<string>()
   let playersCreated = 0
   let playersUpdated = 0
@@ -496,7 +499,6 @@ export async function importRaidXlsx(options: {
 
     const favorite = await resolveFavoriteStudent(row.favouriteStudent, studentLookup, {
       pfpUrl: row.pfpUrl,
-      allowImageFallback: !player,
     })
     if (row.favouriteStudent && !favorite.favouriteStudentId) unmatchedFavoriteStudents.add(row.favouriteStudent)
 
@@ -528,6 +530,25 @@ export async function importRaidXlsx(options: {
 
     if (savedPlayerResult.created) playersCreated += 1
     else playersUpdated += 1
+
+    const shouldSkipBlankExistingFavoriteReview = Boolean(player?.favouriteStudentId && !row.favouriteStudent.trim())
+    if (favorite.needsReview && !shouldSkipBlankExistingFavoriteReview) {
+      const reviewItem = await createReviewItem({
+        raidId: raid.id,
+        playerId: savedPlayer.id,
+        rawFavoriteStudent: row.favouriteStudent,
+        pfpUrl: row.pfpUrl,
+        match: favorite.match,
+      })
+      reviewItems.push({
+        id: reviewItem.id,
+        playerId: reviewItem.playerId,
+        rawFavoriteStudent: reviewItem.rawFavoriteStudent,
+        pfpUrl: reviewItem.pfpUrl,
+        suggestedStudentId: reviewItem.suggestedStudentId,
+        suggestedConfidence: reviewItem.suggestedConfidence,
+      })
+    }
 
     const existingEntry = await prisma.raidEntry.findUnique({
       where: { playerId_raidId: { playerId: savedPlayer.id, raidId: raid.id } },
@@ -568,5 +589,6 @@ export async function importRaidXlsx(options: {
     entriesUpdated,
     skippedRows,
     unmatchedFavoriteStudents: Array.from(unmatchedFavoriteStudents).sort(),
+    reviewItems,
   }
 }

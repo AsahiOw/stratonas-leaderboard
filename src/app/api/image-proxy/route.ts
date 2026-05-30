@@ -12,6 +12,7 @@ const ALLOWED_HOSTS = [
   'static.fandom.net',
   'static.wikitide.net',
   'bluearchive.wiki',
+  'copyparty.lazyc97.top',
 ]
 
 function resolveDriveUrl(url: string): string {
