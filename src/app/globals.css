@@ -91,6 +91,59 @@ body {
   animation: viewIn 0.24s ease-out both;
 }
 
+@keyframes leaderboardFilterIn {
+  from {
+    opacity: 0.68;
+    filter: blur(5px) saturate(1.12);
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0) saturate(1);
+    transform: translateY(0);
+  }
+}
+
+@keyframes leaderboardFilterScan {
+  from {
+    opacity: 0;
+    transform: translateX(-42%) skewX(-14deg);
+  }
+  36% {
+    opacity: 0.34;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(42%) skewX(-14deg);
+  }
+}
+
+.leaderboard-filter-transition {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  animation: leaderboardFilterIn 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.leaderboard-filter-transition::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      100deg,
+      transparent 0%,
+      rgba(125, 249, 255, 0.08) 42%,
+      rgba(255, 255, 255, 0.16) 50%,
+      rgba(125, 249, 255, 0.08) 58%,
+      transparent 100%
+    );
+  mix-blend-mode: screen;
+  animation: leaderboardFilterScan 0.42s ease-out both;
+}
+
 select option { background: #1a1a26; color: #e4e4f0; }
 
 /* Input/select base resets */

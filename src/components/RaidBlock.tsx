@@ -168,6 +168,7 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); setHideGuests((v) => !v) }}
+          aria-pressed={hideGuests}
           className={`absolute right-3 top-3 sm:right-auto sm:top-auto sm:left-5 sm:bottom-4 z-10 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors backdrop-blur-sm ${
             hideGuests
               ? 'bg-accent/20 border-accent/35 text-accent'
@@ -183,13 +184,15 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
           className="bg-card border border-t-0 rounded-b-xl overflow-hidden"
           style={{ borderColor: `${raid.color}25` }}
         >
-          <TopThreePodium entries={podiumEntries} accent={raid.color} onPlayerClick={onPlayerClick} returnTab={returnTab} />
-          <LeaderboardTable
-            players={tableEntries}
-            accent={raid.color}
-            onPlayerClick={onPlayerClick}
-            returnTab={returnTab}
-          />
+          <div key={hideGuests ? 'guild-only' : 'all-players'} className="leaderboard-filter-transition">
+            <TopThreePodium entries={podiumEntries} accent={raid.color} onPlayerClick={onPlayerClick} returnTab={returnTab} />
+            <LeaderboardTable
+              players={tableEntries}
+              accent={raid.color}
+              onPlayerClick={onPlayerClick}
+              returnTab={returnTab}
+            />
+          </div>
           <div className="border-t border-border px-3 py-3 sm:px-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button
               onClick={() => router.push(`/leaderboard/${raid.id}`)}
@@ -223,7 +226,7 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
           className="bg-card border border-t-0 rounded-b-xl px-3 py-2.5 sm:px-4 flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center"
           style={{ borderColor: `${raid.color}25` }}
         >
-          <span className="text-xs text-muted">
+          <span key={hideGuests ? 'guild-only-summary' : 'all-players-summary'} className="leaderboard-filter-transition text-xs text-muted">
             Top: {topPlayer?.name} ({topPlayer?.score.toLocaleString()} pts)
           </span>
           <button
