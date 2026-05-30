@@ -88,6 +88,40 @@ interface XlsxImportResult {
   entriesUpdated: number
   skippedRows: Array<{ row: number; reason: string }>
   unmatchedFavoriteStudents: string[]
+  reviewItems: Array<{
+    id: string
+    playerId: string
+    rawFavoriteStudent: string | null
+    pfpUrl: string | null
+    suggestedStudentId: number | null
+    suggestedConfidence: number | null
+  }>
+}
+
+interface StudentAliasRule {
+  id: string
+  alias: string
+  normalizedAlias: string
+  studentId: number
+  student: Student
+}
+
+interface StudentMatchRule {
+  id: string
+  type: string
+  pattern: string
+  value: string
+  enabled: boolean
+}
+
+interface XlsxReviewItem {
+  id: string
+  rawFavoriteStudent?: string | null
+  pfpUrl?: string | null
+  suggestedConfidence?: number | null
+  player: Player
+  raid: Raid
+  suggestedStudent?: Student | null
 }
 
 interface XlsxImportProgress {
@@ -162,6 +196,13 @@ export function AdminPanel() {
   const [xlsxImportResult, setXlsxImportResult] = useState<XlsxImportResult | null>(null)
   const [xlsxImporting, setXlsxImporting] = useState(false)
   const [xlsxImportProgress, setXlsxImportProgress] = useState<XlsxImportProgress | null>(null)
+  const [xlsxReviewItems, setXlsxReviewItems] = useState<XlsxReviewItem[]>([])
+  const [reviewSelections, setReviewSelections] = useState<Record<string, string>>({})
+  const [reviewStudentQueries, setReviewStudentQueries] = useState<Record<string, string>>({})
+  const [studentAliases, setStudentAliases] = useState<StudentAliasRule[]>([])
+  const [studentMatchRules, setStudentMatchRules] = useState<StudentMatchRule[]>([])
+  const [showMatchingHelp, setShowMatchingHelp] = useState(false)
+  const [ruleTypeFilter, setRuleTypeFilter] = useState('all')
   const [importState, setImportState] = useState<ImportState | null>(null)
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [bossImportState, setBossImportState] = useState<ImportState | null>(null)
@@ -172,6 +213,8 @@ export function AdminPanel() {
     endDate: '',
   })
   const [xlsxFile, setXlsxFile] = useState<File | null>(null)
+  const [aliasForm, setAliasForm] = useState({ alias: '', studentId: '' })
+  const [ruleForm, setRuleForm] = useState({ type: 'variant_prefix', pattern: '', value: '' })
   const [search, setSearch] = useState<Record<ListSection, string>>({
     activity: '',
     players: '',
@@ -218,6 +261,37 @@ export function AdminPanel() {
   const loadRaids = useCallback(() => fetch('/api/raids').then(r => r.json()).then(setRaids), [])
   const loadBosses = useCallback(() => fetch('/api/raid-bosses').then(r => r.json()).then(setBosses), [])
   const loadEntries = useCallback(() => fetch('/api/admin/entries').then(r => r.json()).then(setEntries), [])
+  const loadXlsxReviewItems = useCallback(() => {
+    fetch('/api/admin/import/xlsx/review')
+      .then(r => r.json())
+      .then((items: XlsxReviewItem[]) => {
+        setXlsxReviewItems(items)
+        setReviewSelections((current) => {
+          const next = { ...current }
+          items.forEach((item) => {
+            if (!next[item.id] && item.suggestedStudent?.id) next[item.id] = String(item.suggestedStudent.id)
+          })
+          return next
+        })
+        setReviewStudentQueries((current) => {
+          const next = { ...current }
+          items.forEach((item) => {
+            if (!next[item.id] && item.suggestedStudent?.name) next[item.id] = item.suggestedStudent.name
+          })
+          return next
+        })
+      })
+      .catch(() => null)
+  }, [])
+  const loadStudentMatchRules = useCallback(() => {
+    fetch('/api/admin/student-match-rules')
+      .then(r => r.json())
+      .then((data: { rules: StudentMatchRule[]; aliases: StudentAliasRule[] }) => {
+        setStudentMatchRules(data.rules || [])
+        setStudentAliases(data.aliases || [])
+      })
+      .catch(() => null)
+  }, [])
   const loadImportStatus = useCallback(() => fetch('/api/admin/students/import/status').then(r => r.json()).then(setImportState), [])
   const loadBossImportStatus = useCallback(() => fetch('/api/admin/raid-bosses/import/status').then(r => r.json()).then(setBossImportState), [])
   const loadRaidLookups = useCallback(() => {
@@ -254,8 +328,8 @@ export function AdminPanel() {
   }, [])
 
   useEffect(() => {
-    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus()
-  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus])
+    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadXlsxReviewItems(); loadStudentMatchRules()
+  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadXlsxReviewItems, loadStudentMatchRules])
 
   useEffect(() => {
     if (!showImportProgress || importState?.status !== 'running') return
@@ -679,8 +753,157 @@ export function AdminPanel() {
 
     setXlsxImportResult(body)
     showToast('XLSX import completed.')
-    loadPlayers(); loadClubs(); loadRaids(); loadBosses(); loadEntries(); loadRaidLookups()
+    loadPlayers(); loadClubs(); loadRaids(); loadBosses(); loadEntries(); loadRaidLookups(); loadXlsxReviewItems()
   }
+
+  function reviewSelectedStudentId(item: XlsxReviewItem) {
+    const selectedStudentId = reviewSelections[item.id]
+    if (selectedStudentId) return selectedStudentId
+    const query = reviewStudentQueries[item.id]?.trim().toLowerCase()
+    const exact = query ? students.find((student) => student.name.toLowerCase() === query) : null
+    return exact ? String(exact.id) : ''
+  }
+
+  async function resolveReviewItem(item: XlsxReviewItem, options: { rememberAlias?: boolean; ignore?: boolean }) {
+    const selectedStudentId = reviewSelectedStudentId(item)
+    if (!options.ignore && !selectedStudentId) {
+      showToast('Choose a student first.')
+      return
+    }
+    const res = await fetch(`/api/admin/import/xlsx/review/${item.id}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: selectedStudentId,
+        rememberAlias: options.rememberAlias,
+        ignore: options.ignore,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not resolve review item.' }))
+      showToast(body.error || 'Could not resolve review item.')
+      return
+    }
+    showToast(options.ignore ? 'Review item ignored.' : 'Favorite student updated.')
+    loadXlsxReviewItems(); loadPlayers(); loadStudentMatchRules()
+  }
+
+  async function saveStudentAlias(e: React.FormEvent) {
+    e.preventDefault()
+    const res = await fetch('/api/admin/student-match-rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'alias', ...aliasForm }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not save alias.' }))
+      showToast(body.error || 'Could not save alias.')
+      return
+    }
+    setAliasForm({ alias: '', studentId: '' })
+    showToast('Alias saved.')
+    loadStudentMatchRules()
+  }
+
+  async function saveStudentRule(e: React.FormEvent) {
+    e.preventDefault()
+    const res = await fetch('/api/admin/student-match-rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'rule', ...ruleForm }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not save rule.' }))
+      showToast(body.error || 'Could not save rule.')
+      return
+    }
+    setRuleForm((form) => ({ ...form, pattern: '', value: '' }))
+    showToast('Rule saved.')
+    loadStudentMatchRules()
+  }
+
+  async function deleteMatchConfig(kind: 'alias' | 'rule', id: string) {
+    const res = await fetch(`/api/admin/student-match-rules/${encodeURIComponent(`${kind}:${id}`)}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not delete item.' }))
+      showToast(body.error || 'Could not delete item.')
+      return
+    }
+    showToast(kind === 'alias' ? 'Alias deleted.' : 'Rule deleted.')
+    loadStudentMatchRules()
+  }
+
+  async function toggleStudentRule(rule: StudentMatchRule) {
+    const res = await fetch(`/api/admin/student-match-rules/${encodeURIComponent(`rule:${rule.id}`)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...rule, enabled: !rule.enabled }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not update rule.' }))
+      showToast(body.error || 'Could not update rule.')
+      return
+    }
+    showToast(rule.enabled ? 'Rule disabled.' : 'Rule enabled.')
+    loadStudentMatchRules()
+  }
+
+  const ruleTypeOptions = [
+    {
+      value: 'variant_prefix',
+      label: 'Variant Prefix',
+      summary: 'For short codes that mean a costume or variant.',
+      patternLabel: 'VARIANT NAME',
+      patternPlaceholder: 'christmas',
+      valueLabel: 'SHORT CODE',
+      valuePlaceholder: 'XMAS',
+      example: 'XMAS Serika -> Serika (Christmas)',
+    },
+    {
+      value: 'base_alias',
+      label: 'Base Alias',
+      summary: 'For nicknames or alternate spellings of a student base name.',
+      patternLabel: 'ALIAS',
+      patternPlaceholder: 'alice',
+      valueLabel: 'BASE NAME',
+      valuePlaceholder: 'aris',
+      example: 'Alice Maid -> Aris (Maid)',
+    },
+    {
+      value: 'variant_alias',
+      label: 'Variant Alias',
+      summary: 'For alternate words that mean the same variant.',
+      patternLabel: 'ALIAS WORD',
+      patternPlaceholder: 'battle',
+      valueLabel: 'VARIANT NAME',
+      valuePlaceholder: 'armed',
+      example: 'Battle Hoshino -> Hoshino (Armed)',
+    },
+    {
+      value: 'ignored_token',
+      label: 'Ignored Token',
+      summary: 'For noisy words or emote names that should be removed.',
+      patternLabel: 'TOKEN',
+      patternPlaceholder: 'panpakapan',
+      valueLabel: 'VALUE',
+      valuePlaceholder: 'unused',
+      example: 'Arisuuu :panpakapan: -> Arisuuu',
+    },
+    {
+      value: 'student_alias',
+      label: 'Direct Alias',
+      summary: 'For direct text mappings. Usually Approved Alias is safer.',
+      patternLabel: 'INPUT TEXT',
+      patternPlaceholder: 'kuroko',
+      valueLabel: 'STUDENT NAME',
+      valuePlaceholder: 'Shiroko*Terror',
+      example: 'Kuroko -> Shiroko*Terror',
+    },
+  ]
+  const selectedRuleType = ruleTypeOptions.find((option) => option.value === ruleForm.type) || ruleTypeOptions[0]
+  const filteredStudentMatchRules = ruleTypeFilter === 'all'
+    ? studentMatchRules
+    : studentMatchRules.filter((rule) => rule.type === ruleTypeFilter)
 
   const latestRaidCount = raids.filter(r => r.isActive).length
   const currentNav = navItems.find((n) => n.id === sec)
@@ -1545,6 +1768,96 @@ export function AdminPanel() {
               </div>
             )}
 
+            {xlsxReviewItems.length > 0 && (
+              <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+                <datalist id="review-student-options">
+                  {students.map(s => <option key={s.id} value={s.name} />)}
+                </datalist>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                  <div>
+                    <div className="font-bold text-[15px]">Needs Review</div>
+                    <div className="text-xs text-muted">
+                      Resolve uncertain or blank favorite students. PFP images are shown only as visual help and are not remembered.
+                    </div>
+                  </div>
+                  <button type="button" className={showMoreBtnClass} onClick={loadXlsxReviewItems}>Refresh</button>
+                </div>
+                <div className="space-y-3">
+                  {xlsxReviewItems.slice(0, 12).map((item) => {
+                    const hasText = Boolean(item.rawFavoriteStudent?.trim())
+                    return (
+                      <div key={item.id} className="bg-bg border border-border rounded-xl p-3">
+                        <div className="grid grid-cols-1 lg:grid-cols-[72px_1fr] gap-3">
+                          <div className="h-[72px] w-[72px] bg-card2 border border-border rounded-xl overflow-hidden flex items-center justify-center text-[10px] text-muted">
+                            {item.pfpUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={proxyImage(item.pfpUrl)}
+                                alt="PFP preview"
+                                className="h-full w-full object-cover"
+                                onError={e => (e.currentTarget.style.display = 'none')}
+                              />
+                            ) : 'No PFP'}
+                          </div>
+                          <div>
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                              <div>
+                                <div className="font-semibold text-sm text-text">
+                                  {item.player.ign} <span className="text-muted font-normal">@{item.player.username}</span>
+                                </div>
+                                <div className="text-xs text-muted mt-0.5">
+                                  {item.raid.raidBoss.name} S{item.raid.season} · {item.raid.server.name} · {item.raid.terrain.name}
+                                </div>
+                                <div className="text-xs text-muted2 mt-1">
+                                  Input: <span className="font-mono text-text">{hasText ? item.rawFavoriteStudent : 'blank'}</span>
+                                  {item.suggestedStudent && (
+                                    <span> · Suggested: <span className="text-accent">{item.suggestedStudent.name}</span> ({Math.round((item.suggestedConfidence || 0) * 100)}%)</span>
+                                  )}
+                                </div>
+                              </div>
+                              <input
+                                className={`${inputClass} sm:max-w-[260px]`}
+                                list="review-student-options"
+                                value={reviewStudentQueries[item.id] || ''}
+                                onChange={e => {
+                                  const value = e.target.value
+                                  const selected = students.find(s => s.name.toLowerCase() === value.trim().toLowerCase())
+                                  setReviewStudentQueries((current) => ({ ...current, [item.id]: value }))
+                                  setReviewSelections((current) => {
+                                    const next = { ...current }
+                                    if (selected) next[item.id] = String(selected.id)
+                                    else delete next[item.id]
+                                    return next
+                                  })
+                                }}
+                                placeholder="Search student..."
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {hasText && (
+                                <button type="button" className={editBtnClass} onClick={() => resolveReviewItem(item, { rememberAlias: true })}>
+                                  Apply & Remember
+                                </button>
+                              )}
+                              <button type="button" className={editBtnClass} onClick={() => resolveReviewItem(item, { rememberAlias: false })}>
+                                Apply Once
+                              </button>
+                              <button type="button" className={delBtnClass} onClick={() => resolveReviewItem(item, { ignore: true })}>
+                                Ignore
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {xlsxReviewItems.length > 12 && (
+                    <div className="text-xs text-muted">+ {xlsxReviewItems.length - 12} more pending review items</div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {xlsxImportResult && (
               <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
@@ -1564,7 +1877,7 @@ export function AdminPanel() {
                     ['Entries Created', xlsxImportResult.entriesCreated],
                     ['Entries Updated', xlsxImportResult.entriesUpdated],
                     ['Skipped Rows', xlsxImportResult.skippedRows.length],
-                    ['Unmatched Fav', xlsxImportResult.unmatchedFavoriteStudents.length],
+                    ['Needs Review', xlsxImportResult.reviewItems?.length || xlsxImportResult.unmatchedFavoriteStudents.length],
                   ].map(([label, value]) => (
                     <div key={label} className="bg-card2 border border-border rounded-lg p-3">
                       <div className="text-[10px] text-muted tracking-[0.08em] font-semibold uppercase">{label}</div>
@@ -1599,10 +1912,179 @@ export function AdminPanel() {
         )}
 
         {sec === 'settings' && (
-          <div className="flex flex-col items-center justify-center min-h-[300px] text-muted gap-3">
-            <div className="text-4xl">⊛</div>
-            <div className="text-[15px] font-semibold text-muted2">Settings</div>
-            <div className="text-[13px]">Site configuration would go here in production.</div>
+          <div>
+            <div className="mb-5">
+              <div className="font-bold text-lg">Student Matching Settings</div>
+              <div className="text-[13px] text-muted mt-1">
+                Tune XLSX favorite-student matching without changing code. PFP URLs are never saved as matching rules.
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl px-4 py-3 sm:px-5 mb-4">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between gap-3 text-left"
+                onClick={() => setShowMatchingHelp((value) => !value)}
+              >
+                <div>
+                  <div className="font-bold text-[15px]">Matching Rule Help</div>
+                  <div className="text-xs text-muted mt-1">Open this when you need to choose which rule type to add.</div>
+                </div>
+                <div className="text-xs font-semibold text-accent">{showMatchingHelp ? 'Hide' : 'Show'}</div>
+              </button>
+
+              {showMatchingHelp && (
+                <div className="mt-4">
+                  <div className="text-xs text-muted2 mb-3">
+                    Use Approved Alias for one weird exact input. Use Matching Rules for patterns that repeat.
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                    {[
+                      ['Approved Alias', 'One exact imported value.', 'Input', 'Arisuuu :panpakapan:', 'Student', 'Aris'],
+                      ['Variant Prefix', 'Short code for a variant/costume.', 'Rule', 'christmas → XMAS', 'Example', 'XMAS Serika → Serika (Christmas)'],
+                      ['Base Alias', 'Nickname or alternate spelling for a base name.', 'Rule', 'alice → aris', 'Example', 'Alice Maid → Aris (Maid)'],
+                      ['Variant Alias', 'Different word for the same variant.', 'Rule', 'battle → armed', 'Example', 'Battle Hoshino → Hoshino (Armed)'],
+                      ['Ignored Token', 'Noise word to remove before matching.', 'Rule', 'panpakapan', 'Example', 'Arisuuu :panpakapan: → Arisuuu'],
+                      ['Direct Alias Rule', 'Manual text mapping inside rule list. Usually use Approved Alias instead.', 'Rule', 'kuroko → Shiroko*Terror', 'Example', 'Kuroko → Shiroko*Terror'],
+                    ].map(([title, description, labelA, valueA, labelB, valueB]) => (
+                      <div key={title} className="bg-bg border border-border rounded-lg p-3">
+                        <div className="text-[10px] uppercase tracking-[0.08em] text-muted font-semibold">{title}</div>
+                        <div className="text-muted2 mt-1">{description}</div>
+                        <div className="mt-2 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1">
+                          <div className="text-muted">{labelA}</div>
+                          <div className="font-mono text-text break-words">{valueA}</div>
+                          <div className="text-muted">{labelB}</div>
+                          <div className="font-mono text-text break-words">{valueB}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs text-muted mt-3">
+                    If you are unsure, use Approved Alias from the review screen. It is the safest option.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+                <div className="font-bold text-[15px] mb-3">Approved Aliases</div>
+                <form onSubmit={saveStudentAlias} className="grid grid-cols-1 sm:grid-cols-2 gap-x-3">
+                  <StField label="ALIAS">
+                    <input
+                      className={inputClass}
+                      value={aliasForm.alias}
+                      onChange={e => setAliasForm(f => ({ ...f, alias: e.target.value }))}
+                      placeholder="e.g. S Mika"
+                      required
+                    />
+                  </StField>
+                  <StField label="STUDENT">
+                    <select
+                      className={inputClass}
+                      value={aliasForm.studentId}
+                      onChange={e => setAliasForm(f => ({ ...f, studentId: e.target.value }))}
+                      required
+                    >
+                      <option value="">— Select Student —</option>
+                      {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </StField>
+                  <div className="sm:col-span-2">
+                    <button type="submit" className={submitBtnClass}>Save Alias</button>
+                  </div>
+                </form>
+                <div className="mt-4 space-y-2 max-h-[650px] overflow-auto pr-1">
+                  {studentAliases.length === 0 && <div className="text-xs text-muted">No approved aliases yet.</div>}
+                  {studentAliases.map((alias) => (
+                    <div key={alias.id} className="flex items-center justify-between gap-3 bg-bg border border-border rounded-lg px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-sm text-text font-mono truncate">{alias.alias}</div>
+                        <div className="text-xs text-muted truncate">→ {alias.student.name}</div>
+                      </div>
+                      <button type="button" className={delBtnClass} onClick={() => deleteMatchConfig('alias', alias.id)}>Delete</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+                <div className="font-bold text-[15px] mb-3">Matching Rules</div>
+                <form onSubmit={saveStudentRule} className="grid grid-cols-1 sm:grid-cols-3 gap-x-3">
+                  <StField label="TYPE">
+                    <select
+                      className={inputClass}
+                      value={ruleForm.type}
+                      onChange={e => setRuleForm(f => ({ ...f, type: e.target.value, value: e.target.value === 'ignored_token' ? '' : f.value }))}
+                    >
+                      {ruleTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </StField>
+                  <StField label={selectedRuleType.patternLabel}>
+                    <input
+                      className={inputClass}
+                      value={ruleForm.pattern}
+                      onChange={e => setRuleForm(f => ({ ...f, pattern: e.target.value }))}
+                      placeholder={`e.g. ${selectedRuleType.patternPlaceholder}`}
+                      required
+                    />
+                  </StField>
+                  <StField label={selectedRuleType.valueLabel}>
+                    <input
+                      className={inputClass}
+                      value={ruleForm.value}
+                      onChange={e => setRuleForm(f => ({ ...f, value: e.target.value }))}
+                      placeholder={ruleForm.type === 'ignored_token' ? 'not needed' : `e.g. ${selectedRuleType.valuePlaceholder}`}
+                      required={ruleForm.type !== 'ignored_token'}
+                      disabled={ruleForm.type === 'ignored_token'}
+                    />
+                  </StField>
+                  <div className="sm:col-span-3">
+                    <button type="submit" className={submitBtnClass}>Save Rule</button>
+                  </div>
+                </form>
+                <div className="mt-4">
+                  <div className="text-[10px] uppercase tracking-[0.08em] text-muted font-semibold mb-2">View Rules</div>
+                  <div className="flex flex-wrap gap-2">
+                    {[{ value: 'all', label: 'All' }, ...ruleTypeOptions].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold border transition-colors ${
+                          ruleTypeFilter === option.value
+                            ? 'bg-accent text-white border-accent'
+                            : 'bg-bg text-muted2 border-border hover:text-text hover:border-border2'
+                        }`}
+                        onClick={() => setRuleTypeFilter(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2 max-h-[553px] overflow-auto pr-1">
+                  {filteredStudentMatchRules.length === 0 && <div className="text-xs text-muted">No rules in this view.</div>}
+                  {filteredStudentMatchRules.map((rule) => (
+                    <div key={rule.id} className="flex items-center justify-between gap-3 bg-bg border border-border rounded-lg px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.08em] text-muted font-semibold">{rule.type.replace(/_/g, ' ')}</div>
+                        <div className={`text-sm font-mono truncate ${rule.enabled ? 'text-text' : 'text-muted line-through'}`}>
+                          {rule.pattern}{rule.value ? ` → ${rule.value}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" className={editBtnClass} onClick={() => toggleStudentRule(rule)}>
+                          {rule.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                        <button type="button" className={delBtnClass} onClick={() => deleteMatchConfig('rule', rule.id)}>Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

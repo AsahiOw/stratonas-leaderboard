@@ -4,14 +4,19 @@ import { useSession, signOut } from 'next-auth/react'
 import { Navbar } from '@/components/Navbar'
 import { RaidBlock } from '@/components/RaidBlock'
 import { StatsPage } from '@/components/StatsPage'
+import { CommunityPage } from '@/components/CommunityPage'
 import { AdminPanel } from '@/components/AdminPanel'
 import { PlayerProfile } from '@/components/PlayerProfile'
 import { LoginModal } from '@/components/LoginModal'
 import { BirthdaySection } from '@/components/BirthdaySection'
+import { HomeIntro } from '@/components/HomeIntro'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
-type Tab = 'leaderboard' | 'previous' | 'stats' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'stats' | 'community' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
+type ReturnLocation = { tab: Tab; scrollY: number }
+const INTRO_OPEN_KEY = 'stratonas:intro-open'
+const LEGACY_INTRO_DISMISSED_KEY = 'stratonas:intro-dismissed'
 
 interface RaidData {
   id: string
@@ -43,12 +48,15 @@ export function LeaderboardApp({ initialRaids }: Props) {
   const [tab, setTab] = useState<Tab>('leaderboard')
   const [serverFilter, setServerFilter] = useState<ServerFilter>('all')
   const [showLogin, setShowLogin] = useState(false)
+  const [showIntro, setShowIntro] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
+  const [pendingReturnScroll, setPendingReturnScroll] = useState<number | null>(null)
   const [raidEntries, setRaidEntries] = useState<Record<string, TableEntry[]>>({})
   const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
     leaderboard: true,
     previous: false,
     stats: false,
+    community: false,
     admin: false,
   })
 
@@ -65,6 +73,49 @@ export function LeaderboardApp({ initialRaids }: Props) {
         .catch(() => undefined)
     })
   }, [raidEntries])
+
+  useEffect(() => {
+    window.localStorage.removeItem(LEGACY_INTRO_DISMISSED_KEY)
+
+    const storedIntroOpen = window.localStorage.getItem(INTRO_OPEN_KEY)
+    const nextIntroOpen = storedIntroOpen === null ? true : storedIntroOpen === 'true'
+
+    setShowIntro(nextIntroOpen)
+    if (storedIntroOpen === null) window.localStorage.setItem(INTRO_OPEN_KEY, 'true')
+  }, [])
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem('stratonas:return-location')
+      if (!raw) return
+
+      window.sessionStorage.removeItem('stratonas:return-location')
+      const saved = JSON.parse(raw) as Partial<ReturnLocation>
+      const tabs: Tab[] = ['leaderboard', 'previous', 'stats', 'community', 'admin']
+      if (!saved.tab || !tabs.includes(saved.tab) || saved.tab === 'admin') return
+
+      setTab(saved.tab)
+      setVisitedTabs((prev) => ({ ...prev, [saved.tab as Tab]: true }))
+      setPendingReturnScroll(typeof saved.scrollY === 'number' ? saved.scrollY : 0)
+    } catch {
+      window.sessionStorage.removeItem('stratonas:return-location')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (pendingReturnScroll === null) return
+
+    const scrollToSavedPlace = () => window.scrollTo({ top: pendingReturnScroll, behavior: 'auto' })
+    const frame = window.requestAnimationFrame(scrollToSavedPlace)
+    const timers = [120, 400, 900, 1500].map((delay) => window.setTimeout(scrollToSavedPlace, delay))
+    const done = window.setTimeout(() => setPendingReturnScroll(null), 1700)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      timers.forEach((timer) => window.clearTimeout(timer))
+      window.clearTimeout(done)
+    }
+  }, [pendingReturnScroll])
 
   useEffect(() => {
     setVisitedTabs((prev) => prev[tab] ? prev : { ...prev, [tab]: true })
@@ -116,7 +167,32 @@ export function LeaderboardApp({ initialRaids }: Props) {
     setTab('admin')
   }
 
-  const containerMax = tab === 'admin' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  function scrollToTop() {
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  }
+
+  function setIntroOpen(open: boolean) {
+    setShowIntro(open)
+    window.localStorage.setItem(INTRO_OPEN_KEY, open ? 'true' : 'false')
+  }
+
+  function handleIntroToggle() {
+    if (tab !== 'leaderboard') {
+      setTab('leaderboard')
+      setIntroOpen(true)
+      scrollToTop()
+      return
+    }
+
+    setShowIntro((current) => {
+      const next = !current
+      window.localStorage.setItem(INTRO_OPEN_KEY, next ? 'true' : 'false')
+      if (next) scrollToTop()
+      return next
+    })
+  }
+
+  const containerMax = tab === 'admin' || tab === 'community' ? 'max-w-[1100px]' : 'max-w-[940px]'
   const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
@@ -129,12 +205,15 @@ export function LeaderboardApp({ initialRaids }: Props) {
         serverFilter={serverFilter}
         setServerFilter={setServerFilter}
         previousRaidCount={previousCount}
+        introOpen={tab === 'leaderboard' && showIntro}
+        onIntroToggle={handleIntroToggle}
       />
 
       <div className={`mx-auto w-full ${containerMax} ${containerPad}`}>
         {/* LEADERBOARD */}
         {tab === 'leaderboard' && (
-          <div>
+          <div key={`leaderboard-${serverFilter}`} className="view-transition">
+            <HomeIntro open={showIntro} onClose={() => setIntroOpen(false)} />
             <div
               className="relative overflow-hidden rounded-2xl border border-border mt-5 mb-5 min-h-[180px] sm:min-h-[220px] flex items-end justify-center text-center bg-cover bg-center"
               style={{ backgroundImage: 'url(/assets/images/banner.gif)' }}
@@ -142,7 +221,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
               <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.18),rgba(13,13,19,0.82))]" />
               <div className="relative px-4 pb-3 sm:pb-4">
                 <h1 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-[-0.03em] leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.75)]">
-                  Stratonas <span className="text-accent">Leaderboard</span>
+                  Stratónas <span className="text-accent">Leaderboard</span>
                 </h1>
                 <p className="text-muted2 text-sm mt-2 px-2 drop-shadow-[0_1px_8px_rgba(0,0,0,0.75)]">
                   Latest raid updates
@@ -160,6 +239,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
                   entries={raidEntries[r.id] || []}
                   onPlayerClick={handlePlayerClick}
                   capRows={10}
+                  returnTab="leaderboard"
                 />
               ))
             )}
@@ -169,7 +249,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
 
         {/* PREVIOUS RAIDS */}
         {tab === 'previous' && (
-          <div>
+          <div key={`previous-${serverFilter}`} className="view-transition">
             <div className="pt-7 pb-5">
               <div className="text-[11px] font-bold text-muted tracking-[0.14em] mb-1.5">◈ ARCHIVED RAIDS</div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Previous Rankings</h2>
@@ -188,6 +268,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
                   onPlayerClick={handlePlayerClick}
                   capRows={10}
                   defaultOpen={false}
+                  returnTab="previous"
                 />
               ))
             )}
@@ -196,7 +277,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
 
         {/* STATS */}
         {visitedTabs.stats && (
-          <div className={`pt-7 ${tab === 'stats' ? '' : 'hidden'}`}>
+          <div className={`pt-7 ${tab === 'stats' ? 'view-transition' : 'hidden'}`}>
             <div className="mb-5">
               <div className="text-[11px] font-bold text-muted tracking-[0.14em] mb-1.5">◈ SEASON OVERVIEW</div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-[-0.02em]">Statistics</h2>
@@ -205,9 +286,16 @@ export function LeaderboardApp({ initialRaids }: Props) {
           </div>
         )}
 
+        {/* COMMUNITY */}
+        {visitedTabs.community && (
+          <div className={`pt-7 ${tab === 'community' ? 'view-transition' : 'hidden'}`}>
+            <CommunityPage />
+          </div>
+        )}
+
         {/* ADMIN */}
         {tab === 'admin' && !isAdmin && (
-          <div className="text-center py-20 text-muted">
+          <div className="view-transition text-center py-20 text-muted">
             <div className="text-4xl mb-4">🔒</div>
             <div className="text-lg font-semibold text-muted2 mb-2">Admin Access Required</div>
             <div className="text-sm mb-6">Please log in to manage leaderboard data.</div>
@@ -220,14 +308,14 @@ export function LeaderboardApp({ initialRaids }: Props) {
           </div>
         )}
         {visitedTabs.admin && isAdmin && (
-          <div className={tab === 'admin' ? '' : 'hidden'}>
+          <div className={tab === 'admin' ? 'view-transition' : 'hidden'}>
             <AdminPanel />
           </div>
         )}
       </div>
 
       {showLogin && <LoginModal onLogin={handleLogin} onClose={() => setShowLogin(false)} />}
-      {profilePlayerId && <PlayerProfile playerId={profilePlayerId} onClose={() => setProfilePlayerId(null)} />}
+      {profilePlayerId && <PlayerProfile playerId={profilePlayerId} returnTab={tab} onClose={() => setProfilePlayerId(null)} />}
     </div>
   )
 }

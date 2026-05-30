@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildStudentLookupFromRecords, resolveStudentFromLookup, type StudentRecord } from './student-name-matcher'
+import { buildStudentLookupFromRecords, resolveStudentFromLookup, suggestStudentFromLookup, type StudentRecord } from './student-name-matcher'
 
 const students: StudentRecord[] = [
   { id: 1, name: 'Hoshino' },
@@ -82,4 +82,14 @@ test('resolves existing prefix formats', () => {
 
 test('leaves unknown values unmatched', () => {
   assert.equal(resolveName('not a real student'), null)
+})
+
+test('suggests fuzzy matches without matching blank values', () => {
+  const suggestion = suggestStudentFromLookup('Yuka', lookup)
+  assert.equal(suggestion.status, 'suggested')
+  assert.equal(suggestion.student?.name, 'Yuuka (Pajamas)')
+
+  const blank = suggestStudentFromLookup('', lookup)
+  assert.equal(blank.status, 'unmatched')
+  assert.equal(blank.student, null)
 })

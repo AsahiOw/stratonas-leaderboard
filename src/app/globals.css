@@ -32,6 +32,13 @@ html, body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
 }
 
 body {
@@ -40,9 +47,33 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--surface); }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+.birthday-scrollbar {
+  scrollbar-color: var(--border2) var(--surface);
+  scrollbar-width: thin;
+}
+
+.birthday-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.birthday-scrollbar::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+.birthday-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 3px;
+}
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(10px); }
@@ -50,6 +81,15 @@ body {
 }
 
 .fade-up { animation: fadeUp 0.25s ease forwards; }
+
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.view-transition {
+  animation: viewIn 0.24s ease-out both;
+}
 
 select option { background: #1a1a26; color: #e4e4f0; }
 

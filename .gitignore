@@ -46,4 +46,6 @@ next-env.d.ts
 dev.err.log
 dev.log
 
+# claude
 CLAUDE.md
+.claude

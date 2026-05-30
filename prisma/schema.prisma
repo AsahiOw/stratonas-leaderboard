@@ -39,6 +39,7 @@ model Player {
   clubData         Club?        @relation(fields: [clubId], references: [id], onDelete: SetNull)
   userID           String?      @unique
   entries          RaidEntry[]
+  xlsxReviewItems  XlsxImportReviewItem[]
 
   @@index([ign])
   @@index([favouriteStudentId])
@@ -84,9 +85,39 @@ model Student {
   portraitOffsetY Float    @default(0)
   portraitScale   Float    @default(1)
   favoritedBy     Player[]
+  aliases         StudentAlias[]
+  suggestedReviewItems XlsxImportReviewItem[] @relation("SuggestedStudentReview")
+  resolvedReviewItems  XlsxImportReviewItem[] @relation("ResolvedStudentReview")
 
   @@index([name])
   @@index([birthDay])
+}
+
+model StudentAlias {
+  id              String   @id @default(cuid())
+  alias           String
+  normalizedAlias String   @unique
+  studentId       Int
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([studentId])
+}
+
+model StudentMatchRule {
+  id                String   @id @default(cuid())
+  type              String
+  pattern           String
+  normalizedPattern String
+  value             String   @default("")
+  normalizedValue   String   @default("")
+  enabled           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([type, normalizedPattern, normalizedValue])
+  @@index([type, enabled])
 }
 
 model StudentImportState {
@@ -164,6 +195,7 @@ model Raid {
   startDate  DateTime?
   endDate    DateTime?
   entries    RaidEntry[]
+  xlsxReviewItems XlsxImportReviewItem[]
 }
 
 model RaidEntry {
@@ -177,6 +209,32 @@ model RaidEntry {
   updatedAt DateTime @updatedAt
 
   @@unique([playerId, raidId])
+}
+
+model XlsxImportReviewItem {
+  id                           String   @id @default(cuid())
+  raidId                       String
+  raid                         Raid     @relation(fields: [raidId], references: [id], onDelete: Cascade)
+  playerId                     String
+  player                       Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  rawFavoriteStudent           String?
+  normalizedRawFavoriteStudent String   @default("")
+  pfpUrl                       String?
+  suggestedStudentId           Int?
+  suggestedStudent             Student? @relation("SuggestedStudentReview", fields: [suggestedStudentId], references: [id], onDelete: SetNull)
+  suggestedConfidence          Float?
+  status                       String   @default("pending")
+  resolvedStudentId            Int?
+  resolvedStudent              Student? @relation("ResolvedStudentReview", fields: [resolvedStudentId], references: [id], onDelete: SetNull)
+  resolvedAt                   DateTime?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([raidId])
+  @@index([playerId])
+  @@index([suggestedStudentId])
+  @@index([resolvedStudentId])
 }
 
 // NextAuth required models

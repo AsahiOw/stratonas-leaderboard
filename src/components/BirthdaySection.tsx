@@ -139,7 +139,7 @@ export function BirthdaySection() {
           </div>
           <div
             ref={scrollRef}
-            className="w-full cursor-grab touch-pan-x select-none overflow-x-auto pb-2 active:cursor-grabbing"
+            className="birthday-scrollbar w-full cursor-grab touch-pan-x select-none overflow-x-auto pb-2 active:cursor-grabbing"
             onPointerDown={handleScrollPointerDown}
             onPointerMove={handleScrollPointerMove}
             onPointerUp={stopScrollDrag}

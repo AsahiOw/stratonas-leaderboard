@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { ReturnLocationLink } from '@/components/ReturnLocationLink'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StatCard } from '@/components/ui/StatCard'
 import { BarChart } from '@/components/ui/BarChart'
@@ -27,6 +28,7 @@ interface TopPlayer {
   playerId: string
   name: string
   club: string
+  clubId?: string | null
   totalScore: number
   entryCount: number
   averageScore: number
@@ -36,6 +38,7 @@ interface TopPlayer {
 
 interface ClubStanding {
   rank: number
+  id?: string | null
   name: string
   totalScore: number
   entryCount: number
@@ -120,7 +123,7 @@ export function StatsPage({ onPlayerClick }: Props) {
   })
 
   useEffect(() => {
-    fetch('/api/stats').then((r) => r.json()).then(setStats)
+    fetch(`/api/stats?t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).then(setStats)
   }, [])
 
   if (!stats) {
@@ -136,6 +139,10 @@ export function StatsPage({ onPlayerClick }: Props) {
     setVisibleRows((prev) => ({ ...prev, [section]: prev[section] + SHOW_MORE_ROWS }))
   }
 
+  function showLess(section: PagedSection) {
+    setVisibleRows((prev) => ({ ...prev, [section]: Math.max(INITIAL_VISIBLE_ROWS, prev[section] - SHOW_MORE_ROWS) }))
+  }
+
   function PageSummary({ shown, total }: { shown: number; total: number }) {
     if (total <= INITIAL_VISIBLE_ROWS) return null
     return (
@@ -145,17 +152,31 @@ export function StatsPage({ onPlayerClick }: Props) {
     )
   }
 
-  function ShowMoreButton({ section, shown, total }: { section: PagedSection; shown: number; total: number }) {
-    if (shown >= total) return null
+  function PagingControls({ section, shown, total }: { section: PagedSection; shown: number; total: number }) {
+    const canShowMore = shown < total
+    const canShowLess = shown > INITIAL_VISIBLE_ROWS
+    if (!canShowMore && !canShowLess) return null
+
     return (
-      <div className="flex justify-center mt-4">
-        <button
-          type="button"
-          onClick={() => showMore(section)}
-          className="w-full sm:w-auto bg-card2 border border-border rounded-lg px-4 py-2 text-sm font-semibold text-muted2 hover:text-text hover:border-border2 transition-colors"
-        >
-          Show more
-        </button>
+      <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
+        {canShowMore && (
+          <button
+            type="button"
+            onClick={() => showMore(section)}
+            className="w-full sm:w-auto bg-card2 border border-border rounded-lg px-4 py-2 text-sm font-semibold text-muted2 hover:text-text hover:border-border2 transition-colors"
+          >
+            Show more
+          </button>
+        )}
+        {canShowLess && (
+          <button
+            type="button"
+            onClick={() => showLess(section)}
+            className="w-full sm:w-auto bg-transparent border border-border rounded-lg px-4 py-2 text-sm font-semibold text-muted hover:text-text hover:border-border2 transition-colors"
+          >
+            Show less
+          </button>
+        )}
       </div>
     )
   }
@@ -221,7 +242,7 @@ export function StatsPage({ onPlayerClick }: Props) {
                 </div>
               ))}
             </div>
-            <ShowMoreButton section="currentRaidLeaders" shown={visibleCurrentRaidLeaders.length} total={stats.currentRaidLeaders.length} />
+            <PagingControls section="currentRaidLeaders" shown={visibleCurrentRaidLeaders.length} total={stats.currentRaidLeaders.length} />
           </>
         )}
       </section>
@@ -280,7 +301,13 @@ export function StatsPage({ onPlayerClick }: Props) {
                     <td className="px-3 py-3 whitespace-nowrap">
                       <PlayerButton name={player.name} playerId={player.playerId} onPlayerClick={onPlayerClick} />
                     </td>
-                    <td className="px-3 py-3 text-muted2">{player.club}</td>
+                    <td className="px-3 py-3 text-muted2">
+                      {player.clubId ? (
+                        <ReturnLocationLink href={`/clubs/${player.clubId}`} returnTab="stats" className="text-muted2 hover:text-text hover:underline">
+                          {player.club}
+                        </ReturnLocationLink>
+                      ) : player.club}
+                    </td>
                     <td className="px-3 py-3 font-mono font-bold text-accent">{fmtNum(player.totalScore)}</td>
                     <td className="px-3 py-3 font-mono text-muted2">{fmtNum(player.entryCount)}</td>
                     <td className="px-3 py-3 font-mono text-muted2">{fmtNum(player.averageScore)}</td>
@@ -291,7 +318,7 @@ export function StatsPage({ onPlayerClick }: Props) {
               </tbody>
             </table>
             <PageSummary shown={visibleTopPlayers.length} total={stats.topPlayers.length} />
-            <ShowMoreButton section="topPlayers" shown={visibleTopPlayers.length} total={stats.topPlayers.length} />
+            <PagingControls section="topPlayers" shown={visibleTopPlayers.length} total={stats.topPlayers.length} />
           </div>
         )}
       </section>
@@ -317,7 +344,13 @@ export function StatsPage({ onPlayerClick }: Props) {
                 {visibleClubStandings.map((club, index) => (
                   <tr key={club.name} className={index < visibleClubStandings.length - 1 ? 'border-b border-border' : ''}>
                     <td className="px-3 py-3 font-mono text-muted2">#{club.rank}</td>
-                    <td className="px-3 py-3 font-semibold whitespace-nowrap">{club.name}</td>
+                    <td className="px-3 py-3 font-semibold whitespace-nowrap">
+                      {club.id ? (
+                        <ReturnLocationLink href={`/clubs/${club.id}`} returnTab="stats" className="text-text hover:text-accent hover:underline">
+                          {club.name}
+                        </ReturnLocationLink>
+                      ) : club.name}
+                    </td>
                     <td className="px-3 py-3 font-mono font-bold text-accent">{fmtNum(club.totalScore)}</td>
                     <td className="px-3 py-3 font-mono text-muted2">{fmtNum(club.playerCount)}</td>
                     <td className="px-3 py-3 font-mono text-muted2">{fmtNum(club.entryCount)}</td>
@@ -327,7 +360,7 @@ export function StatsPage({ onPlayerClick }: Props) {
               </tbody>
             </table>
             <PageSummary shown={visibleClubStandings.length} total={stats.clubStandings.length} />
-            <ShowMoreButton section="clubStandings" shown={visibleClubStandings.length} total={stats.clubStandings.length} />
+            <PagingControls section="clubStandings" shown={visibleClubStandings.length} total={stats.clubStandings.length} />
           </div>
         )}
       </section>
@@ -379,7 +412,7 @@ export function StatsPage({ onPlayerClick }: Props) {
               </tbody>
             </table>
             <PageSummary shown={visibleRaidBreakdown.length} total={stats.raidBreakdown.length} />
-            <ShowMoreButton section="raidBreakdown" shown={visibleRaidBreakdown.length} total={stats.raidBreakdown.length} />
+            <PagingControls section="raidBreakdown" shown={visibleRaidBreakdown.length} total={stats.raidBreakdown.length} />
           </div>
         )}
       </section>

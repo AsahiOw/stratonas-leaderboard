@@ -4,8 +4,8 @@ import { SessionProvider } from 'next-auth/react'
 import { SiteFooter } from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
-  title: 'Stratonas — Guild Leaderboard',
-  description: 'Stratonas Guild Leaderboard',
+  title: 'Stratónas — Guild Leaderboard',
+  description: 'Stratónas Guild Leaderboard',
   icons: {
     icon: '/assets/icons/ST_logo.png',
     shortcut: '/assets/icons/ST_logo.png',

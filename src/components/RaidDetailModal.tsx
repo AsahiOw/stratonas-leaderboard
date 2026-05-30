@@ -24,9 +24,10 @@ interface Props {
   hideGuests: boolean
   onToggleGuests: () => void
   initialEntries?: TableEntry[]
+  returnTab?: string
 }
 
-export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onToggleGuests, initialEntries = [] }: Props) {
+export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onToggleGuests, initialEntries = [], returnTab = 'leaderboard' }: Props) {
   const [full, setFull] = useState<TableEntry[]>(initialEntries)
 
   useEffect(() => {
@@ -75,7 +76,7 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onTo
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-border">
-        <LeaderboardTable players={filteredFull} accent={raid.color} onPlayerClick={onPlayerClick} />
+        <LeaderboardTable players={filteredFull} accent={raid.color} onPlayerClick={onPlayerClick} returnTab={returnTab} />
       </div>
     </StModal>
   )

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { RaidBanner } from '@/components/RaidBanner'
 import { LeaderboardTable, type TableEntry } from '@/components/LeaderboardTable'
 import { RaidDetailModal } from '@/components/RaidDetailModal'
+import { ReturnLocationLink } from '@/components/ReturnLocationLink'
 import { imageSrc } from '@/lib/utils'
 
 interface Raid {
@@ -27,6 +28,7 @@ interface Props {
   onPlayerClick?: (playerId: string) => void
   capRows?: number
   defaultOpen?: boolean
+  returnTab?: string
 }
 
 const podiumRankStyles: Record<number, { rank: string; border: string; bg: string }> = {
@@ -39,10 +41,12 @@ function TopThreePodium({
   entries,
   accent,
   onPlayerClick,
+  returnTab,
 }: {
   entries: TableEntry[]
   accent: string
   onPlayerClick?: (playerId: string) => void
+  returnTab: string
 }) {
   if (entries.length === 0) return null
 
@@ -101,16 +105,32 @@ function TopThreePodium({
                     {entry.score.toLocaleString()}
                   </div>
                 </div>
-                <span
-                  className="inline-flex max-w-full rounded-sm border px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
-                  style={{
-                    background: entry.clubColor ? `${entry.clubColor}18` : 'rgba(255,255,255,0.05)',
-                    borderColor: entry.clubColor ? `${entry.clubColor}45` : 'var(--border2)',
-                    color: clubColor,
-                  }}
-                >
-                  <span className="truncate">{entry.club || (entry.isGuild ? 'Guild' : 'Guest')}</span>
-                </span>
+                {entry.clubId ? (
+                  <ReturnLocationLink
+                    href={`/clubs/${entry.clubId}`}
+                    returnTab={returnTab}
+                    className="inline-flex max-w-full rounded-sm border px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
+                    onClick={(event) => event.stopPropagation()}
+                    style={{
+                      background: entry.clubColor ? `${entry.clubColor}18` : 'rgba(255,255,255,0.05)',
+                      borderColor: entry.clubColor ? `${entry.clubColor}45` : 'var(--border2)',
+                      color: clubColor,
+                    }}
+                  >
+                    <span className="truncate">{entry.club || (entry.isGuild ? 'Guild' : 'Guest')}</span>
+                  </ReturnLocationLink>
+                ) : (
+                  <span
+                    className="inline-flex max-w-full rounded-sm border px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
+                    style={{
+                      background: entry.clubColor ? `${entry.clubColor}18` : 'rgba(255,255,255,0.05)',
+                      borderColor: entry.clubColor ? `${entry.clubColor}45` : 'var(--border2)',
+                      color: clubColor,
+                    }}
+                  >
+                    <span className="truncate">{entry.club || (entry.isGuild ? 'Guild' : 'Guest')}</span>
+                  </span>
+                )}
               </div>
             </div>
           </article>
@@ -120,7 +140,7 @@ function TopThreePodium({
   )
 }
 
-export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen = true }: Props) {
+export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen = true, returnTab = 'leaderboard' }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(defaultOpen)
   const [showDetail, setShowDetail] = useState(false)
@@ -163,11 +183,12 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
           className="bg-card border border-t-0 rounded-b-xl overflow-hidden"
           style={{ borderColor: `${raid.color}25` }}
         >
-          <TopThreePodium entries={podiumEntries} accent={raid.color} onPlayerClick={onPlayerClick} />
+          <TopThreePodium entries={podiumEntries} accent={raid.color} onPlayerClick={onPlayerClick} returnTab={returnTab} />
           <LeaderboardTable
             players={tableEntries}
             accent={raid.color}
             onPlayerClick={onPlayerClick}
+            returnTab={returnTab}
           />
           <div className="border-t border-border px-3 py-3 sm:px-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button
@@ -222,6 +243,7 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
           hideGuests={hideGuests}
           onToggleGuests={() => setHideGuests((v) => !v)}
           initialEntries={entries}
+          returnTab={returnTab}
         />
       )}
     </div>
