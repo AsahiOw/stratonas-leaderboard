@@ -54,11 +54,30 @@ function hexToHsl(hex: string) {
   return { hue: hue * 60, saturation, lightness }
 }
 
-function titleColorFromTint(hex: string) {
-  const { hue, saturation } = hexToHsl(hex)
-  const textSaturation = Math.min(saturation, 0.64)
+function hslToHex(hue: number, saturation: number, lightness: number) {
+  const s = saturation / 100
+  const l = lightness / 100
+  const k = (n: number) => (n + hue / 30) % 12
+  const a = s * Math.min(l, 1 - l)
+  const channel = (n: number) => {
+    const color = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, '0')
+  }
 
-  return `hsl(${Math.round(hue)} ${Math.round(textSaturation * 100)}% 22%)`
+  return `#${channel(0)}${channel(8)}${channel(4)}`
+}
+
+function adjustColorWeight(hex: string): [string, string, string] {
+  const { hue, saturation } = hexToHsl(hex)
+  const weightedSaturation = saturation * 100
+
+  return [
+    hslToHex(hue, weightedSaturation, 18),
+    hslToHex(hue, weightedSaturation, 40),
+    hslToHex(hue, weightedSaturation, 85),
+  ]
 }
 
 function memorialPosterSrc(memorial: string | null | undefined) {
@@ -96,11 +115,13 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
   const [videoReady, setVideoReady] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
 
+  const sourceColor = safeHex(entry.clubColor, DEFAULT_TINT)
+  const [deepTextColor, deepColor, lightColor] = adjustColorWeight(sourceColor)
   // clubAccent: drives border/shadow/badge-glow; falls back to raid color
-  const clubAccent = safeHex(entry.clubColor, safeHex(raid.color, '#4f8ef7'))
-  // tintColor: drives the two-tone overlay; falls back to design default pink (not raid color)
-  const tintColor = safeHex(entry.clubColor, DEFAULT_TINT)
-  const titleTextColor = titleColorFromTint(tintColor)
+  const clubAccent = entry.clubColor ? deepColor : safeHex(raid.color, deepColor)
+  // tintColor: drives the two-tone overlay using the weighted light club color
+  const tintColor = lightColor
+  const titleTextColor = deepTextColor
 
   const portrait = imageSrc(entry.favouriteStudentPortrait || entry.favouriteStudentImage, FALLBACK_PORTRAIT)
   const clubLogo = imageSrc(entry.clubLogo, FALLBACK_CLUB)
