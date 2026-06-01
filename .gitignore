@@ -46,6 +46,7 @@ next-env.d.ts
 dev.err.log
 dev.log
 
-# claude
+# AI Knowledge
 CLAUDE.md
 .claude
+.cursor
