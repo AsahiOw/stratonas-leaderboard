@@ -21,6 +21,8 @@ interface Props {
   entry: TableEntry
   elevated?: boolean
   videoMode?: 'poster' | 'preload' | 'active'
+  exportMode?: boolean
+  watermarkLabel?: string
 }
 
 function safeHex(value: string | null | undefined, fallback: string) {
@@ -110,7 +112,7 @@ const scoreFont = localFont({
 const titleFont1Class = 'font-sans'
 const titleFont2Class = 'font-display'
 
-export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }: Props) {
+export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', exportMode = false, watermarkLabel }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [videoReady, setVideoReady] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -126,11 +128,17 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
   const portrait = imageSrc(entry.favouriteStudentPortrait || entry.favouriteStudentImage, FALLBACK_PORTRAIT)
   const clubLogo = imageSrc(entry.clubLogo, FALLBACK_CLUB)
   const background = imageSrc(entry.favouriteStudentMemorial, FALLBACK_BG)
-  const poster = memorialPosterSrc(entry.favouriteStudentMemorial)
+  const poster = entry.favouriteStudentMemorial?.startsWith('/api/memorial-video')
+    ? memorialPosterSrc(entry.favouriteStudentMemorial)
+    : imageSrc(entry.favouriteStudentMemorial, FALLBACK_BG)
   const memorialOffset = getMemorialOffset(entry.favouriteStudentMemorialOffset)
   const portraitOffset = getPortraitOffset(entry.favouriteStudentId, entry.favouriteStudentPortraitOffset)
-  const seasonLabel = `S${raid.season}: ${raid.raidBoss.name} ${raid.terrain.name}`
-  const headerLabel = `Stratónas ${raid.type.name} Leaderboard`
+  const clubLogoOffset = getPortraitOffset(null, entry.clubLogoOffset)
+  const raidNameParts = [raid.raidBoss.name, raid.terrain.name].filter(Boolean)
+  const seasonLabel = raid.season
+    ? [`S${raid.season}${raidNameParts.length ? ':' : ''}`, ...raidNameParts].join(' ')
+    : raidNameParts.join(' ')
+  const headerLabel = raid.type.name ? `Stratónas ${raid.type.name} Leaderboard` : ''
 
   // Two-tone overlay: left 25% tint, feather 71%–77%, right fully opaque
   const leftCol = rgba(tintColor, 0.25)
@@ -140,7 +148,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
   // Curved-slash path — quadratic bezier from design defaults
   // cx=1161.8 (116.18% of W), cy=304 (mid + 14% offset), control bends to x=−314
   const slashPath = 'M 1161.8 -1121 Q -314 304 1161.8 1729 L 5161.8 172971 L 5161.8 -1121 Z'
-  const canPlayVideo = Boolean(entry.favouriteStudentMemorial)
+  const canPlayVideo = !exportMode && Boolean(entry.favouriteStudentMemorial)
   const shouldMountVideo = canPlayVideo && isPlaying
   const shouldPlayVideo = shouldMountVideo
   const videoPreload = 'auto'
@@ -219,18 +227,18 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
 
   return (
     <article
-      className="relative isolate aspect-[1000/475] select-none overflow-hidden rounded-md border bg-card touch-manipulation cursor-pointer"
-      role="button"
-      tabIndex={0}
-      aria-pressed={isPlaying}
+      className={`relative isolate aspect-[1000/475] select-none overflow-hidden rounded-md border bg-card touch-manipulation ${exportMode ? '' : 'cursor-pointer'}`}
+      role={exportMode ? undefined : 'button'}
+      tabIndex={exportMode ? undefined : 0}
+      aria-pressed={exportMode ? undefined : isPlaying}
       data-video-mode={videoMode}
       data-video-interacting={isPlaying}
-      onClick={togglePlayback}
+      onClick={exportMode ? undefined : togglePlayback}
       onContextMenu={(event) => event.preventDefault()}
-      onKeyDown={(event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return
-        event.preventDefault()
-        togglePlayback()
+      onKeyDown={exportMode ? undefined : (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          togglePlayback()
       }}
       style={{
         borderColor: `${clubAccent}${elevated ? '80' : '40'}`,
@@ -326,9 +334,9 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
           }}
           className="absolute z-[1] object-contain opacity-[0.88]"
           style={{
-            right: '6%',
-            top: '50%',
-            width: '85.8%',
+            right: `calc(6% - ${clubLogoOffset.x}%)`,
+            top: `calc(50% + ${clubLogoOffset.y}%)`,
+            width: `${85.8 * clubLogoOffset.scale}%`,
             transform: 'translateY(-50%)',
             filter: `drop-shadow(0 0 16px ${rgba(clubAccent, 0.18)})`,
           }}
@@ -400,7 +408,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
             textShadow: '0 2px 2px rgba(255,255,255,0.35), 0 2px 3px rgba(0,0,0,0.35)',
           }}
         >
-          Rank {entry.rank}
+          {entry.rank ? `Rank ${entry.rank}` : ''}
         </div>
 
         {/* Player name */}
@@ -433,7 +441,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
             textShadow: '0 4px 0 rgba(255,255,255,0.34), 0 5px 5px rgba(0,0,0,0.42)',
           }}
         >
-          {entry.score.toLocaleString()}
+          {entry.score ? entry.score.toLocaleString() : ''}
         </div>
 
         {/* Club name */}
@@ -449,9 +457,19 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active' }
             textShadow: '0 2px 0 rgba(255,255,255,0.35), 0 2px 4px rgba(0,0,0,0.42)',
           }}
         >
-          {entry.club || 'GUEST'}
+          {entry.club || ''}
         </div>
       </div>
+      {watermarkLabel ? (
+        <div
+          className="pointer-events-none absolute bottom-[3.2%] right-[3%] z-[8] rounded bg-black/18 px-[1.8%] py-[0.7%] font-sans text-[1.75cqw] font-bold uppercase leading-none tracking-[0.12em] text-black/45"
+          style={{
+            textShadow: '0 1px 0 rgba(255,255,255,0.22)',
+          }}
+        >
+          {watermarkLabel}
+        </div>
+      ) : null}
     </article>
   )
 }

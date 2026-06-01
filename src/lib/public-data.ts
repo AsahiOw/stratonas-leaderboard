@@ -111,6 +111,15 @@ export const getPublicRaidBosses = unstable_cache(
   }
 )
 
+export const getPublicStudents = unstable_cache(
+  () => prisma.student.findMany({ orderBy: { name: 'asc' } }),
+  ['public-students'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.students],
+  }
+)
+
 export const getPublicPlayers = unstable_cache(
   () => prisma.player.findMany({
     where: { isGuildMember: true },
