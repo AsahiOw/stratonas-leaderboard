@@ -16,7 +16,7 @@ export function hexToRgb(hex: string): string {
 
 export function imageSrc(url: string | null | undefined, fallback = ''): string {
   if (!url) return fallback
-  if (url.startsWith('/')) return url
+  if (url.startsWith('/') || url.startsWith('blob:') || url.startsWith('data:')) return url
   return proxyImage(url)
 }
 

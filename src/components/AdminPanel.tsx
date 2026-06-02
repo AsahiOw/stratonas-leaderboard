@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StModal } from '@/components/ui/StModal'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { StField, inputClass } from '@/components/ui/StField'
 import { Toast } from '@/components/ui/Toast'
 import { fmtDate, imageSrc, proxyImage } from '@/lib/utils'
@@ -141,6 +142,13 @@ interface XlsxImportProgress {
 
 type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries' | 'import' | 'settings'
 type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries'
+type DeleteConfirmation = {
+  title: string
+  message: string
+  itemLabel?: string
+  confirmLabel?: string
+  onConfirm: () => Promise<void> | void
+}
 
 const navItems: { id: Section; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '◈' },
@@ -159,6 +167,47 @@ const RAID_SERVERS = ['Global', 'JP']
 
 function serverOptionLabel(name: string) {
   return name.toLowerCase() === 'japan' || name.toLowerCase() === 'jp' ? 'JP' : name
+}
+
+function normalizeHexColor(value: string) {
+  const trimmed = value.trim()
+  const match = trimmed.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i)
+  if (!match) return null
+
+  const hex = match[1]
+  if (hex.length === 3) {
+    return `#${hex.split('').map((char) => `${char}${char}`).join('')}`.toLowerCase()
+  }
+  return `#${hex}`.toLowerCase()
+}
+
+function rgbToHex(red: number, green: number, blue: number) {
+  return `#${[red, green, blue]
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+function parseRgbColor(value: string) {
+  const channels = value
+    .trim()
+    .replace(/^rgba?\(/i, '')
+    .replace(/\)$/i, '')
+    .split(',')
+    .map((channel) => Number(channel.trim()))
+
+  if (channels.length < 3 || channels.slice(0, 3).some((channel) => !Number.isInteger(channel) || channel < 0 || channel > 255)) {
+    return null
+  }
+
+  return rgbToHex(channels[0], channels[1], channels[2])
+}
+
+function hexToRgbText(value: string) {
+  const hex = normalizeHexColor(value) || '#000000'
+  const red = Number.parseInt(hex.slice(1, 3), 16)
+  const green = Number.parseInt(hex.slice(3, 5), 16)
+  const blue = Number.parseInt(hex.slice(5, 7), 16)
+  return `${red}, ${green}, ${blue}`
 }
 
 const editBtnClass =
@@ -193,6 +242,8 @@ export function AdminPanel() {
   const [modal, setModal] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<Player | Club | Student | Raid | Entry | RaidBoss | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null)
+  const [deleteConfirming, setDeleteConfirming] = useState(false)
   const [xlsxImportResult, setXlsxImportResult] = useState<XlsxImportResult | null>(null)
   const [xlsxImporting, setXlsxImporting] = useState(false)
   const [xlsxImportProgress, setXlsxImportProgress] = useState<XlsxImportProgress | null>(null)
@@ -235,6 +286,24 @@ export function AdminPanel() {
   })
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
+
+  function requestDelete(config: DeleteConfirmation) {
+    setDeleteConfirmation({
+      confirmLabel: 'Delete',
+      ...config,
+    })
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirmation) return
+    setDeleteConfirming(true)
+    try {
+      await deleteConfirmation.onConfirm()
+      setDeleteConfirmation(null)
+    } finally {
+      setDeleteConfirming(false)
+    }
+  }
 
   function playerClubName(player: Player) {
     return player.clubData?.name || player.club || 'Guest'
@@ -425,10 +494,35 @@ export function AdminPanel() {
   // ── Club form ──────────────────────────────────────────────────────────────
   const emptyC = { name: '', uid: '', logo: '', color: '#4f8ef7' }
   const [cForm, setCForm] = useState(emptyC)
+  const [clubColorDraft, setClubColorDraft] = useState({ hex: emptyC.color, rgb: hexToRgbText(emptyC.color) })
 
-  function openAddClub() { setCForm(emptyC); setEditTarget(null); setModal('club') }
+  function setClubColor(color: string) {
+    const hex = normalizeHexColor(color) || emptyC.color
+    setCForm(f => ({ ...f, color: hex }))
+    setClubColorDraft({ hex, rgb: hexToRgbText(hex) })
+  }
+
+  function handleClubHexInput(value: string) {
+    setClubColorDraft(f => ({ ...f, hex: value }))
+    const hex = normalizeHexColor(value)
+    if (!hex) return
+    setCForm(f => ({ ...f, color: hex }))
+    setClubColorDraft({ hex, rgb: hexToRgbText(hex) })
+  }
+
+  function handleClubRgbInput(value: string) {
+    setClubColorDraft(f => ({ ...f, rgb: value }))
+    const hex = parseRgbColor(value)
+    if (!hex) return
+    setCForm(f => ({ ...f, color: hex }))
+    setClubColorDraft({ hex, rgb: hexToRgbText(hex) })
+  }
+
+  function openAddClub() { setCForm(emptyC); setClubColorDraft({ hex: emptyC.color, rgb: hexToRgbText(emptyC.color) }); setEditTarget(null); setModal('club') }
   function openEditClub(c: Club) {
-    setCForm({ name: c.name, uid: c.uid || '', logo: c.logo || '', color: c.color || '#4f8ef7' })
+    const color = normalizeHexColor(c.color || '') || emptyC.color
+    setCForm({ name: c.name, uid: c.uid || '', logo: c.logo || '', color })
+    setClubColorDraft({ hex: color, rgb: hexToRgbText(color) })
     setEditTarget(c); setModal('club')
   }
   async function deleteClub(id: string) {
@@ -442,6 +536,10 @@ export function AdminPanel() {
   }
   async function saveClub(e: React.FormEvent) {
     e.preventDefault()
+    if (!normalizeHexColor(clubColorDraft.hex) || !parseRgbColor(clubColorDraft.rgb)) {
+      showToast('Enter a valid HEX or RGB club color.')
+      return
+    }
     const payload = { name: cForm.name, uid: cForm.uid, logo: cForm.logo, color: cForm.color }
     const res = editTarget
       ? await fetch(`/api/admin/clubs/${(editTarget as Club).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -584,16 +682,56 @@ export function AdminPanel() {
   // ── Raid Boss form ─────────────────────────────────────────────────────────
   const emptyB = { name: '', description: '', image: '', color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex' }
   const [bForm, setBForm] = useState(emptyB)
+  const [bossColorDraft, setBossColorDraft] = useState({
+    color: { hex: emptyB.color, rgb: hexToRgbText(emptyB.color) },
+    color2: { hex: emptyB.color2, rgb: hexToRgbText(emptyB.color2) },
+  })
 
-  function openAddBoss() { setBForm(emptyB); setEditTarget(null); setModal('boss') }
+  function setBossColor(field: 'color' | 'color2', color: string) {
+    const fallback = field === 'color' ? emptyB.color : emptyB.color2
+    const hex = normalizeHexColor(color) || fallback
+    setBForm(f => ({ ...f, [field]: hex }))
+    setBossColorDraft(f => ({ ...f, [field]: { hex, rgb: hexToRgbText(hex) } }))
+  }
+
+  function handleBossHexInput(field: 'color' | 'color2', value: string) {
+    setBossColorDraft(f => ({ ...f, [field]: { ...f[field], hex: value } }))
+    const hex = normalizeHexColor(value)
+    if (!hex) return
+    setBForm(f => ({ ...f, [field]: hex }))
+    setBossColorDraft(f => ({ ...f, [field]: { hex, rgb: hexToRgbText(hex) } }))
+  }
+
+  function handleBossRgbInput(field: 'color' | 'color2', value: string) {
+    setBossColorDraft(f => ({ ...f, [field]: { ...f[field], rgb: value } }))
+    const hex = parseRgbColor(value)
+    if (!hex) return
+    setBForm(f => ({ ...f, [field]: hex }))
+    setBossColorDraft(f => ({ ...f, [field]: { hex, rgb: hexToRgbText(hex) } }))
+  }
+
+  function openAddBoss() {
+    setBForm(emptyB)
+    setBossColorDraft({
+      color: { hex: emptyB.color, rgb: hexToRgbText(emptyB.color) },
+      color2: { hex: emptyB.color2, rgb: hexToRgbText(emptyB.color2) },
+    })
+    setEditTarget(null); setModal('boss')
+  }
   function openEditBoss(b: RaidBoss) {
+    const color = normalizeHexColor(b.color || '') || emptyB.color
+    const color2 = normalizeHexColor(b.color2 || '') || emptyB.color2
     setBForm({
       name: b.name,
       description: b.description,
       image: b.image || '',
-      color: b.color || '#4f8ef7',
-      color2: b.color2 || '#7c3aed',
+      color,
+      color2,
       pattern: b.pattern || 'hex',
+    })
+    setBossColorDraft({
+      color: { hex: color, rgb: hexToRgbText(color) },
+      color2: { hex: color2, rgb: hexToRgbText(color2) },
     })
     setEditTarget(b); setModal('boss')
   }
@@ -602,6 +740,15 @@ export function AdminPanel() {
   }
   async function saveBoss(e: React.FormEvent) {
     e.preventDefault()
+    if (
+      !normalizeHexColor(bossColorDraft.color.hex) ||
+      !parseRgbColor(bossColorDraft.color.rgb) ||
+      !normalizeHexColor(bossColorDraft.color2.hex) ||
+      !parseRgbColor(bossColorDraft.color2.rgb)
+    ) {
+      showToast('Enter valid HEX or RGB boss colors.')
+      return
+    }
     const payload = {
       name: bForm.name,
       description: bForm.description,
@@ -833,6 +980,71 @@ export function AdminPanel() {
     loadStudentMatchRules()
   }
 
+  function requestDeletePlayer(player: Player) {
+    requestDelete({
+      title: 'Delete player?',
+      message: 'This will permanently remove the player from the admin data.',
+      itemLabel: `${player.ign} (@${player.username})`,
+      onConfirm: () => deletePlayer(player.id),
+    })
+  }
+
+  function requestDeleteClub(club: Club) {
+    requestDelete({
+      title: 'Delete club?',
+      message: 'This will permanently remove the club. Clubs with linked players may fail to delete.',
+      itemLabel: club.name,
+      onConfirm: () => deleteClub(club.id),
+    })
+  }
+
+  function requestDeleteStudent(student: Student) {
+    requestDelete({
+      title: 'Delete student?',
+      message: 'This will permanently remove the student and their configured profile data.',
+      itemLabel: student.name,
+      onConfirm: () => deleteStudent(student.id),
+    })
+  }
+
+  function requestDeleteBoss(boss: RaidBoss) {
+    requestDelete({
+      title: 'Delete boss?',
+      message: 'This will permanently remove the raid boss from the admin data.',
+      itemLabel: boss.name,
+      onConfirm: () => deleteBoss(boss.id),
+    })
+  }
+
+  function requestDeleteRaid(raid: Raid) {
+    requestDelete({
+      title: 'Delete raid?',
+      message: 'This will permanently remove the raid and its schedule data.',
+      itemLabel: `${raid.raidBoss.name} - S${raid.season} ${raid.terrain.name} (${serverOptionLabel(raid.server.name)})`,
+      onConfirm: () => deleteRaid(raid.id),
+    })
+  }
+
+  function requestDeleteEntry(entry: Entry) {
+    requestDelete({
+      title: 'Delete entry?',
+      message: 'This will permanently remove this leaderboard score entry.',
+      itemLabel: `${entry.player.ign} - ${entry.raid.raidBoss.name} - ${entry.score.toLocaleString()}`,
+      onConfirm: () => deleteEntry(entry.id),
+    })
+  }
+
+  function requestDeleteMatchConfig(kind: 'alias' | 'rule', id: string, label: string) {
+    requestDelete({
+      title: kind === 'alias' ? 'Delete alias?' : 'Delete matching rule?',
+      message: kind === 'alias'
+        ? 'This will remove the approved student alias from matching.'
+        : 'This will remove the student matching rule.',
+      itemLabel: label,
+      onConfirm: () => deleteMatchConfig(kind, id),
+    })
+  }
+
   async function toggleStudentRule(rule: StudentMatchRule) {
     const res = await fetch(`/api/admin/student-match-rules/${encodeURIComponent(`rule:${rule.id}`)}`, {
       method: 'PUT',
@@ -907,6 +1119,14 @@ export function AdminPanel() {
 
   const latestRaidCount = raids.filter(r => r.isActive).length
   const currentNav = navItems.find((n) => n.id === sec)
+  const clubHexInvalid = clubColorDraft.hex.trim().length > 0 && !normalizeHexColor(clubColorDraft.hex)
+  const clubRgbInvalid = clubColorDraft.rgb.trim().length > 0 && !parseRgbColor(clubColorDraft.rgb)
+  const bossColorInvalid = {
+    colorHex: bossColorDraft.color.hex.trim().length > 0 && !normalizeHexColor(bossColorDraft.color.hex),
+    colorRgb: bossColorDraft.color.rgb.trim().length > 0 && !parseRgbColor(bossColorDraft.color.rgb),
+    color2Hex: bossColorDraft.color2.hex.trim().length > 0 && !normalizeHexColor(bossColorDraft.color2.hex),
+    color2Rgb: bossColorDraft.color2.rgb.trim().length > 0 && !parseRgbColor(bossColorDraft.color2.rgb),
+  }
   const normalizedSearch = {
     activity: search.activity.trim().toLowerCase(),
     players: search.players.trim().toLowerCase(),
@@ -1011,12 +1231,13 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="relative bg-surface rounded-2xl border border-border overflow-hidden md:flex md:min-h-[520px]">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface md:flex md:min-h-[520px]">
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-bg">
         <button
-          onClick={() => setDrawerOpen(true)}
-          aria-label="Open admin menu"
+          onClick={() => setDrawerOpen((open) => !open)}
+          aria-expanded={drawerOpen}
+          aria-label={drawerOpen ? 'Close admin menu' : 'Open admin menu'}
           className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-border bg-card text-muted2 hover:text-text hover:border-border2 transition-colors"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1036,17 +1257,17 @@ export function AdminPanel() {
       {drawerOpen && (
         <button
           aria-label="Close menu"
-          className="md:hidden fixed inset-x-0 bottom-0 top-14 z-30 bg-black/60"
+          className="absolute inset-x-0 bottom-0 top-[4.0625rem] z-30 bg-black/60 md:hidden"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed bottom-0 left-0 top-14 z-40 w-64 md:static md:z-auto md:w-48 md:shrink-0 bg-bg md:border-r md:border-border py-5 md:py-5 overflow-y-auto transition-transform duration-200 ease-out border-r border-border ${drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`absolute left-0 top-[4.0625rem] z-40 flex max-h-[calc(100dvh-9.25rem)] w-64 flex-col overflow-hidden bg-bg py-5 transition-transform duration-200 ease-out border-r border-border md:static md:z-auto md:max-h-none md:w-48 md:shrink-0 md:border-r md:border-border ${drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
       >
-        <div className="flex items-center justify-between px-4 mb-3.5 md:px-4">
+        <div className="flex shrink-0 items-center justify-between px-4 mb-3.5 md:px-4">
           <span className="text-[11px] text-muted tracking-[0.1em] font-semibold">ADMIN PANEL</span>
           <button
             onClick={() => setDrawerOpen(false)}
@@ -1056,7 +1277,7 @@ export function AdminPanel() {
             ✕
           </button>
         </div>
-        <nav>
+        <nav className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">
           {navItems.map((n) => (
             <button
               key={n.id}
@@ -1073,7 +1294,7 @@ export function AdminPanel() {
       </aside>
 
       {/* Content */}
-      <div className="flex-1 p-4 sm:p-5 md:p-6 overflow-auto min-w-0">
+      <div className="flex-1 p-4 sm:p-5 md:p-6 min-w-0">
         {/* DASHBOARD */}
         {sec === 'dashboard' && (
           <div>
@@ -1146,7 +1367,7 @@ export function AdminPanel() {
                     </div>
                     <div className="flex gap-1.5 shrink-0">
                       <button onClick={() => openEditPlayer(p)} className={editBtnClass}>Edit</button>
-                      <button onClick={() => deletePlayer(p.id)} className={delBtnClass}>Delete</button>
+                      <button onClick={() => requestDeletePlayer(p)} className={delBtnClass}>Delete</button>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
@@ -1205,7 +1426,7 @@ export function AdminPanel() {
                         <td className="px-3.5 py-2.5">
                           <div className="flex gap-1.5">
                             <button onClick={() => openEditPlayer(p)} className={editBtnClass}>Edit</button>
-                            <button onClick={() => deletePlayer(p.id)} className={delBtnClass}>Delete</button>
+                            <button onClick={() => requestDeletePlayer(p)} className={delBtnClass}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -1271,7 +1492,7 @@ export function AdminPanel() {
                         <td className="px-3.5 py-2.5">
                           <div className="flex gap-1.5">
                             <button onClick={() => openEditClub(c)} className={editBtnClass}>Edit</button>
-                            <button onClick={() => deleteClub(c.id)} className={delBtnClass}>Delete</button>
+                            <button onClick={() => requestDeleteClub(c)} className={delBtnClass}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -1343,7 +1564,7 @@ export function AdminPanel() {
                     </div>
                     <div className="flex gap-1.5 shrink-0">
                       <button onClick={() => openEditStudent(s)} className={editBtnClass}>Edit</button>
-                      <button onClick={() => deleteStudent(s.id)} className={delBtnClass}>Delete</button>
+                      <button onClick={() => requestDeleteStudent(s)} className={delBtnClass}>Delete</button>
                     </div>
                   </div>
                 </div>
@@ -1414,7 +1635,7 @@ export function AdminPanel() {
                         <td className="px-3.5 py-2.5">
                           <div className="flex gap-1.5">
                             <button onClick={() => openEditStudent(s)} className={editBtnClass}>Edit</button>
-                            <button onClick={() => deleteStudent(s.id)} className={delBtnClass}>Delete</button>
+                            <button onClick={() => requestDeleteStudent(s)} className={delBtnClass}>Delete</button>
                           </div>
                         </td>
                       </tr>
@@ -1481,7 +1702,7 @@ export function AdminPanel() {
                       Edit
                     </button>
                     <button
-                      onClick={() => deleteRaid(r.id)}
+                      onClick={() => requestDeleteRaid(r)}
                       className="rounded-md px-3 py-1.5 text-xs bg-red/10 border border-red/25 text-red hover:bg-red/20 transition-colors"
                     >
                       Delete
@@ -1564,7 +1785,7 @@ export function AdminPanel() {
                       />
                     </div>
                     <button onClick={() => openEditBoss(b)} className={editBtnClass}>Edit</button>
-                    <button onClick={() => deleteBoss(b.id)} className={delBtnClass}>Delete</button>
+                    <button onClick={() => requestDeleteBoss(b)} className={delBtnClass}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -1600,7 +1821,7 @@ export function AdminPanel() {
                     </div>
                     <div className="flex gap-1.5 shrink-0">
                       <button onClick={() => openEditEntry(e)} className={editBtnClass}>Edit</button>
-                      <button onClick={() => deleteEntry(e.id)} className={delBtnClass}>Del</button>
+                      <button onClick={() => requestDeleteEntry(e)} className={delBtnClass}>Del</button>
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-xs">
@@ -1652,7 +1873,7 @@ export function AdminPanel() {
                         <td className="px-3.5 py-2.5">
                           <div className="flex gap-1.5">
                             <button onClick={() => openEditEntry(e)} className={editBtnClass}>Edit</button>
-                            <button onClick={() => deleteEntry(e.id)} className={delBtnClass}>Del</button>
+                            <button onClick={() => requestDeleteEntry(e)} className={delBtnClass}>Del</button>
                           </div>
                         </td>
                       </tr>
@@ -2002,7 +2223,7 @@ export function AdminPanel() {
                         <div className="text-sm text-text font-mono truncate">{alias.alias}</div>
                         <div className="text-xs text-muted truncate">→ {alias.student.name}</div>
                       </div>
-                      <button type="button" className={delBtnClass} onClick={() => deleteMatchConfig('alias', alias.id)}>Delete</button>
+                      <button type="button" className={delBtnClass} onClick={() => requestDeleteMatchConfig('alias', alias.id, `${alias.alias} -> ${alias.student.name}`)}>Delete</button>
                     </div>
                   ))}
                 </div>
@@ -2078,7 +2299,7 @@ export function AdminPanel() {
                         <button type="button" className={editBtnClass} onClick={() => toggleStudentRule(rule)}>
                           {rule.enabled ? 'Disable' : 'Enable'}
                         </button>
-                        <button type="button" className={delBtnClass} onClick={() => deleteMatchConfig('rule', rule.id)}>Delete</button>
+                        <button type="button" className={delBtnClass} onClick={() => requestDeleteMatchConfig('rule', rule.id, `${rule.pattern} -> ${rule.value}`)}>Delete</button>
                       </div>
                     </div>
                   ))}
@@ -2203,13 +2424,52 @@ export function AdminPanel() {
                   placeholder="Optional UID"
                 />
               </StField>
-              <StField label="COLOR">
-                <input
-                  className={`${inputClass} h-11`}
-                  type="color"
-                  value={cForm.color}
-                  onChange={e => setCForm(f => ({ ...f, color: e.target.value }))}
-                />
+              <StField label="COLOR" span2>
+                <div className="rounded-xl border border-border bg-bg p-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[88px_1fr_1fr]">
+                    <label className="flex h-20 cursor-pointer items-center justify-center rounded-lg border border-border2 bg-card2 p-2 transition-colors hover:border-accent/50 sm:h-auto">
+                      <span
+                        className="h-full min-h-12 w-full rounded-md border border-white/10 shadow-inner"
+                        style={{ backgroundColor: cForm.color }}
+                        aria-hidden="true"
+                      />
+                      <input
+                        className="sr-only"
+                        type="color"
+                        value={cForm.color}
+                        onChange={e => setClubColor(e.target.value)}
+                        aria-label="Pick club color"
+                      />
+                    </label>
+                    <div>
+                      <label className="mb-1.5 block text-[10px] font-semibold tracking-[0.08em] text-muted2">HEX INPUT</label>
+                      <input
+                        className={`${inputClass} font-mono ${clubHexInvalid ? 'border-red/60 focus:border-red/70' : ''}`}
+                        type="text"
+                        value={clubColorDraft.hex}
+                        onChange={e => handleClubHexInput(e.target.value)}
+                        placeholder="#4f8ef7"
+                        spellCheck={false}
+                        inputMode="text"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-[10px] font-semibold tracking-[0.08em] text-muted2">RGB INPUT</label>
+                      <input
+                        className={`${inputClass} font-mono ${clubRgbInvalid ? 'border-red/60 focus:border-red/70' : ''}`}
+                        type="text"
+                        value={clubColorDraft.rgb}
+                        onChange={e => handleClubRgbInput(e.target.value)}
+                        placeholder="79, 142, 247"
+                        spellCheck={false}
+                        inputMode="text"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted">
+                    Use either field. Enter HEX like <span className="font-mono text-muted2">#4f8ef7</span> or RGB like <span className="font-mono text-muted2">79, 142, 247</span>; the other field updates automatically.
+                  </div>
+                </div>
               </StField>
             </div>
             <StField label="LOGO PATH OR URL" span2>
@@ -2615,10 +2875,90 @@ export function AdminPanel() {
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <StField label="PRIMARY COLOR">
-                <input className={`${inputClass} h-11`} type="color" value={bForm.color} onChange={e => setBForm(f => ({ ...f, color: e.target.value }))} />
+                <div className="rounded-xl border border-border bg-bg p-3">
+                  <label className="mb-3 flex h-16 cursor-pointer items-center justify-center rounded-lg border border-border2 bg-card2 p-2 transition-colors hover:border-accent/50">
+                    <span
+                      className="h-full w-full rounded-md border border-white/10 shadow-inner"
+                      style={{ backgroundColor: bForm.color }}
+                      aria-hidden="true"
+                    />
+                    <input
+                      className="sr-only"
+                      type="color"
+                      value={bForm.color}
+                      onChange={e => setBossColor('color', e.target.value)}
+                      aria-label="Pick primary boss color"
+                    />
+                  </label>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1.5 block text-[10px] font-semibold tracking-[0.08em] text-muted2">HEX INPUT</label>
+                      <input
+                        className={`${inputClass} font-mono ${bossColorInvalid.colorHex ? 'border-red/60 focus:border-red/70' : ''}`}
+                        type="text"
+                        value={bossColorDraft.color.hex}
+                        onChange={e => handleBossHexInput('color', e.target.value)}
+                        placeholder="#4f8ef7"
+                        spellCheck={false}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-[10px] font-semibold tracking-[0.08em] text-muted2">RGB INPUT</label>
+                      <input
+                        className={`${inputClass} font-mono ${bossColorInvalid.colorRgb ? 'border-red/60 focus:border-red/70' : ''}`}
+                        type="text"
+                        value={bossColorDraft.color.rgb}
+                        onChange={e => handleBossRgbInput('color', e.target.value)}
+                        placeholder="79, 142, 247"
+                        spellCheck={false}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted">Use either HEX or RGB; the other value syncs after a valid entry.</div>
+                </div>
               </StField>
               <StField label="SECONDARY COLOR">
-                <input className={`${inputClass} h-11`} type="color" value={bForm.color2} onChange={e => setBForm(f => ({ ...f, color2: e.target.value }))} />
+                <div className="rounded-xl border border-border bg-bg p-3">
+                  <label className="mb-3 flex h-16 cursor-pointer items-center justify-center rounded-lg border border-border2 bg-card2 p-2 transition-colors hover:border-accent/50">
+                    <span
+                      className="h-full w-full rounded-md border border-white/10 shadow-inner"
+                      style={{ backgroundColor: bForm.color2 }}
+                      aria-hidden="true"
+                    />
+                    <input
+                      className="sr-only"
+                      type="color"
+                      value={bForm.color2}
+                      onChange={e => setBossColor('color2', e.target.value)}
+                      aria-label="Pick secondary boss color"
+                    />
+                  </label>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1.5 block text-[10px] font-semibold tracking-[0.08em] text-muted2">HEX INPUT</label>
+                      <input
+                        className={`${inputClass} font-mono ${bossColorInvalid.color2Hex ? 'border-red/60 focus:border-red/70' : ''}`}
+                        type="text"
+                        value={bossColorDraft.color2.hex}
+                        onChange={e => handleBossHexInput('color2', e.target.value)}
+                        placeholder="#7c3aed"
+                        spellCheck={false}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-[10px] font-semibold tracking-[0.08em] text-muted2">RGB INPUT</label>
+                      <input
+                        className={`${inputClass} font-mono ${bossColorInvalid.color2Rgb ? 'border-red/60 focus:border-red/70' : ''}`}
+                        type="text"
+                        value={bossColorDraft.color2.rgb}
+                        onChange={e => handleBossRgbInput('color2', e.target.value)}
+                        placeholder="124, 58, 237"
+                        spellCheck={false}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted">Use either HEX or RGB; the other value syncs after a valid entry.</div>
+                </div>
               </StField>
               <StField label="PATTERN" span2>
                 <select className={inputClass} value={bForm.pattern} onChange={e => setBForm(f => ({ ...f, pattern: e.target.value }))}>
@@ -2772,6 +3112,28 @@ export function AdminPanel() {
           </form>
         </StModal>
       )}
+
+      <ConfirmModal
+        open={Boolean(deleteConfirmation)}
+        title={deleteConfirmation?.title || 'Confirm delete?'}
+        eyebrow="Delete confirmation"
+        message={deleteConfirmation?.message || 'This action cannot be undone.'}
+        confirmLabel={deleteConfirmation?.confirmLabel || 'Delete'}
+        cancelLabel="Keep it"
+        tone="danger"
+        isLoading={deleteConfirming}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          if (!deleteConfirming) setDeleteConfirmation(null)
+        }}
+      >
+        {deleteConfirmation?.itemLabel && (
+          <div>
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted">Selected item</div>
+            <div className="break-words font-mono text-sm text-text">{deleteConfirmation.itemLabel}</div>
+          </div>
+        )}
+      </ConfirmModal>
     </div>
   )
 }

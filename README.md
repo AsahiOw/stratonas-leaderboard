@@ -9,6 +9,7 @@ The application stores its primary data in PostgreSQL and can run entirely on yo
 ## What This App Includes
 
 - Public leaderboard, raid detail, player profile, club profile, community, stats, and birthday views.
+- Raid-card PNG/ZIP downloads from raid leaderboard pages, including custom watermarked raid-card creation.
 - Admin-only CRUD for players, clubs, raids, raid entries, students, raid bosses, and lookup data.
 - XLSX import for raid score submissions, using `exceljs`.
 - Database-configurable favorite-student matching and XLSX review tools with PFP previews.
@@ -251,6 +252,19 @@ If you changed the database username, password, or database name, update `DATABA
 
 Raid cards can use optimized local MP4 memorial videos and final-frame poster images. These files are not committed to git.
 
+## Raid Card Downloads
+
+Raid leaderboard pages at `/leaderboard/[id]` include a **Download** action for exporting raid cards.
+
+- **Download all raid cards** exports every displayed card for that raid. Multiple cards download as a ZIP of PNG files.
+- **Download selected raid cards** lets users pick one or more displayed players. One selected card downloads as a PNG; multiple selected cards download as a ZIP.
+- Exported real raid-card filenames include rank, player name, raid server, boss, and season.
+- **Customize raid card** opens a local-only editor with a live preview and a subtle `Stratonas Custom Card` watermark.
+- Custom cards can use database-backed player, club, and favorite-student selections, or manual overrides.
+- Manual custom fields support uploaded images or URLs, club color input, and x/y/scale controls for club logo, portrait, and background media.
+
+The export flow is browser-side and uses `html-to-image` for PNG capture and `jszip` for multi-card ZIP files.
+
 ### Folder Layout
 
 Put original downloaded MP4 files here:
@@ -430,6 +444,8 @@ src/
 │   ├── Navbar.tsx
 │   ├── RaidBlock.tsx
 │   ├── RaidBanner.tsx
+│   ├── RaidCard.tsx
+│   ├── RaidCardDownloadModal.tsx
 │   ├── LeaderboardTable.tsx
 │   ├── RaidDetailModal.tsx
 │   ├── PlayerProfile.tsx
@@ -464,6 +480,7 @@ Other important folders:
 | GET | `/api/raids` | All raids |
 | GET | `/api/raids/[id]/entries` | Ranked entries for a raid |
 | GET | `/api/raid-bosses` | Public raid boss list |
+| GET | `/api/students` | Public student media and card metadata |
 | GET | `/api/players` | Public player list |
 | GET | `/api/players/[id]` | Player + raid history |
 | GET | `/api/clubs` | Club summaries |

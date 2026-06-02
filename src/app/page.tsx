@@ -1,5 +1,5 @@
 import { LeaderboardApp } from '@/components/LeaderboardApp'
-import { getPublicRaids } from '@/lib/public-data'
+import { getPublicRaidEntries, getPublicRaids } from '@/lib/public-data'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +10,10 @@ function toIsoDate(value: Date | string | null | undefined) {
 
 export default async function Home() {
   const raids = await getPublicRaids()
+  const activeRaids = raids.filter((raid) => raid.isActive)
+  const activeRaidEntries = await Promise.all(
+    activeRaids.map(async (raid) => [raid.id, await getPublicRaidEntries(raid.id)] as const)
+  )
 
   return (
     <LeaderboardApp
@@ -18,6 +22,7 @@ export default async function Home() {
         startDate: toIsoDate(r.startDate),
         endDate: toIsoDate(r.endDate),
       }))}
+      initialRaidEntries={Object.fromEntries(activeRaidEntries)}
     />
   )
 }

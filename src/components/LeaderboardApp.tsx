@@ -39,9 +39,10 @@ interface RaidData {
 
 interface Props {
   initialRaids: RaidData[]
+  initialRaidEntries?: Record<string, TableEntry[]>
 }
 
-export function LeaderboardApp({ initialRaids }: Props) {
+export function LeaderboardApp({ initialRaids, initialRaidEntries = {} }: Props) {
   const { data: session, status } = useSession()
   const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
 
@@ -51,7 +52,7 @@ export function LeaderboardApp({ initialRaids }: Props) {
   const [showIntro, setShowIntro] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
   const [pendingReturnScroll, setPendingReturnScroll] = useState<number | null>(null)
-  const [raidEntries, setRaidEntries] = useState<Record<string, TableEntry[]>>({})
+  const [raidEntries, setRaidEntries] = useState<Record<string, TableEntry[]>>(initialRaidEntries)
   const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
     leaderboard: true,
     previous: false,

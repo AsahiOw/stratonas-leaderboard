@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicRaid, getPublicRaidEntries } from '@/lib/public-data'
 import { LeaderboardCardGrid } from '@/components/LeaderboardCardGrid'
+import { RaidCardDownloadButton } from '@/components/RaidCardDownloadModal'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { PublicHeader } from '@/components/PublicHeader'
 import { fmtDate, imageSrc } from '@/lib/utils'
@@ -61,9 +62,12 @@ export default async function RaidLeaderboardPage({ params }: { params: Promise<
     <main className="min-h-screen bg-bg pb-16">
       <PublicHeader
         actions={(
-          <Link href="/" className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted2 transition-colors hover:text-text">
-            Back to leaderboard
-          </Link>
+          <div className="flex items-center gap-2">
+            <RaidCardDownloadButton raid={cardRaid} entries={entries} />
+            <Link href="/" className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted2 transition-colors hover:text-text">
+              Back to leaderboard
+            </Link>
+          </div>
         )}
       />
       <div className="mx-auto w-full max-w-[1180px] px-4 pt-5 sm:px-5 sm:pt-7">

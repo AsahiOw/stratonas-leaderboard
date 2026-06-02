@@ -245,8 +245,11 @@ export function Navbar({
 
         {/* Mobile and tablet overflow panel */}
         <div
-          className={`overflow-hidden border-t border-border transition-[max-height,opacity] duration-200 ease-out [@media(min-width:1280px)]:hidden ${menuOpen ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'
-            }`}
+          className={`border-t border-border transition-[max-height,opacity] duration-200 ease-out [@media(min-width:1280px)]:hidden ${
+            menuOpen
+              ? 'scrollbar-hidden max-h-[80vh] opacity-100 overflow-y-auto overscroll-contain'
+              : 'max-h-0 opacity-0 overflow-hidden'
+          }`}
         >
           <div className="px-4 py-4 flex flex-col gap-2 bg-[rgba(13,13,19,0.98)]">
             <div className="flex flex-col gap-2 md:hidden">

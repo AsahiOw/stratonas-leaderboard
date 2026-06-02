@@ -15,6 +15,7 @@ export interface TableEntry {
   clubId?: string | null
   clubColor?: string | null
   clubLogo?: string | null
+  clubLogoOffset?: Partial<PortraitOffset> | null
   favouriteStudent?: string | null
   favouriteStudentId?: number | null
   favouriteStudentPortraitOffset?: Partial<PortraitOffset> | null
