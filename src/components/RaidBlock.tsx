@@ -151,6 +151,7 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
     : entries
   const podiumEntries = filteredEntries.slice(0, 3)
   const tableEntries = capRows ? filteredEntries.slice(3, capRows) : filteredEntries.slice(3)
+  const hasEntries = entries.length > 0
   const topPlayer = filteredEntries[0]
     ? { name: filteredEntries[0].name, score: filteredEntries[0].score }
     : null
@@ -166,17 +167,19 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
         >
           <RaidBanner raid={raid} topPlayer={topPlayer} />
         </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setHideGuests((v) => !v) }}
-          aria-pressed={hideGuests}
-          className={`absolute right-3 top-3 sm:right-auto sm:top-auto sm:left-5 sm:bottom-4 z-10 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors backdrop-blur-sm ${
-            hideGuests
-              ? 'bg-accent/20 border-accent/35 text-accent'
-              : 'bg-black/45 border-white/10 text-muted hover:text-muted2 hover:border-white/20'
-          }`}
-        >
-          {hideGuests ? 'Guild Only' : 'All Players'}
-        </button>
+        {hasEntries && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setHideGuests((v) => !v) }}
+            aria-pressed={hideGuests}
+            className={`absolute right-3 top-3 sm:right-auto sm:top-auto sm:left-5 sm:bottom-4 z-10 rounded-md px-2.5 py-1 text-[11px] font-semibold border transition-colors backdrop-blur-sm ${
+              hideGuests
+                ? 'bg-accent/20 border-accent/35 text-accent'
+                : 'bg-black/45 border-white/10 text-muted hover:text-muted2 hover:border-white/20'
+            }`}
+          >
+            {hideGuests ? 'Guild Only' : 'All Players'}
+          </button>
+        )}
       </div>
 
       {open && (

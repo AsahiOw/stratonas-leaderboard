@@ -224,6 +224,8 @@ const searchInputClass =
   'w-full bg-bg border border-border rounded-lg px-3.5 py-2.5 text-sm text-text outline-none transition-colors placeholder:text-muted focus:border-accent/60'
 const showMoreBtnClass =
   'w-full sm:w-auto bg-card2 border border-border rounded-lg px-4 py-2 text-sm font-semibold text-muted2 hover:text-text hover:border-border2 transition-colors'
+const showLessBtnClass =
+  'w-full sm:w-auto bg-transparent border border-border rounded-lg px-4 py-2 text-sm font-semibold text-muted hover:text-text hover:border-border2 transition-colors'
 const INITIAL_VISIBLE_ROWS = 10
 const SHOW_MORE_ROWS = 50
 
@@ -329,7 +331,7 @@ export function AdminPanel() {
   const loadStudents = useCallback(() => fetch('/api/admin/students').then(r => r.json()).then(setStudents), [])
   const loadRaids = useCallback(() => fetch('/api/admin/raids', { cache: 'no-store' }).then(r => r.json()).then(setRaids), [])
   const loadBosses = useCallback(() => fetch('/api/admin/raid-bosses', { cache: 'no-store' }).then(r => r.json()).then(setBosses), [])
-  const loadEntries = useCallback(() => fetch('/api/admin/entries').then(r => r.json()).then(setEntries), [])
+  const loadEntries = useCallback(() => fetch('/api/admin/entries', { cache: 'no-store' }).then(r => r.json()).then(setEntries), [])
   const loadXlsxReviewItems = useCallback(() => {
     fetch('/api/admin/import/xlsx/review')
       .then(r => r.json())
@@ -866,13 +868,23 @@ export function AdminPanel() {
   async function saveEntry(e: React.FormEvent) {
     e.preventDefault()
     if (editTarget) {
-      await fetch(`/api/admin/entries/${(editTarget as Entry).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(eForm) })
+      const res = await fetch(`/api/admin/entries/${(editTarget as Entry).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(eForm) })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        showToast(body?.error || 'Could not update entry.')
+        return
+      }
       showToast('Entry updated.')
     } else {
-      await fetch('/api/admin/entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(eForm) })
+      const res = await fetch('/api/admin/entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(eForm) })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        showToast(body?.error || 'Could not add entry.')
+        return
+      }
       showToast('Entry added.')
     }
-    setModal(null); loadEntries()
+    setModal(null); await loadEntries()
   }
 
   // ── XLSX import ────────────────────────────────────────────────────────────
@@ -1210,6 +1222,10 @@ export function AdminPanel() {
     setVisibleRows((prev) => ({ ...prev, [section]: prev[section] + SHOW_MORE_ROWS }))
   }
 
+  function showLess(section: ListSection) {
+    setVisibleRows((prev) => ({ ...prev, [section]: Math.max(INITIAL_VISIBLE_ROWS, prev[section] - SHOW_MORE_ROWS) }))
+  }
+
   function renderListControls(section: ListSection, total: number, filtered: number, visible: number, placeholder: string) {
     return (
       <>
@@ -1234,12 +1250,22 @@ export function AdminPanel() {
   }
 
   function renderShowMore(section: ListSection, filtered: number, visible: number) {
-    if (visible >= filtered) return null
+    const canShowMore = visible < filtered
+    const canShowLess = visible > INITIAL_VISIBLE_ROWS
+    if (!canShowMore && !canShowLess) return null
+
     return (
-      <div className="flex justify-center mt-3">
-        <button type="button" onClick={() => showMore(section)} className={showMoreBtnClass}>
-          Show more
-        </button>
+      <div className="flex flex-col justify-center gap-2 mt-3 sm:flex-row">
+        {canShowMore && (
+          <button type="button" onClick={() => showMore(section)} className={showMoreBtnClass}>
+            Show more
+          </button>
+        )}
+        {canShowLess && (
+          <button type="button" onClick={() => showLess(section)} className={showLessBtnClass}>
+            Show less
+          </button>
+        )}
       </div>
     )
   }
