@@ -327,8 +327,8 @@ export function AdminPanel() {
   const loadPlayers = useCallback(() => fetch('/api/admin/players').then(r => r.json()).then(setPlayers), [])
   const loadClubs = useCallback(() => fetch('/api/admin/clubs').then(r => r.json()).then(setClubs), [])
   const loadStudents = useCallback(() => fetch('/api/admin/students').then(r => r.json()).then(setStudents), [])
-  const loadRaids = useCallback(() => fetch('/api/raids').then(r => r.json()).then(setRaids), [])
-  const loadBosses = useCallback(() => fetch('/api/raid-bosses').then(r => r.json()).then(setBosses), [])
+  const loadRaids = useCallback(() => fetch('/api/admin/raids', { cache: 'no-store' }).then(r => r.json()).then(setRaids), [])
+  const loadBosses = useCallback(() => fetch('/api/admin/raid-bosses', { cache: 'no-store' }).then(r => r.json()).then(setBosses), [])
   const loadEntries = useCallback(() => fetch('/api/admin/entries').then(r => r.json()).then(setEntries), [])
   const loadXlsxReviewItems = useCallback(() => {
     fetch('/api/admin/import/xlsx/review')
@@ -375,8 +375,8 @@ export function AdminPanel() {
 
   const loadLookups = useCallback(() => {
     Promise.all([
-      fetch('/api/raid-bosses').then(r => r.json()),
-      fetch('/api/raids').then(r => r.json()),
+      fetch('/api/admin/raid-bosses', { cache: 'no-store' }).then(r => r.json()),
+      fetch('/api/admin/raids', { cache: 'no-store' }).then(r => r.json()),
     ]).then(([b, raids]) => {
       setBosses(b)
       if (raids.length > 0) {
@@ -814,10 +814,24 @@ export function AdminPanel() {
   async function saveRaid(e: React.FormEvent) {
     e.preventDefault()
     if (editTarget) {
-      await fetch(`/api/admin/raids/${(editTarget as Raid).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rForm) })
+      const res = await fetch(`/api/admin/raids/${(editTarget as Raid).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rForm) })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        showToast(body?.error || 'Could not update raid.')
+        return
+      }
+      const savedRaid = await res.json() as Raid
+      setRaids((current) => current.map((raid) => raid.id === savedRaid.id ? savedRaid : raid))
       showToast('Raid updated.')
     } else {
-      await fetch('/api/admin/raids', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rForm) })
+      const res = await fetch('/api/admin/raids', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rForm) })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        showToast(body?.error || 'Could not add raid.')
+        return
+      }
+      const savedRaid = await res.json() as Raid
+      setRaids((current) => [savedRaid, ...current.filter((raid) => raid.id !== savedRaid.id)])
       showToast('Raid added.')
     }
     setModal(null); loadRaids()
@@ -1398,7 +1412,7 @@ export function AdminPanel() {
 
             {/* Table (sm+) */}
             <div className="hidden sm:block bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
@@ -1456,7 +1470,7 @@ export function AdminPanel() {
             {renderListControls('clubs', clubs.length, filteredClubs.length, visibleClubs.length, 'Search clubs by name, UID, color, logo path, or player count...')}
 
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
@@ -1578,7 +1592,7 @@ export function AdminPanel() {
 
             {/* Table (sm+) */}
             <div className="hidden sm:block bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
@@ -1846,7 +1860,7 @@ export function AdminPanel() {
 
             {/* Table (sm+) */}
             <div className="hidden sm:block bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">

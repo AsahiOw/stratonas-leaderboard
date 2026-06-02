@@ -1,6 +1,7 @@
 .git
 .next
 node_modules
+src/generated/prisma
 
 Development_data
 Production_data

@@ -61,7 +61,7 @@ export function ClubRoster({ roster, clubColor }: Props) {
       {filteredRoster.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted">No players match your search.</div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-border2">

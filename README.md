@@ -2,7 +2,7 @@
 
 A self-hosted, dark-themed gaming leaderboard web app for Stratonas guild raid scores, player profiles, clubs, birthdays, and Blue Archive student media.
 
-**Stack:** Next.js 16 · React 18 · TypeScript 5 · PostgreSQL 16 · Prisma 5 · NextAuth v5 beta · Tailwind CSS 3 · Docker Compose
+**Stack:** Next.js 16 · React 18 · TypeScript 5 · PostgreSQL 16 · Prisma 7 · NextAuth v5 beta · Tailwind CSS 3 · Docker Compose
 
 The application stores its primary data in PostgreSQL and can run entirely on your own machine or server. Some admin import workflows can optionally call external services, such as SchaleDB/wiki sources for student and raid-boss metadata, and Discord/image hosts for proxied images.
 
@@ -34,7 +34,7 @@ The app runs at **http://localhost:3000** in all local modes.
 
 ## Prerequisites
 
-- Node.js 20+ and npm.
+- Node.js 22+ and npm.
 - Docker Desktop, if using Docker modes.
 - PostgreSQL 16, only if using native development without Docker.
 - FFmpeg, only if generating memorial lobby videos/posters.
@@ -83,6 +83,14 @@ If your password contains URL-reserved characters, encode them in `DATABASE_URL`
 POSTGRES_PASSWORD=StratonasAsahi4104@
 DATABASE_URL=postgresql://stratonasAsahi:StratonasAsahi4104%40@db:5432/stratonas
 ```
+
+## Prisma 7 Notes
+
+Prisma is configured through `prisma.config.ts`. The database URL is loaded there from `DATABASE_URL`, so keep the host rule above in mind when running Prisma commands.
+
+The Prisma Client is generated into `src/generated/prisma` and is intentionally not committed. `npm install`, `npm run build`, and Docker builds run `prisma generate` for you.
+
+Database utility scripts that import Prisma Client use `tsx`, not `ts-node`, because the Prisma 7 generated client is ESM-style TypeScript.
 
 ## Development
 
@@ -236,14 +244,14 @@ PowerShell, when using Docker database:
 
 ```powershell
 $env:DATABASE_URL="postgresql://stratonas:stratonas@localhost:5432/stratonas"
-npx ts-node --project tsconfig.seed.json prisma/create-admin.ts --email admin@example.com --password "choose-a-strong-password" --name "Admin"
+npx tsx prisma/create-admin.ts --email admin@example.com --password "choose-a-strong-password" --name "Admin"
 ```
 
 PowerShell, when using native `.env` local database:
 
 ```powershell
 $env:DATABASE_URL="postgresql://stratonas:stratonas@localhost:5432/stratonas"
-npx ts-node --project tsconfig.seed.json prisma/create-admin.ts --email admin@example.com --password "choose-a-strong-password" --name "Admin"
+npx tsx prisma/create-admin.ts --email admin@example.com --password "choose-a-strong-password" --name "Admin"
 ```
 
 If you changed the database username, password, or database name, update `DATABASE_URL` in the command. Use `localhost` because the command runs from your machine, not inside Docker.
@@ -334,7 +342,7 @@ Production still reads media from `./Development_data/lobbies-optimized` and `./
 | `npm run postgres:start` / `postgres:stop` | Yes | No | PowerShell-only native PostgreSQL helpers. |
 | `npm run db:docker:start` / `db:docker:stop` | Yes | Yes | Requires Docker Compose. |
 | `npm run db:migrate` | Git Bash/WSL only | Yes | Uses shell syntax and `sed`; not native PowerShell. |
-| `npm run admin:create` | Git Bash/WSL only | Yes | Use the PowerShell `npx ts-node ...` command above on Windows. |
+| `npm run admin:create` | Git Bash/WSL only | Yes | Use the PowerShell `npx tsx ...` command above on Windows. |
 | `scripts/*.ps1` media scripts | Yes | No | PowerShell versions for Windows. |
 | `scripts/*.sh` media scripts | Git Bash/WSL possible | Yes | Shell versions for macOS/Linux. |
 | `scripts/backup.sh` | Git Bash/WSL only | Yes | Requires Docker Compose to be running. |
@@ -375,7 +383,7 @@ Scrape memorial lobby metadata on Windows PowerShell:
 
 ```powershell
 $env:DATABASE_URL="postgresql://stratonas:stratonas@localhost:5432/stratonas"
-npx ts-node --project tsconfig.seed.json scripts/scrape-memorial-lobbies.ts
+npx tsx scripts/scrape-memorial-lobbies.ts
 ```
 
 ## Database Backup
@@ -453,6 +461,8 @@ src/
 │   ├── AdminPanel.tsx
 │   ├── LoginModal.tsx
 │   └── ui/                  # Micro components
+├── generated/
+│   └── prisma/              # Generated Prisma 7 client, recreated by prisma generate
 └── lib/
     ├── prisma.ts
     ├── auth.ts
@@ -467,6 +477,7 @@ src/
 Other important folders:
 
 - `prisma/` contains the Prisma schema, migrations, seed script, and admin creation script.
+- `prisma.config.ts` contains Prisma 7 CLI configuration, including schema path, migration path, seed command, and datasource URL loading.
 - `scripts/` contains local PostgreSQL helpers, media-processing scripts, backup script, and memorial scraping utilities.
 - `Development_data/` and `Production_data/` are local runtime data folders and are intentionally not committed.
 
