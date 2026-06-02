@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { resolveClub } from '@/lib/clubs'
 import { resolveRaidServer, resolveRaidTerrain, resolveRaidType } from '@/lib/raid-lookups'

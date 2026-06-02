@@ -62,21 +62,25 @@ body {
   display: none;
 }
 
-.birthday-scrollbar {
+.birthday-scrollbar,
+.horizontal-scrollbar {
   scrollbar-color: var(--border2) var(--surface);
   scrollbar-width: thin;
 }
 
-.birthday-scrollbar::-webkit-scrollbar {
+.birthday-scrollbar::-webkit-scrollbar,
+.horizontal-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-.birthday-scrollbar::-webkit-scrollbar-track {
+.birthday-scrollbar::-webkit-scrollbar-track,
+.horizontal-scrollbar::-webkit-scrollbar-track {
   background: var(--surface);
 }
 
-.birthday-scrollbar::-webkit-scrollbar-thumb {
+.birthday-scrollbar::-webkit-scrollbar-thumb,
+.horizontal-scrollbar::-webkit-scrollbar-thumb {
   background: var(--border2);
   border-radius: 3px;
 }

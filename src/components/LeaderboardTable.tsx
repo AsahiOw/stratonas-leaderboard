@@ -40,7 +40,7 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap, returnTa
   const glow = `rgba(${hexToRgb(accent)},0.07)`
 
   return (
-    <div className="overflow-x-auto">
+    <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-border2">

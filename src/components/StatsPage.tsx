@@ -283,7 +283,7 @@ export function StatsPage({ onPlayerClick }: Props) {
         {stats.topPlayers.length === 0 ? (
           <EmptyBlock>No player entries yet.</EmptyBlock>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-border2">
@@ -329,7 +329,7 @@ export function StatsPage({ onPlayerClick }: Props) {
         {stats.clubStandings.length === 0 ? (
           <EmptyBlock>No club data yet.</EmptyBlock>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-border2">
@@ -371,7 +371,7 @@ export function StatsPage({ onPlayerClick }: Props) {
         {stats.raidBreakdown.length === 0 ? (
           <EmptyBlock>No raids yet.</EmptyBlock>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-border2">

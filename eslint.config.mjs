@@ -8,6 +8,7 @@ const eslintConfig = [
       'next-env.d.ts',
       'node_modules/**',
       'out/**',
+      'src/generated/prisma/**',
     ],
   },
   ...nextVitals,
