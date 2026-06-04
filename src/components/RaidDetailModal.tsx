@@ -95,7 +95,7 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onTo
             <LeaderboardTable players={searchedFull} accent={raid.color} onPlayerClick={onPlayerClick} returnTab={returnTab} />
           ) : (
             <div className="flex min-h-[180px] items-center justify-center px-4 text-center text-sm text-muted">
-              No players found for "{search.trim()}".
+              No players found for &quot;{search.trim()}&quot;.
             </div>
           )}
         </div>
