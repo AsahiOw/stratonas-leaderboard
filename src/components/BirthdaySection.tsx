@@ -35,7 +35,7 @@ export function BirthdaySection() {
       const cacheBust = Date.now()
       const [todayRes, upcomingRes] = await Promise.all([
         fetch(`/api/birthdays/today?t=${cacheBust}`, { cache: 'no-store' }),
-        fetch(`/api/birthdays/upcoming?take=8&days=60&t=${cacheBust}`, { cache: 'no-store' }),
+        fetch(`/api/birthdays/upcoming?days=60&t=${cacheBust}`, { cache: 'no-store' }),
       ])
       if (!todayRes.ok || !upcomingRes.ok) throw new Error('Birthday lookup failed')
       const [todayBody, upcomingBody] = await Promise.all([

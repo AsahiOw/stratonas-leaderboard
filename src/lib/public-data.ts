@@ -189,7 +189,7 @@ export const getPublicBirthdayStudents = unstable_cache(
 )
 
 export const getPublicUpcomingBirthdayStudents = unstable_cache(
-  async (_birthdayKey: string, take = 8, maxDays = 60) => {
+  async (_birthdayKey: string, take?: number, maxDays = 60) => {
     const students = await prisma.student.findMany({
       where: { birthDay: { not: null } },
       orderBy: { name: 'asc' },
@@ -240,8 +240,8 @@ export const getPublicUpcomingBirthdayStudents = unstable_cache(
       }
     })
 
-    return Array.from(uniqueStudents.values())
-      .slice(0, take)
+    const rows = Array.from(uniqueStudents.values())
+    return take ? rows.slice(0, take) : rows
   },
   ['public-upcoming-birthday-students'],
   {
