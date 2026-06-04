@@ -496,7 +496,15 @@ export function AdminPanel() {
   // ── Club form ──────────────────────────────────────────────────────────────
   const emptyC = { name: '', uid: '', logo: '', color: '#4f8ef7' }
   const [cForm, setCForm] = useState(emptyC)
+  const [clubLogoMode, setClubLogoMode] = useState<'file' | 'url'>('file')
+  const [clubLogoFile, setClubLogoFile] = useState<File | null>(null)
+  const [clubLogoPreview, setClubLogoPreview] = useState('')
   const [clubColorDraft, setClubColorDraft] = useState({ hex: emptyC.color, rgb: hexToRgbText(emptyC.color) })
+
+  useEffect(() => {
+    if (!clubLogoPreview.startsWith('blob:')) return
+    return () => URL.revokeObjectURL(clubLogoPreview)
+  }, [clubLogoPreview])
 
   function setClubColor(color: string) {
     const hex = normalizeHexColor(color) || emptyC.color
@@ -520,10 +528,13 @@ export function AdminPanel() {
     setClubColorDraft({ hex, rgb: hexToRgbText(hex) })
   }
 
-  function openAddClub() { setCForm(emptyC); setClubColorDraft({ hex: emptyC.color, rgb: hexToRgbText(emptyC.color) }); setEditTarget(null); setModal('club') }
+  function openAddClub() { setCForm(emptyC); setClubLogoMode('file'); setClubLogoFile(null); setClubLogoPreview(''); setClubColorDraft({ hex: emptyC.color, rgb: hexToRgbText(emptyC.color) }); setEditTarget(null); setModal('club') }
   function openEditClub(c: Club) {
     const color = normalizeHexColor(c.color || '') || emptyC.color
     setCForm({ name: c.name, uid: c.uid || '', logo: c.logo || '', color })
+    setClubLogoMode('file')
+    setClubLogoFile(null)
+    setClubLogoPreview('')
     setClubColorDraft({ hex: color, rgb: hexToRgbText(color) })
     setEditTarget(c); setModal('club')
   }
@@ -542,10 +553,15 @@ export function AdminPanel() {
       showToast('Enter a valid HEX or RGB club color.')
       return
     }
-    const payload = { name: cForm.name, uid: cForm.uid, logo: cForm.logo, color: cForm.color }
+    const payload = new FormData()
+    payload.append('name', cForm.name)
+    payload.append('uid', cForm.uid)
+    payload.append('logo', cForm.logo)
+    payload.append('color', cForm.color)
+    if (clubLogoMode === 'file' && clubLogoFile) payload.append('logoFile', clubLogoFile)
     const res = editTarget
-      ? await fetch(`/api/admin/clubs/${(editTarget as Club).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      : await fetch('/api/admin/clubs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      ? await fetch(`/api/admin/clubs/${(editTarget as Club).id}`, { method: 'PUT', body: payload })
+      : await fetch('/api/admin/clubs', { method: 'POST', body: payload })
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: 'Could not save club.' }))
       showToast(body.error || 'Could not save club.')
@@ -1323,8 +1339,8 @@ export function AdminPanel() {
               key={n.id}
               onClick={() => selectSection(n.id)}
               className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors border-l-2 font-sans ${sec === n.id
-                  ? 'bg-accent/[0.12] border-accent text-accent font-semibold'
-                  : 'border-transparent text-muted2 hover:text-text hover:bg-white/5'
+                ? 'bg-accent/[0.12] border-accent text-accent font-semibold'
+                : 'border-transparent text-muted2 hover:text-text hover:bg-white/5'
                 }`}
             >
               <span className="text-base">{n.icon}</span>{n.label}
@@ -2313,11 +2329,10 @@ export function AdminPanel() {
                       <button
                         key={option.value}
                         type="button"
-                        className={`rounded-md px-2.5 py-1 text-xs font-semibold border transition-colors ${
-                          ruleTypeFilter === option.value
-                            ? 'bg-accent text-white border-accent'
-                            : 'bg-bg text-muted2 border-border hover:text-text hover:border-border2'
-                        }`}
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold border transition-colors ${ruleTypeFilter === option.value
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-bg text-muted2 border-border hover:text-text hover:border-border2'
+                          }`}
                         onClick={() => setRuleTypeFilter(option.value)}
                       >
                         {option.label}
@@ -2512,20 +2527,53 @@ export function AdminPanel() {
                 </div>
               </StField>
             </div>
-            <StField label="LOGO PATH OR URL" span2>
-              <input
-                className={inputClass}
-                type="text"
-                value={cForm.logo}
-                onChange={e => setCForm(f => ({ ...f, logo: e.target.value }))}
-                placeholder="/assets/clubs/Gehenna.png or https://..."
-              />
+            <StField label="LOGO" span2>
+              <div className="mb-2 inline-flex rounded-lg border border-border2 bg-card2 p-1">
+                {(['file', 'url'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${clubLogoMode === mode ? 'bg-accent text-white' : 'text-muted2 hover:text-text'}`}
+                    onClick={() => {
+                      setClubLogoMode(mode)
+                      if (mode === 'url') {
+                        setClubLogoFile(null)
+                        setClubLogoPreview('')
+                      }
+                    }}
+                  >
+                    {mode === 'file' ? 'Media' : 'URL'}
+                  </button>
+                ))}
+              </div>
+              {clubLogoMode === 'file' ? (
+                <input
+                  key="club-logo-file"
+                  className={inputClass}
+                  type="file"
+                  accept="image/*"
+                  onChange={e => {
+                    const file = e.target.files?.[0] || null
+                    setClubLogoFile(file)
+                    setClubLogoPreview(file ? URL.createObjectURL(file) : '')
+                  }}
+                />
+              ) : (
+                <input
+                  key="club-logo-url"
+                  className={inputClass}
+                  type="text"
+                  value={cForm.logo}
+                  onChange={e => setCForm(f => ({ ...f, logo: e.target.value }))}
+                  placeholder="/assets/club/Gehenna.png or https://..."
+                />
+              )}
             </StField>
-            {cForm.logo && (
+            {(clubLogoPreview || cForm.logo) && (
               <div className="mb-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={imageSrc(cForm.logo)}
+                  src={clubLogoPreview || imageSrc(cForm.logo)}
                   alt="Preview"
                   className="h-16 w-16 rounded-xl border border-border object-cover"
                   onError={e => (e.currentTarget.style.display = 'none')}
