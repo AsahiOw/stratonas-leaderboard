@@ -1,4 +1,9 @@
 services:
+  app:
+    volumes:
+      - ./Development_data:/app/Development_data:ro
+      - ./public/assets/club:/app/public/assets/club
+
   db:
     volumes:
       - ./Production_data/docker-postgres:/var/lib/postgresql/data

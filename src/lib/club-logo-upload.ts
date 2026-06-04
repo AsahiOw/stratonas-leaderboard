@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
 
-const CLUB_LOGO_DIR = path.join(process.cwd(), 'public', 'assets', 'club')
+export const CLUB_LOGO_DIR = path.join(process.cwd(), 'public', 'assets', 'club')
 
 function slugify(value: string) {
   return value
