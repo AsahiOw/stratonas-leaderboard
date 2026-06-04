@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { lockBodyScroll } from '@/lib/body-scroll-lock'
 
 interface Props {
   title: string
@@ -27,9 +28,7 @@ export function StModal({ title, onClose, children, wide, extraWide, fullScreen 
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    return lockBodyScroll()
   }, [])
 
   useEffect(() => {

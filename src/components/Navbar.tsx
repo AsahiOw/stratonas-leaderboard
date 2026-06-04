@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { lockBodyScroll } from '@/lib/body-scroll-lock'
 
 type Tab = 'leaderboard' | 'previous' | 'stats' | 'community' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
@@ -47,9 +48,7 @@ export function Navbar({
   // Lock body scroll while the mobile menu is open.
   useEffect(() => {
     if (!menuOpen) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    return lockBodyScroll()
   }, [menuOpen])
 
   useEffect(() => {

@@ -310,7 +310,7 @@ export function LeaderboardApp({ initialRaids, initialRaidEntries = {} }: Props)
         )}
         {visitedTabs.admin && isAdmin && (
           <div className={tab === 'admin' ? 'view-transition' : 'hidden'}>
-            <AdminPanel />
+            <AdminPanel active={tab === 'admin'} />
           </div>
         )}
       </div>

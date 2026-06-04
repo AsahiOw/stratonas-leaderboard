@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { RankBadge } from '@/components/ui/RankBadge'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { ReturnLocationLink } from '@/components/ReturnLocationLink'
+import { lockBodyScroll } from '@/lib/body-scroll-lock'
 import { fmtDate, imageSrc, memorialPosterSrc } from '@/lib/utils'
 
 interface RaidInfo {
@@ -98,10 +99,9 @@ export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: 
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const unlockBodyScroll = lockBodyScroll()
     return () => {
-      document.body.style.overflow = prev
+      unlockBodyScroll()
       closeTimersRef.current.forEach((timer) => window.clearTimeout(timer))
     }
   }, [])

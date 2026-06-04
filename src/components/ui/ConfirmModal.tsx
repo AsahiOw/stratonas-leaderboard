@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
+import { lockBodyScroll } from '@/lib/body-scroll-lock'
 
 type ConfirmTone = 'danger' | 'warning' | 'info'
 
@@ -73,9 +74,7 @@ export function ConfirmModal({
 
   useEffect(() => {
     if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    return lockBodyScroll()
   }, [open])
 
   useEffect(() => {

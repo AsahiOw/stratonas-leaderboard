@@ -229,7 +229,11 @@ const showLessBtnClass =
 const INITIAL_VISIBLE_ROWS = 10
 const SHOW_MORE_ROWS = 50
 
-export function AdminPanel() {
+interface AdminPanelProps {
+  active?: boolean
+}
+
+export function AdminPanel({ active = true }: AdminPanelProps) {
   const [sec, setSec] = useState<Section>('dashboard')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [players, setPlayers] = useState<Player[]>([])
@@ -432,13 +436,9 @@ export function AdminPanel() {
     loadRaids()
   }, [bossImportState?.status, loadBosses, loadRaids])
 
-  // Lock body scroll while the mobile sidebar drawer is open.
   useEffect(() => {
-    if (!drawerOpen) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [drawerOpen])
+    if (!active) setDrawerOpen(false)
+  }, [active])
 
   useEffect(() => {
     if (xlsxForm.server || importServerOptions.length === 0) return
@@ -1287,7 +1287,7 @@ export function AdminPanel() {
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface md:flex md:min-h-[520px]">
+    <div className={`relative overflow-hidden rounded-2xl border border-border bg-surface md:flex md:min-h-[520px] ${drawerOpen ? 'min-h-[calc(100dvh-5.1875rem)]' : ''}`}>
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-bg">
         <button
@@ -1320,7 +1320,7 @@ export function AdminPanel() {
 
       {/* Sidebar */}
       <aside
-        className={`absolute left-0 top-[4.0625rem] z-40 flex max-h-[calc(100dvh-9.25rem)] w-64 flex-col overflow-hidden bg-bg py-5 transition-transform duration-200 ease-out border-r border-border md:static md:z-auto md:max-h-none md:w-48 md:shrink-0 md:border-r md:border-border ${drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`absolute left-0 top-[4.0625rem] z-40 flex h-[calc(100dvh-9.25rem)] max-h-[calc(100dvh-9.25rem)] w-64 flex-col overflow-hidden bg-bg py-5 transition-transform duration-200 ease-out border-r border-border md:static md:z-auto md:h-auto md:max-h-none md:w-48 md:shrink-0 md:border-r md:border-border ${drawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
       >
         <div className="flex shrink-0 items-center justify-between px-4 mb-3.5 md:px-4">
