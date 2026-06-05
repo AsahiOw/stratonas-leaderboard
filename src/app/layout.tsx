@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
 import { SiteFooter } from '@/components/SiteFooter'
+import { GreetingToast } from '@/components/GreetingToast'
 
 export const metadata: Metadata = {
   title: 'Stratónas — Guild Leaderboard',
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SessionProvider>
           {children}
           <SiteFooter />
+          <GreetingToast />
         </SessionProvider>
       </body>
     </html>
