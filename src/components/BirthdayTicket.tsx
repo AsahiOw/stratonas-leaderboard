@@ -269,9 +269,10 @@ function HoverVideo({
 }
 
 export function BirthdayTicket({ student }: { student: BirthdayStudent }) {
-  const [isHovered, setIsHovered] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const { month, day } = parseBirthday(student.birthDay)
   const poster = imageSrc(student.image)
+  const canPlayVideo = Boolean(imageSrc(student.memorial))
   const accent = useSampledAccent(student.id, poster, student.accentColor)
   const fullName = [student.familyName, student.personalName].filter(Boolean).join(' · ') || student.name
   const primaryMeta = `${student.school || 'School unknown'} / ${formatClub(student.club)}`
@@ -281,18 +282,30 @@ export function BirthdayTicket({ student }: { student: BirthdayStudent }) {
     boxShadow: `0 14px 28px -18px rgba(0,0,0,0.42), 0 0 0 1px color-mix(in oklab, ${accent} 28%, rgba(13,13,18,0.06))`,
   } as React.CSSProperties
 
+  const togglePlayback = () => {
+    if (!canPlayVideo) return
+    setIsPlaying((current) => !current)
+  }
+
   return (
     <article
-      className="group relative grid min-h-[172px] w-full overflow-hidden rounded-md border bg-[#f4f1ea] text-[#0d0d12] transition hover:-translate-y-0.5"
+      className={`group relative grid min-h-[172px] w-full overflow-hidden rounded-md border bg-[#f4f1ea] text-[#0d0d12] transition hover:-translate-y-0.5 ${canPlayVideo ? 'cursor-pointer touch-manipulation' : ''}`}
       style={cardStyle}
       aria-label={`Birthday card for ${student.name}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      role={canPlayVideo ? 'button' : undefined}
+      tabIndex={canPlayVideo ? 0 : undefined}
+      aria-pressed={canPlayVideo ? isPlaying : undefined}
+      onClick={togglePlayback}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        togglePlayback()
+      }}
     >
       <div className="absolute inset-x-0 top-0 z-20 h-[3px] bg-[var(--birthday-accent)]" />
       <div className="grid min-h-[172px] grid-cols-[34%_19%_47%]">
         <div className="relative overflow-hidden bg-[#ebe6db]">
-          <HoverVideo video={student.memorial} poster={poster} alt={student.name} active={isHovered} />
+          <HoverVideo video={student.memorial} poster={poster} alt={student.name} active={isPlaying} />
           <div className="absolute inset-y-0 left-0 z-20 w-[3px] bg-[var(--birthday-accent)]" />
         </div>
 
