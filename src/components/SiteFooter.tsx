@@ -13,24 +13,6 @@ export function SiteFooter() {
             className="font-semibold text-accent transition-colors hover:text-text"
           >
             Asahi
-          </a>{' '}
-          · Credit to {' '}
-          <a
-            href="https://schaledb.com/home"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-accent transition-colors hover:text-text"
-          >
-            SchaleDB
-          </a>{' '}
-          and{' '}
-          <a
-            href="https://www.youtube.com/@JaymieArclight/videos"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-accent transition-colors hover:text-text"
-          >
-            Jaymie
           </a>
           {' '}· Join{' '}
           <a
