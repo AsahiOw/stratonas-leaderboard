@@ -144,7 +144,7 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
   const router = useRouter()
   const [open, setOpen] = useState(defaultOpen)
   const [showDetail, setShowDetail] = useState(false)
-  const [hideGuests, setHideGuests] = useState(false)
+  const [hideGuests, setHideGuests] = useState(true)
 
   const filteredEntries = hideGuests
     ? entries.filter((e) => e.isGuild).map((e, i) => ({ ...e, rank: i + 1 }))
