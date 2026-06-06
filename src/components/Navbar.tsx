@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { lockBodyScroll } from '@/lib/body-scroll-lock'
 import { SettingsModal } from '@/components/SettingsModal'
 import { CreditModal } from '@/components/CreditModal'
+import { requestKeiGreeting } from '@/lib/kei-volume'
 
 type MetaPanel = 'settings' | 'credit' | null
 
@@ -264,6 +265,7 @@ export function Navbar({
             onClick={() => {
               setTab('leaderboard')
               setMenuOpen(false)
+              requestKeiGreeting()
             }}
             className="relative z-10 flex shrink-0 items-center gap-2.5 rounded-md bg-transparent p-0 text-left text-text transition-colors hover:text-accent"
             aria-label="Go to leaderboard home"

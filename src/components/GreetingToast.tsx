@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { getKeiVolume } from '@/lib/kei-volume'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { getKeiVolume, isKeiGreetingEnabled, KEI_GREETING_ENABLED_EVENT, KEI_GREETING_REQUEST_EVENT } from '@/lib/kei-volume'
 
 // Kei video expressions (1:1, white background):
 //  1 - turns around, shy + surprised
@@ -138,10 +138,23 @@ const KEI_CALLER_IMAGE_URL = '/assets/images/kei-avatar.jpg'
 
 const KEI_VIDEOS: KeiVideo[] = [1, 2, 3, 4, 5]
 
+function getGreetingContent(): GreetingContent {
+  const now = new Date()
+  const candidates: Phrase[] = [
+    ...getTimePhrases(now.getHours()),
+    ...GENERAL_PHRASES,
+    ...getDayPhrases(now.getDay()),
+  ]
+  const picked = candidates[Math.floor(Math.random() * candidates.length)]
+  const day = now.toLocaleDateString(undefined, { weekday: 'long' })
+  return { eyebrow: picked.eyebrow, phrase: picked.text, day, video: picked.video, voice: picked.voice }
+}
+
 export function GreetingToast() {
   const speechCleanupRef = useRef<(() => void) | null>(null)
   const transitionTimerRef = useRef<number | null>(null)
   const animationFrameRef = useRef<number | null>(null)
+  const [greetingEnabled, setGreetingEnabled] = useState(() => isKeiGreetingEnabled())
   const [content, setContent] = useState<GreetingContent | null>(null)
   const [ready, setReady] = useState(false)
   const [started, setStarted] = useState(false)
@@ -156,16 +169,64 @@ export function GreetingToast() {
   const [callDots, setCallDots] = useState(1)
 
   useEffect(() => {
-    const now = new Date()
-    const candidates: Phrase[] = [
-      ...getTimePhrases(now.getHours()),
-      ...GENERAL_PHRASES,
-      ...getDayPhrases(now.getDay()),
-    ]
-    const picked = candidates[Math.floor(Math.random() * candidates.length)]
-    const day = now.toLocaleDateString(undefined, { weekday: 'long' })
-    setContent({ eyebrow: picked.eyebrow, phrase: picked.text, day, video: picked.video, voice: picked.voice })
+    function handleGreetingEnabledChange(event: Event) {
+      if (event instanceof CustomEvent) setGreetingEnabled(Boolean(event.detail))
+    }
+
+    window.addEventListener(KEI_GREETING_ENABLED_EVENT, handleGreetingEnabledChange)
+    return () => window.removeEventListener(KEI_GREETING_ENABLED_EVENT, handleGreetingEnabledChange)
   }, [])
+
+  const startGreeting = useCallback(() => {
+    clearTransitionWork()
+    speechCleanupRef.current?.()
+    speechCleanupRef.current = null
+    setCallBusy(false)
+    setCallVisible(false)
+    setAnswering(false)
+    setTyped('')
+    setTypingDone(false)
+    setSpeechDone(false)
+    setRender(true)
+    setReady(false)
+    setStarted(false)
+    setVisible(false)
+    setContent(getGreetingContent())
+  }, [])
+
+  useEffect(() => {
+    if (!greetingEnabled) return
+
+    startGreeting()
+  }, [greetingEnabled, startGreeting])
+
+  useEffect(() => {
+    if (!greetingEnabled) return
+
+    function handleGreetingRequest() {
+      if (render) return
+      startGreeting()
+    }
+
+    window.addEventListener(KEI_GREETING_REQUEST_EVENT, handleGreetingRequest)
+    return () => window.removeEventListener(KEI_GREETING_REQUEST_EVENT, handleGreetingRequest)
+  }, [greetingEnabled, render, startGreeting])
+
+  useEffect(() => {
+    if (greetingEnabled) return
+
+    clearTransitionWork()
+    speechCleanupRef.current?.()
+    speechCleanupRef.current = null
+    setContent(null)
+    setReady(false)
+    setStarted(false)
+    setRender(false)
+    setCallVisible(false)
+    setCallBusy(false)
+    setAnswering(false)
+    setVisible(false)
+  }, [greetingEnabled])
 
   // Warm the browser cache for all five clips and the selected voice before
   // showing the prompt.
@@ -338,7 +399,7 @@ export function GreetingToast() {
     }
   }, [speechDone])
 
-  if (!render || !content || !ready) return null
+  if (!greetingEnabled || !render || !content || !ready) return null
 
   if (!started) {
     return (
