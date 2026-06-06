@@ -15,7 +15,8 @@ interface Credit {
 const credits: Credit[] = [
   { label: 'SchaleDB', detail: 'Game data & assets', href: 'https://schaledb.com/home', group: 'site', initial: 'S' },
   { label: 'Jaymie', detail: 'L2D Animation', href: 'https://www.youtube.com/@JaymieArclight/videos', group: 'site', initial: 'J' },
-  { label: 'MiiverseI', detail: 'Kei animation', href: 'https://x.com/MiiverseI', group: 'kei', initial: 'M' },
+  { label: '@MiiverseI', detail: 'Kei animation', href: 'https://x.com/MiiverseI', group: 'kei', initial: 'M' },
+  { label: '@myuton0407', detail: 'Kei avatar', href: 'https://x.com/myuton0407', group: 'kei', initial: 'm' },
   { label: 'Fish Audio', detail: 'Kei voice', href: 'https://fish.audio/app/', group: 'kei', initial: 'F' },
 ]
 
@@ -62,19 +63,17 @@ export function CreditModal({ onClose }: { onClose: () => void }) {
                     href={credit.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`group relative overflow-hidden rounded-xl border px-4 py-3.5 transition-[border-color,background-color,transform,box-shadow] duration-200 hover:-translate-y-px ${
-                      isKei
+                    className={`group relative overflow-hidden rounded-xl border px-4 py-3.5 transition-[border-color,background-color,transform,box-shadow] duration-200 hover:-translate-y-px ${isKei
                         ? 'border-accent/20 bg-accent/[0.06] hover:border-accent/35 hover:bg-accent/[0.1] hover:shadow-[0_8px_24px_rgba(79,142,247,0.12)]'
                         : 'border-border bg-card hover:border-border2 hover:bg-card2 hover:shadow-[0_8px_24px_rgba(0,0,0,0.25)]'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start gap-3">
                       <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-sm font-bold ${
-                          isKei
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-sm font-bold ${isKei
                             ? 'border-accent/25 bg-accent/10 text-accent'
                             : 'border-border2 bg-bg text-muted2'
-                        }`}
+                          }`}
                       >
                         {credit.initial}
                       </div>
