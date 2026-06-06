@@ -64,15 +64,15 @@ export function CreditModal({ onClose }: { onClose: () => void }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`group relative overflow-hidden rounded-xl border px-4 py-3.5 transition-[border-color,background-color,transform,box-shadow] duration-200 hover:-translate-y-px ${isKei
-                        ? 'border-accent/20 bg-accent/[0.06] hover:border-accent/35 hover:bg-accent/[0.1] hover:shadow-[0_8px_24px_rgba(79,142,247,0.12)]'
-                        : 'border-border bg-card hover:border-border2 hover:bg-card2 hover:shadow-[0_8px_24px_rgba(0,0,0,0.25)]'
+                      ? 'border-accent/20 bg-accent/[0.06] hover:border-accent/35 hover:bg-accent/[0.1] hover:shadow-[0_8px_24px_rgba(79,142,247,0.12)]'
+                      : 'border-border bg-card hover:border-border2 hover:bg-card2 hover:shadow-[0_8px_24px_rgba(0,0,0,0.25)]'
                       }`}
                   >
                     <div className="flex items-start gap-3">
                       <div
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-sm font-bold ${isKei
-                            ? 'border-accent/25 bg-accent/10 text-accent'
-                            : 'border-border2 bg-bg text-muted2'
+                          ? 'border-accent/25 bg-accent/10 text-accent'
+                          : 'border-border2 bg-bg text-muted2'
                           }`}
                       >
                         {credit.initial}
