@@ -133,20 +133,27 @@ interface GreetingContent {
 }
 
 const TYPE_SPEED_MS = 38
+const CALL_TRANSITION_MS = 400
+const KEI_CALLER_IMAGE_URL = '/assets/images/kei-avatar.jpg'
 
 const KEI_VIDEOS: KeiVideo[] = [1, 2, 3, 4, 5]
 
 export function GreetingToast() {
-  const speechAudioRef = useRef<HTMLAudioElement | null>(null)
-  const speechAudioVoiceRef = useRef<number | null>(null)
+  const speechCleanupRef = useRef<(() => void) | null>(null)
+  const transitionTimerRef = useRef<number | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
   const [content, setContent] = useState<GreetingContent | null>(null)
   const [ready, setReady] = useState(false)
-  const [interacted, setInteracted] = useState(false)
+  const [started, setStarted] = useState(false)
   const [render, setRender] = useState(true)
+  const [callVisible, setCallVisible] = useState(false)
+  const [callBusy, setCallBusy] = useState(false)
+  const [answering, setAnswering] = useState(false)
   const [visible, setVisible] = useState(false)
   const [typed, setTyped] = useState('')
   const [typingDone, setTypingDone] = useState(false)
   const [speechDone, setSpeechDone] = useState(false)
+  const [callDots, setCallDots] = useState(1)
 
   useEffect(() => {
     const now = new Date()
@@ -160,106 +167,151 @@ export function GreetingToast() {
     setContent({ eyebrow: picked.eyebrow, phrase: picked.text, day, video: picked.video, voice: picked.voice })
   }, [])
 
-  // Warm the browser cache for all five clips before showing anything. On a
-  // slow first visit this waits for the full downloads; on later visits the
-  // cached responses resolve almost instantly.
-  useEffect(() => {
-    let cancelled = false
-    Promise.all(
-      KEI_VIDEOS.map((n) =>
-        fetch(`/assets/greeting/Kei${n}.mp4`)
-          .then((res) => res.blob())
-          .catch(() => null)
-      )
-    ).then(() => {
-      if (!cancelled) setReady(true)
-    })
-    return () => { cancelled = true }
-  }, [])
-
-  // Browser autoplay policy blocks audio until a real user-activation gesture.
-  // A fast touch scroll starts with touchstart/pointerdown, so touch waits for
-  // release. Kei only shows after the browser accepts the voice unlock attempt.
+  // Warm the browser cache for all five clips and the selected voice before
+  // showing the prompt.
   useEffect(() => {
     if (!content) return
 
-    let activating = false
+    let cancelled = false
+    const voiceUrl = `/assets/voice/kei/${content.voice}.mp3`
 
-    const getSpeechAudio = () => {
-      if (!speechAudioRef.current || speechAudioVoiceRef.current !== content.voice) {
-        speechAudioRef.current = new Audio(`/assets/voice/kei/${content.voice}.mp3`)
-        speechAudioRef.current.preload = 'auto'
-        speechAudioVoiceRef.current = content.voice
-      }
-      return speechAudioRef.current
-    }
+    Promise.all(
+      [
+        fetch(KEI_CALLER_IMAGE_URL)
+          .then((res) => res.blob())
+          .catch(() => null),
+        ...KEI_VIDEOS.map((n) =>
+          fetch(`/assets/greeting/Kei${n}.mp4`)
+            .then((res) => res.blob())
+            .catch(() => null)
+        ),
+        fetch(voiceUrl)
+          .then((res) => res.blob())
+          .catch(() => null),
+      ]
+    ).then(() => {
+      if (!cancelled) setReady(true)
+    })
 
-    const cleanup = () => {
-      window.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('touchend', onPointer)
-      window.removeEventListener('keydown', onKey)
+    return () => {
+      cancelled = true
+      speechCleanupRef.current?.()
+      speechCleanupRef.current = null
+      if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current)
+      if (animationFrameRef.current !== null) window.cancelAnimationFrame(animationFrameRef.current)
     }
-
-    const activate = () => {
-      if (activating) return
-      activating = true
-
-      const audio = getSpeechAudio()
-      audio.volume = 0
-      audio.play()
-        .then(() => {
-          audio.pause()
-          audio.currentTime = 0
-          audio.volume = getKeiVolume()
-          setInteracted(true)
-          cleanup()
-        })
-        .catch(() => {
-          audio.volume = getKeiVolume()
-          activating = false
-        })
-    }
-
-    const onPointer = () => {
-      activate()
-    }
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') activate()
-    }
-    const onPointerUp = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse') activate()
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.altKey || e.ctrlKey || e.metaKey) return
-      if (['Alt', 'Control', 'Meta', 'Shift', 'Tab'].includes(e.key)) return
-      activate()
-    }
-    window.addEventListener('pointerdown', onPointerDown, { passive: true })
-    window.addEventListener('pointerup', onPointerUp, { passive: true })
-    window.addEventListener('touchend', onPointer, { passive: true })
-    window.addEventListener('keydown', onKey)
-    return cleanup
   }, [content])
 
-  useEffect(() => {
-    if (!content || !ready || !interacted) return
-    const showTimer = setTimeout(() => setVisible(true), 350)
-    return () => clearTimeout(showTimer)
-  }, [content, ready, interacted])
+  function clearTransitionWork() {
+    if (transitionTimerRef.current) {
+      window.clearTimeout(transitionTimerRef.current)
+      transitionTimerRef.current = null
+    }
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+  }
 
-  useEffect(() => {
-    if (!content || !visible) return
-    const full = content.phrase
+  function handlePlayKei() {
+    if (!content || !ready || callBusy) return
+
+    setCallBusy(true)
     const audio = new Audio(`/assets/voice/kei/${content.voice}.mp3`)
+    speechCleanupRef.current?.()
     audio.volume = getKeiVolume()
+    audio.currentTime = 0
 
-    // Dismiss is driven by the voice finishing. If the clip cannot play (load
-    // error or a blocked autoplay), fall back so the toast still goes away.
-    const onSpeechEnd = () => setSpeechDone(true)
+    const cleanup = () => {
+      audio.removeEventListener('ended', onSpeechEnd)
+      audio.removeEventListener('error', onSpeechEnd)
+      audio.pause()
+      if (speechCleanupRef.current === cleanup) speechCleanupRef.current = null
+    }
+
+    const onSpeechEnd = () => {
+      cleanup()
+      setSpeechDone(true)
+    }
+
     audio.addEventListener('ended', onSpeechEnd)
     audio.addEventListener('error', onSpeechEnd)
-    audio.play().catch(onSpeechEnd)
+    speechCleanupRef.current = cleanup
+
+    audio.play()
+      .then(() => {
+        setTyped('')
+        setTypingDone(false)
+        setSpeechDone(false)
+        setAnswering(true)
+        clearTransitionWork()
+        transitionTimerRef.current = window.setTimeout(() => {
+          setStarted(true)
+          setVisible(true)
+          setAnswering(false)
+          setCallBusy(false)
+          transitionTimerRef.current = null
+        }, CALL_TRANSITION_MS)
+      })
+      .catch(() => {
+        cleanup()
+        setStarted(false)
+        setAnswering(false)
+        setVisible(false)
+        setCallBusy(false)
+      })
+  }
+
+  function handleHangUp() {
+    if (callBusy) return
+    setCallBusy(true)
+    setCallVisible(false)
+    clearTransitionWork()
+    transitionTimerRef.current = window.setTimeout(() => {
+      speechCleanupRef.current?.()
+      speechCleanupRef.current = null
+      setRender(false)
+      transitionTimerRef.current = null
+    }, CALL_TRANSITION_MS)
+  }
+
+  useEffect(() => {
+    if (!render || !ready || started) return
+
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      setCallVisible(true)
+      animationFrameRef.current = null
+    })
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+    }
+  }, [ready, render, started])
+
+  useEffect(() => {
+    return () => {
+      clearTransitionWork()
+      speechCleanupRef.current?.()
+      speechCleanupRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!render || !ready || started) return
+
+    const dotsTimer = setInterval(() => {
+      setCallDots((current) => current === 3 ? 1 : current + 1)
+    }, 420)
+
+    return () => clearInterval(dotsTimer)
+  }, [ready, render, started])
+
+  useEffect(() => {
+    if (!content || !started || !visible) return
+    const full = content.phrase
 
     let i = 0
     const typeId = setInterval(() => {
@@ -273,11 +325,8 @@ export function GreetingToast() {
 
     return () => {
       clearInterval(typeId)
-      audio.removeEventListener('ended', onSpeechEnd)
-      audio.removeEventListener('error', onSpeechEnd)
-      audio.pause()
     }
-  }, [content, visible])
+  }, [content, started, visible])
 
   useEffect(() => {
     if (!speechDone) return
@@ -289,15 +338,78 @@ export function GreetingToast() {
     }
   }, [speechDone])
 
-  if (!render || !content) return null
+  if (!render || !content || !ready) return null
+
+  if (!started) {
+    return (
+      <div
+        role="dialog"
+        aria-label="Kei video call"
+        className={`fixed bottom-5 right-5 z-[500] w-[264px] overflow-hidden rounded-2xl border border-border2 bg-card2 shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${callVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-4 scale-95 opacity-0'
+          }`}
+      >
+        <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-card">
+          <div
+            aria-hidden="true"
+            className={`absolute inset-0 bg-cover bg-center transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${answering ? 'scale-100 opacity-0' : 'scale-105 opacity-100'
+              }`}
+            style={{ backgroundImage: `url(${KEI_CALLER_IMAGE_URL})` }}
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.08),rgba(13,13,19,0.74))]" />
+          <video
+            key={content.video}
+            src={`/assets/greeting/Kei${content.video}.mp4`}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${answering ? 'scale-100 opacity-100' : 'scale-110 opacity-0'
+              }`}
+          />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-card2" />
+          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-accent/20" />
+          <div className={`absolute inset-x-0 bottom-0 px-4 pb-3 text-center transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${answering ? 'translate-y-2 opacity-0' : 'translate-y-0 opacity-100'
+            }`}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-accent">
+              Incoming video call
+            </div>
+            <div className="mt-1 text-sm font-semibold leading-snug text-text">
+              Kei Kei is calling{'.'.repeat(callDots)}
+            </div>
+          </div>
+        </div>
+        <div className={`flex items-center justify-center gap-4 px-4 py-3 transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${answering ? 'translate-y-4 opacity-0' : 'translate-y-0 opacity-100'
+          }`}>
+          <button
+            type="button"
+            onClick={handleHangUp}
+            disabled={callBusy}
+            aria-label="Hang up Kei call"
+            className="h-10 min-w-24 rounded-lg border border-red/30 bg-red px-4 text-sm font-bold text-white transition-colors hover:bg-red/90 focus:outline-none focus:ring-2 focus:ring-red/50 focus:ring-offset-2 focus:ring-offset-card2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Hang up
+          </button>
+          <button
+            type="button"
+            onClick={handlePlayKei}
+            disabled={callBusy}
+            aria-label="Answer Kei call"
+            className="h-10 min-w-24 rounded-lg border border-green/30 bg-green px-4 text-sm font-bold text-bg transition-colors hover:bg-green/90 focus:outline-none focus:ring-2 focus:ring-green/50 focus:ring-offset-2 focus:ring-offset-card2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Answer
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`fixed bottom-5 right-5 z-[500] w-[264px] overflow-hidden rounded-2xl border border-border2 bg-card2 shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${
-        visible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
-      }`}
+      className={`fixed bottom-5 right-5 z-[500] w-[264px] overflow-hidden rounded-2xl border border-border2 bg-card2 shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${visible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
+        }`}
     >
       <div className="relative aspect-square w-full bg-white">
         <video
