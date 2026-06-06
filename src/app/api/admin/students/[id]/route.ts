@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
@@ -11,6 +12,13 @@ import {
 } from '@/lib/students'
 
 export const dynamic = 'force-dynamic'
+
+function studentErrorResponse(error: unknown, fallback = 'Could not save student.') {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+    return NextResponse.json({ error: 'Student not found.' }, { status: 404 })
+  }
+  return NextResponse.json({ error: fallback }, { status: 500 })
+}
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
@@ -35,29 +43,33 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const cardFields = normalizeStudentCardFields(body)
   if (!name) return NextResponse.json({ error: 'Student name is required' }, { status: 400 })
 
-  const student = await prisma.student.update({
-    where: { id },
-    data: {
-      name,
-      image,
-      portrait,
-      memorial,
-      ...cardFields,
-      memorialOffsetX,
-      memorialOffsetY,
-      memorialScale,
-      portraitOffsetX,
-      portraitOffsetY,
-      portraitScale,
-    },
-  })
-  await prisma.player.updateMany({
-    where: { favouriteStudentId: id },
-    data: { favouriteStudent: student.name },
-  })
+  try {
+    const student = await prisma.student.update({
+      where: { id },
+      data: {
+        name,
+        image,
+        portrait,
+        memorial,
+        ...cardFields,
+        memorialOffsetX,
+        memorialOffsetY,
+        memorialScale,
+        portraitOffsetX,
+        portraitOffsetY,
+        portraitScale,
+      },
+    })
+    await prisma.player.updateMany({
+      where: { favouriteStudentId: id },
+      data: { favouriteStudent: student.name },
+    })
 
-  invalidatePublicData()
-  return NextResponse.json(student)
+    invalidatePublicData()
+    return NextResponse.json(student)
+  } catch (error) {
+    return studentErrorResponse(error)
+  }
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -67,11 +79,15 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const id = normalizeStudentId(rawId)
   if (!id) return NextResponse.json({ error: 'Invalid student id' }, { status: 400 })
 
-  await prisma.player.updateMany({
-    where: { favouriteStudentId: id },
-    data: { favouriteStudentId: null },
-  })
-  await prisma.student.delete({ where: { id } })
-  invalidatePublicData()
-  return NextResponse.json({ ok: true })
+  try {
+    await prisma.player.updateMany({
+      where: { favouriteStudentId: id },
+      data: { favouriteStudentId: null },
+    })
+    await prisma.student.delete({ where: { id } })
+    invalidatePublicData()
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    return studentErrorResponse(error, 'Could not delete student.')
+  }
 }

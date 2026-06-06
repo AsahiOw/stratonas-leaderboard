@@ -375,7 +375,7 @@ export function StatsPage({ onPlayerClick }: Props) {
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-border2">
-                  {['RAID', 'SERVER', 'DATES', 'ENTRIES', 'PLAYERS', 'CLUBS', 'TOP PLAYER', 'AVG SCORE'].map((h) => (
+                  {['RAID', 'SERVER', 'DATES', 'ENTRIES', 'CLUBS', 'TOP PLAYER', 'AVG SCORE'].map((h) => (
                     <th key={h} className="px-3 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                       {h}
                     </th>
@@ -394,7 +394,6 @@ export function StatsPage({ onPlayerClick }: Props) {
                       {fmtDate(raid.startDate)} - {fmtDate(raid.endDate)}
                     </td>
                     <td className="px-3 py-3 font-mono text-muted2">{fmtNum(raid.entryCount)}</td>
-                    <td className="px-3 py-3 font-mono text-muted2">{fmtNum(raid.uniquePlayers)}</td>
                     <td className="px-3 py-3 font-mono text-muted2">{fmtNum(raid.uniqueClubs)}</td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       {raid.topPlayer ? (
