@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getKeiVolume } from '@/lib/kei-volume'
 
 // Kei video expressions (1:1, white background):
@@ -137,6 +137,8 @@ const TYPE_SPEED_MS = 38
 const KEI_VIDEOS: KeiVideo[] = [1, 2, 3, 4, 5]
 
 export function GreetingToast() {
+  const speechAudioRef = useRef<HTMLAudioElement | null>(null)
+  const speechAudioVoiceRef = useRef<number | null>(null)
   const [content, setContent] = useState<GreetingContent | null>(null)
   const [ready, setReady] = useState(false)
   const [interacted, setInteracted] = useState(false)
@@ -176,30 +178,69 @@ export function GreetingToast() {
   }, [])
 
   // Browser autoplay policy blocks audio until a real user-activation gesture.
-  // Scroll/wheel does NOT count as activation, so we only listen for clicks,
-  // taps, and key presses — gestures that actually unlock Kei's voice. Keyboard
-  // input is filtered so window shortcuts like Alt+Tab do not trigger her.
+  // A fast touch scroll starts with touchstart/pointerdown, so touch waits for
+  // release. Kei only shows after the browser accepts the voice unlock attempt.
   useEffect(() => {
+    if (!content) return
+
+    let activating = false
+
+    const getSpeechAudio = () => {
+      if (!speechAudioRef.current || speechAudioVoiceRef.current !== content.voice) {
+        speechAudioRef.current = new Audio(`/assets/voice/kei/${content.voice}.mp3`)
+        speechAudioRef.current.preload = 'auto'
+        speechAudioVoiceRef.current = content.voice
+      }
+      return speechAudioRef.current
+    }
+
     const cleanup = () => {
-      window.removeEventListener('pointerdown', onPointer)
-      window.removeEventListener('touchstart', onPointer)
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('touchend', onPointer)
       window.removeEventListener('keydown', onKey)
     }
+
+    const activate = () => {
+      if (activating) return
+      activating = true
+
+      const audio = getSpeechAudio()
+      audio.volume = 0
+      audio.play()
+        .then(() => {
+          audio.pause()
+          audio.currentTime = 0
+          audio.volume = getKeiVolume()
+          setInteracted(true)
+          cleanup()
+        })
+        .catch(() => {
+          audio.volume = getKeiVolume()
+          activating = false
+        })
+    }
+
     const onPointer = () => {
-      setInteracted(true)
-      cleanup()
+      activate()
+    }
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') activate()
+    }
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') activate()
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey || e.ctrlKey || e.metaKey) return
       if (['Alt', 'Control', 'Meta', 'Shift', 'Tab'].includes(e.key)) return
-      setInteracted(true)
-      cleanup()
+      activate()
     }
-    window.addEventListener('pointerdown', onPointer, { passive: true })
-    window.addEventListener('touchstart', onPointer, { passive: true })
+    window.addEventListener('pointerdown', onPointerDown, { passive: true })
+    window.addEventListener('pointerup', onPointerUp, { passive: true })
+    window.addEventListener('touchend', onPointer, { passive: true })
     window.addEventListener('keydown', onKey)
     return cleanup
-  }, [])
+  }, [content])
 
   useEffect(() => {
     if (!content || !ready || !interacted) return
