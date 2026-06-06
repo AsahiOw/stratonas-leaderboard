@@ -291,7 +291,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     entries: INITIAL_VISIBLE_ROWS,
   })
 
-  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500) }
+  const showToast = useCallback((msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500) }, [])
 
   function requestDelete(config: DeleteConfirmation) {
     setDeleteConfirmation({
@@ -330,7 +330,15 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       })),
   ], [raidServers])
 
-  const loadPlayers = useCallback(() => fetch('/api/admin/players').then(r => r.json()).then(setPlayers), [])
+  const loadPlayers = useCallback(async () => {
+    const res = await fetch('/api/admin/players')
+    const body = await res.json().catch(() => null)
+    if (!res.ok) {
+      showToast(body?.error || 'Could not load players.')
+      return
+    }
+    setPlayers(body)
+  }, [showToast])
   const loadClubs = useCallback(() => fetch('/api/admin/clubs').then(r => r.json()).then(setClubs), [])
   const loadStudents = useCallback(() => fetch('/api/admin/students').then(r => r.json()).then(setStudents), [])
   const loadRaids = useCallback(() => fetch('/api/admin/raids', { cache: 'no-store' }).then(r => r.json()).then(setRaids), [])
@@ -449,9 +457,11 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const emptyP = { ign: '', username: '', favouriteStudent: 'Hoshino', favouriteStudentId: '', joinedDate: '', club: 'Guest', clubId: '', userID: '' }
   const [pForm, setPForm] = useState(emptyP)
   const [isGuest, setIsGuest] = useState(true)
+  const [playerError, setPlayerError] = useState<string | null>(null)
 
   function openAddPlayer() {
     const firstStudent = students[0]
+    setPlayerError(null)
     setPForm({
       ...emptyP,
       favouriteStudent: firstStudent?.name || 'Hoshino',
@@ -461,6 +471,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }
   function openEditPlayer(p: Player) {
     const guest = !p.isGuildMember
+    setPlayerError(null)
     setPForm({
       ign: p.ign,
       username: p.username,
@@ -474,10 +485,17 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     setIsGuest(guest); setEditTarget(p); setModal('player')
   }
   async function deletePlayer(id: string) {
-    await fetch(`/api/admin/players/${id}`, { method: 'DELETE' }); loadPlayers(); showToast('Player deleted.')
+    const res = await fetch(`/api/admin/players/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not delete player.' }))
+      showToast(body.error || 'Could not delete player.')
+      return
+    }
+    loadPlayers(); showToast('Player deleted.')
   }
   async function savePlayer(e: React.FormEvent) {
     e.preventDefault()
+    setPlayerError(null)
     const payload = isGuest
       ? { ...pForm, club: 'Guest', clubId: '', isGuildMember: false }
       : { ...pForm, isGuildMember: true }
@@ -486,7 +504,9 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       : await fetch('/api/admin/players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: 'Could not save player.' }))
-      showToast(body.error || 'Could not save player.')
+      const message = body.error || 'Could not save player.'
+      setPlayerError(message)
+      showToast(message)
       return
     }
     showToast(editTarget ? 'Player updated.' : 'Player added.')
@@ -500,6 +520,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const [clubLogoFile, setClubLogoFile] = useState<File | null>(null)
   const [clubLogoPreview, setClubLogoPreview] = useState('')
   const [clubColorDraft, setClubColorDraft] = useState({ hex: emptyC.color, rgb: hexToRgbText(emptyC.color) })
+  const [clubError, setClubError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!clubLogoPreview.startsWith('blob:')) return
@@ -528,9 +549,10 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     setClubColorDraft({ hex, rgb: hexToRgbText(hex) })
   }
 
-  function openAddClub() { setCForm(emptyC); setClubLogoMode('file'); setClubLogoFile(null); setClubLogoPreview(''); setClubColorDraft({ hex: emptyC.color, rgb: hexToRgbText(emptyC.color) }); setEditTarget(null); setModal('club') }
+  function openAddClub() { setClubError(null); setCForm(emptyC); setClubLogoMode('file'); setClubLogoFile(null); setClubLogoPreview(''); setClubColorDraft({ hex: emptyC.color, rgb: hexToRgbText(emptyC.color) }); setEditTarget(null); setModal('club') }
   function openEditClub(c: Club) {
     const color = normalizeHexColor(c.color || '') || emptyC.color
+    setClubError(null)
     setCForm({ name: c.name, uid: c.uid || '', logo: c.logo || '', color })
     setClubLogoMode('file')
     setClubLogoFile(null)
@@ -549,8 +571,11 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }
   async function saveClub(e: React.FormEvent) {
     e.preventDefault()
+    setClubError(null)
     if (!normalizeHexColor(clubColorDraft.hex) || !parseRgbColor(clubColorDraft.rgb)) {
-      showToast('Enter a valid HEX or RGB club color.')
+      const message = 'Enter a valid HEX or RGB club color.'
+      setClubError(message)
+      showToast(message)
       return
     }
     const payload = new FormData()
@@ -564,7 +589,9 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       : await fetch('/api/admin/clubs', { method: 'POST', body: payload })
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: 'Could not save club.' }))
-      showToast(body.error || 'Could not save club.')
+      const message = body.error || 'Could not save club.'
+      setClubError(message)
+      showToast(message)
       return
     }
     showToast(editTarget ? 'Club updated.' : 'Club added.')
@@ -601,9 +628,11 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     portraitScale: '1',
   }
   const [sForm, setSForm] = useState(emptyS)
+  const [studentError, setStudentError] = useState<string | null>(null)
 
-  function openAddStudent() { setSForm(emptyS); setEditTarget(null); setModal('student') }
+  function openAddStudent() { setStudentError(null); setSForm(emptyS); setEditTarget(null); setModal('student') }
   function openEditStudent(s: Student) {
+    setStudentError(null)
     setSForm({
       id: String(s.id),
       name: s.name,
@@ -640,6 +669,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }
   async function saveStudent(e: React.FormEvent) {
     e.preventDefault()
+    setStudentError(null)
     const payload = {
       id: Number(sForm.id),
       name: sForm.name,
@@ -673,7 +703,9 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       : await fetch('/api/admin/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: 'Could not save student.' }))
-      showToast(body.error || 'Could not save student.')
+      const message = body.error || 'Could not save student.'
+      setStudentError(message)
+      showToast(message)
       return
     }
     showToast(editTarget ? 'Student updated.' : 'Student added.')
@@ -700,6 +732,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   // ── Raid Boss form ─────────────────────────────────────────────────────────
   const emptyB = { name: '', description: '', image: '', color: '#4f8ef7', color2: '#7c3aed', pattern: 'hex' }
   const [bForm, setBForm] = useState(emptyB)
+  const [bossError, setBossError] = useState<string | null>(null)
   const [bossColorDraft, setBossColorDraft] = useState({
     color: { hex: emptyB.color, rgb: hexToRgbText(emptyB.color) },
     color2: { hex: emptyB.color2, rgb: hexToRgbText(emptyB.color2) },
@@ -729,6 +762,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }
 
   function openAddBoss() {
+    setBossError(null)
     setBForm(emptyB)
     setBossColorDraft({
       color: { hex: emptyB.color, rgb: hexToRgbText(emptyB.color) },
@@ -739,6 +773,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   function openEditBoss(b: RaidBoss) {
     const color = normalizeHexColor(b.color || '') || emptyB.color
     const color2 = normalizeHexColor(b.color2 || '') || emptyB.color2
+    setBossError(null)
     setBForm({
       name: b.name,
       description: b.description,
@@ -758,13 +793,16 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }
   async function saveBoss(e: React.FormEvent) {
     e.preventDefault()
+    setBossError(null)
     if (
       !normalizeHexColor(bossColorDraft.color.hex) ||
       !parseRgbColor(bossColorDraft.color.rgb) ||
       !normalizeHexColor(bossColorDraft.color2.hex) ||
       !parseRgbColor(bossColorDraft.color2.rgb)
     ) {
-      showToast('Enter valid HEX or RGB boss colors.')
+      const message = 'Enter valid HEX or RGB boss colors.'
+      setBossError(message)
+      showToast(message)
       return
     }
     const payload = {
@@ -775,11 +813,19 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       color2: bForm.color2,
       pattern: bForm.pattern,
     }
+    const res = editTarget
+      ? await fetch(`/api/admin/raid-bosses/${(editTarget as RaidBoss).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      : await fetch('/api/admin/raid-bosses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Could not save boss.' }))
+      const message = body.error || 'Could not save boss.'
+      setBossError(message)
+      showToast(message)
+      return
+    }
     if (editTarget) {
-      await fetch(`/api/admin/raid-bosses/${(editTarget as RaidBoss).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       showToast('Boss updated.')
     } else {
-      await fetch('/api/admin/raid-bosses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       showToast('Boss added.')
     }
     setModal(null); loadBosses(); loadRaids()
@@ -2369,8 +2415,16 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
 
       {/* Player modal */}
       {modal === 'player' && (
-        <StModal title={editTarget ? 'Edit Player' : 'Add Player'} onClose={() => setModal(null)} extraWide>
-          <form onSubmit={savePlayer}>
+        <StModal title={editTarget ? 'Edit Player' : 'Add Player'} onClose={() => { setPlayerError(null); setModal(null) }} extraWide>
+          <form onSubmit={savePlayer} onChange={() => playerError && setPlayerError(null)}>
+            {playerError && (
+              <div
+                className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-semibold"
+                style={{ color: '#ef4444' }}
+              >
+                {playerError}
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <StField label="IGN">
                 <input className={inputClass} type="text" value={pForm.ign} onChange={e => setPForm(f => ({ ...f, ign: e.target.value }))} placeholder="In-game name" required />
@@ -2457,8 +2511,16 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
 
       {/* Club modal */}
       {modal === 'club' && (
-        <StModal title={editTarget ? 'Edit Club' : 'Add Club'} onClose={() => setModal(null)} extraWide>
-          <form onSubmit={saveClub}>
+        <StModal title={editTarget ? 'Edit Club' : 'Add Club'} onClose={() => { setClubError(null); setModal(null) }} extraWide>
+          <form onSubmit={saveClub} onChange={() => clubError && setClubError(null)}>
+            {clubError && (
+              <div
+                className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-semibold"
+                style={{ color: '#ef4444' }}
+              >
+                {clubError}
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <StField label="CLUB NAME">
                 <input
@@ -2589,8 +2651,16 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
 
       {/* Student modal */}
       {modal === 'student' && (
-        <StModal title={editTarget ? 'Edit Student' : 'Add Student'} onClose={() => setModal(null)} extraWide>
-          <form onSubmit={saveStudent}>
+        <StModal title={editTarget ? 'Edit Student' : 'Add Student'} onClose={() => { setStudentError(null); setModal(null) }} extraWide>
+          <form onSubmit={saveStudent} onChange={() => studentError && setStudentError(null)}>
+            {studentError && (
+              <div
+                className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-semibold"
+                style={{ color: '#ef4444' }}
+              >
+                {studentError}
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <StField label="STUDENT ID">
                 <input
@@ -2942,8 +3012,16 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
 
       {/* Boss modal */}
       {modal === 'boss' && (
-        <StModal title={editTarget ? 'Edit Raid Boss' : 'Add Raid Boss'} onClose={() => setModal(null)} extraWide>
-          <form onSubmit={saveBoss}>
+        <StModal title={editTarget ? 'Edit Raid Boss' : 'Add Raid Boss'} onClose={() => { setBossError(null); setModal(null) }} extraWide>
+          <form onSubmit={saveBoss} onChange={() => bossError && setBossError(null)}>
+            {bossError && (
+              <div
+                className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-semibold"
+                style={{ color: '#ef4444' }}
+              >
+                {bossError}
+              </div>
+            )}
             <StField label="BOSS NAME" span2>
               <input className={inputClass} type="text" value={bForm.name} onChange={e => setBForm(f => ({ ...f, name: e.target.value }))} placeholder="Raid boss name" required />
             </StField>

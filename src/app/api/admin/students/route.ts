@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
@@ -11,6 +12,13 @@ import {
 } from '@/lib/students'
 
 export const dynamic = 'force-dynamic'
+
+function studentErrorResponse(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    return NextResponse.json({ error: 'A student with this ID already exists.' }, { status: 409 })
+  }
+  return NextResponse.json({ error: 'Could not save student.' }, { status: 500 })
+}
 
 export async function GET() {
   const guard = await requireAdmin()
@@ -42,22 +50,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Student id, name, and image are required' }, { status: 400 })
   }
 
-  const student = await prisma.student.create({
-    data: {
-      id,
-      name,
-      image,
-      portrait,
-      memorial,
-      ...cardFields,
-      memorialOffsetX,
-      memorialOffsetY,
-      memorialScale,
-      portraitOffsetX,
-      portraitOffsetY,
-      portraitScale,
-    },
-  })
-  invalidatePublicData()
-  return NextResponse.json(student, { status: 201 })
+  try {
+    const student = await prisma.student.create({
+      data: {
+        id,
+        name,
+        image,
+        portrait,
+        memorial,
+        ...cardFields,
+        memorialOffsetX,
+        memorialOffsetY,
+        memorialScale,
+        portraitOffsetX,
+        portraitOffsetY,
+        portraitScale,
+      },
+    })
+    invalidatePublicData()
+    return NextResponse.json(student, { status: 201 })
+  } catch (error) {
+    return studentErrorResponse(error)
+  }
 }
