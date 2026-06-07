@@ -14,6 +14,11 @@ interface UpcomingBirthdayResponse extends BirthdayResponse {
   maxDays: number
 }
 
+interface BirthdaySectionProps {
+  initialData?: BirthdayResponse | null
+  initialUpcomingData?: UpcomingBirthdayResponse | null
+}
+
 function formatBirthdayKey(key: string) {
   const [monthRaw, dayRaw] = key.split('/')
   const date = new Date(Date.UTC(2024, Number(monthRaw) - 1, Number(dayRaw)))
@@ -21,57 +26,60 @@ function formatBirthdayKey(key: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
-export function BirthdaySection() {
-  const [data, setData] = useState<BirthdayResponse | null>(null)
-  const [upcomingData, setUpcomingData] = useState<UpcomingBirthdayResponse | null>(null)
+export function BirthdaySection({ initialData = null, initialUpcomingData = null }: BirthdaySectionProps) {
+  const [data, setData] = useState<BirthdayResponse | null>(initialData)
+  const [upcomingData, setUpcomingData] = useState<UpcomingBirthdayResponse | null>(initialUpcomingData)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef({ active: false, startX: 0, scrollLeft: 0 })
 
   useEffect(() => {
     let alive = true
-    let timer: number | undefined
+    let refreshTimer: number | undefined
+    let retryTimer: number | undefined
+
+    async function loadBirthdayEndpoint<T>(url: string) {
+      const res = await fetch(url, { cache: 'no-store' })
+      if (!res.ok) throw new Error('Birthday lookup failed')
+      return res.json() as Promise<T>
+    }
 
     async function loadBirthdays() {
       const cacheBust = Date.now()
-      const [todayRes, upcomingRes] = await Promise.all([
-        fetch(`/api/birthdays/today?t=${cacheBust}`, { cache: 'no-store' }),
-        fetch(`/api/birthdays/upcoming?days=60&t=${cacheBust}`, { cache: 'no-store' }),
+      const [todayResult, upcomingResult] = await Promise.allSettled([
+        loadBirthdayEndpoint<BirthdayResponse>(`/api/birthdays/today?t=${cacheBust}`),
+        loadBirthdayEndpoint<UpcomingBirthdayResponse>(`/api/birthdays/upcoming?days=60&t=${cacheBust}`),
       ])
-      if (!todayRes.ok || !upcomingRes.ok) throw new Error('Birthday lookup failed')
-      const [todayBody, upcomingBody] = await Promise.all([
-        todayRes.json() as Promise<BirthdayResponse>,
-        upcomingRes.json() as Promise<UpcomingBirthdayResponse>,
-      ])
+      if (todayResult.status === 'rejected' && upcomingResult.status === 'rejected') throw new Error('Birthday lookup failed')
       if (alive) {
-        setData(todayBody)
-        setUpcomingData(upcomingBody)
+        if (todayResult.status === 'fulfilled') setData(todayResult.value)
+        if (upcomingResult.status === 'fulfilled') setUpcomingData(upcomingResult.value)
       }
     }
 
     function scheduleNextRefresh() {
-      timer = window.setTimeout(() => {
-        loadBirthdays().catch(() => {
-          if (alive) {
-            setData(null)
-            setUpcomingData(null)
-          }
-        }).finally(() => {
+      refreshTimer = window.setTimeout(() => {
+        loadBirthdays().finally(() => {
           if (alive) scheduleNextRefresh()
         })
       }, getNextBirthdayRefreshDelay())
     }
 
     loadBirthdays().catch(() => {
-      if (alive) {
-        setData(null)
-        setUpcomingData(null)
-      }
+      if (alive) retryTimer = window.setTimeout(() => loadBirthdays().catch(() => undefined), 5000)
     })
     scheduleNextRefresh()
 
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') loadBirthdays().catch(() => undefined)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       alive = false
-      if (timer) window.clearTimeout(timer)
+      if (refreshTimer) window.clearTimeout(refreshTimer)
+      if (retryTimer) window.clearTimeout(retryTimer)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 
