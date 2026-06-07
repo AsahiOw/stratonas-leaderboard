@@ -5,7 +5,7 @@ export type RecruitmentAssetKind = 'banner' | 'animation'
 export type ResolvedRecruitmentAsset = { path: string; created: boolean }
 
 const GACHA_DIR = path.join(process.cwd(), 'public', 'assets', 'gacha')
-const GACHA_ASSET_DIRS: Record<RecruitmentAssetKind, string> = {
+export const GACHA_ASSET_DIRS: Record<RecruitmentAssetKind, string> = {
   banner: path.join(GACHA_DIR, 'banner'),
   animation: path.join(GACHA_DIR, 'animation'),
 }
