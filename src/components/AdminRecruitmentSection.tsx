@@ -48,7 +48,7 @@ const editBtnClass =
 const delBtnClass =
   'bg-red/10 border border-red/25 rounded-md px-2.5 py-1 text-red text-xs hover:bg-red/20 transition-colors'
 const submitBtnClass =
-  'w-full bg-accent rounded-lg py-3 text-white font-bold text-sm cursor-pointer mt-1.5 hover:bg-accent/90 transition-colors'
+  'w-full bg-accent rounded-lg py-3 text-white font-bold text-sm cursor-pointer mt-1.5 hover:bg-accent/90 transition-colors disabled:cursor-not-allowed disabled:opacity-70'
 
 function tomorrowDateKey() {
   const date = new Date()
@@ -64,6 +64,7 @@ export function AdminRecruitmentSection({ students }: Props) {
   const [editSchedule, setEditSchedule] = useState<UpcomingRecruitment | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null)
   const [deleting, setDeleting] = useState(false)
+  const [savingRecruitment, setSavingRecruitment] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [recruitmentForm, setRecruitmentForm] = useState({ studentId: '', bannerPath: '', animationPath: '' })
@@ -76,6 +77,7 @@ export function AdminRecruitmentSection({ students }: Props) {
   const [studentQuery, setStudentQuery] = useState('')
   const [scheduleForm, setScheduleForm] = useState({ dateKey: '', recruitmentIds: [] as string[] })
   const [scheduleRecruitmentQuery, setScheduleRecruitmentQuery] = useState('')
+  const [recruitmentLibraryQuery, setRecruitmentLibraryQuery] = useState('')
   const minScheduleDate = useMemo(() => tomorrowDateKey(), [])
 
   const showToast = useCallback((message: string) => {
@@ -136,6 +138,7 @@ export function AdminRecruitmentSection({ students }: Props) {
   }
 
   function openAddRecruitment() {
+    if (savingRecruitment) return
     setError(null)
     setEditRecruitment(null)
     setRecruitmentForm({ studentId: firstStudentId(), bannerPath: '', animationPath: '' })
@@ -150,6 +153,7 @@ export function AdminRecruitmentSection({ students }: Props) {
   }
 
   function openEditRecruitment(recruitment: Recruitment) {
+    if (savingRecruitment) return
     setError(null)
     setEditRecruitment(recruitment)
     setStudentQuery(studentLabel(recruitment.student))
@@ -188,6 +192,7 @@ export function AdminRecruitmentSection({ students }: Props) {
 
   async function saveRecruitment(event: React.FormEvent) {
     event.preventDefault()
+    if (savingRecruitment) return
     setError(null)
     const selectedStudent = students.find((student) => studentLabel(student).toLowerCase() === studentQuery.trim().toLowerCase())
       || students.find((student) => student.name.toLowerCase() === studentQuery.trim().toLowerCase())
@@ -213,20 +218,25 @@ export function AdminRecruitmentSection({ students }: Props) {
     if (bannerMode === 'file' && bannerFile) payload.append('bannerFile', bannerFile)
     if (animationMode === 'file' && animationFile) payload.append('animationFile', animationFile)
 
-    const res = editRecruitment
-      ? await fetch(`/api/admin/recruitments/${editRecruitment.id}`, { method: 'PUT', body: payload })
-      : await fetch('/api/admin/recruitments', { method: 'POST', body: payload })
-    const body = await res.json().catch(() => null)
-    if (!res.ok) {
-      const message = body?.error || 'Could not save recruitment.'
-      setError(message)
-      showToast(message)
-      return
-    }
+    setSavingRecruitment(true)
+    try {
+      const res = editRecruitment
+        ? await fetch(`/api/admin/recruitments/${editRecruitment.id}`, { method: 'PUT', body: payload })
+        : await fetch('/api/admin/recruitments', { method: 'POST', body: payload })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        const message = body?.error || 'Could not save recruitment.'
+        setError(message)
+        showToast(message)
+        return
+      }
 
-    showToast(editRecruitment ? 'Recruitment updated.' : 'Recruitment added.')
-    setModal(null)
-    await Promise.all([loadRecruitments(), loadSchedules()])
+      showToast(editRecruitment ? 'Recruitment updated.' : 'Recruitment added.')
+      setModal(null)
+      await Promise.all([loadRecruitments(), loadSchedules()])
+    } finally {
+      setSavingRecruitment(false)
+    }
   }
 
   async function saveSchedule(event: React.FormEvent) {
@@ -279,6 +289,17 @@ export function AdminRecruitmentSection({ students }: Props) {
       .some((value) => String(value).toLowerCase().includes(query))
   })
 
+  const filteredRecruitments = recruitments.filter((recruitment) => {
+    const query = recruitmentLibraryQuery.trim().toLowerCase()
+    if (!query) return true
+    return [
+      recruitment.student.name,
+      recruitment.studentId,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query))
+  })
+
   async function confirmDelete() {
     if (!deleteTarget) return
     setDeleting(true)
@@ -300,7 +321,9 @@ export function AdminRecruitmentSection({ students }: Props) {
     }
   }
 
-  const nextSchedule = schedules[0] || null
+  const todayKey = dateKeyFromDate()
+  const nextSchedule = schedules.find((schedule) => schedule.dateKey > todayKey) || null
+  const displayedSchedules = [...schedules].reverse()
 
   return (
     <div className="space-y-5">
@@ -355,7 +378,7 @@ export function AdminRecruitmentSection({ students }: Props) {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="font-semibold text-sm">Home Screen Queue</div>
-            <div className="mt-1 text-xs text-muted">Earliest future date appears first on the website.</div>
+            <div className="mt-1 text-xs text-muted">Latest dates appear first. The next future date is marked.</div>
           </div>
           <button type="button" onClick={openAddSchedule} className={addBtnClass}>+ Add Date</button>
         </div>
@@ -366,56 +389,59 @@ export function AdminRecruitmentSection({ students }: Props) {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">
-            {schedules.map((schedule, index) => (
-              <div
-                key={schedule.id}
-                className={`rounded-xl border p-4 ${index === 0 ? 'border-accent/40 bg-accent/[0.08]' : 'border-border bg-bg'}`}
-              >
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="font-mono text-lg font-bold text-text">{fmtDate(schedule.dateKey)}</div>
-                      {index === 0 && (
-                        <span className="rounded-md border border-accent/35 bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
-                          Next on home
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1 text-xs text-muted">
-                      {schedule.items.length} recruitment{schedule.items.length === 1 ? '' : 's'} selected
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 gap-1.5">
-                    <button type="button" onClick={() => openEditSchedule(schedule)} className={editBtnClass}>Edit</button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget({ type: 'schedule', id: schedule.id, label: fmtDate(schedule.dateKey) })}
-                      className={delBtnClass}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  {schedule.items.map((item) => (
-                    <div key={item.recruitment.id} className="overflow-hidden rounded-lg border border-border2 bg-card2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={imageSrc(item.recruitment.bannerPath)}
-                        alt=""
-                        className="aspect-[16/6] w-full object-cover"
-                        onError={e => (e.currentTarget.style.display = 'none')}
-                      />
-                      <div className="px-2.5 py-2">
-                        <div className="truncate text-xs font-bold">{item.recruitment.student.name}</div>
-                        <div className="truncate text-[11px] text-muted">CV: {item.recruitment.student.characterVoice || '—'}</div>
+            {displayedSchedules.map((schedule) => {
+              const isNextSchedule = schedule.id === nextSchedule?.id
+              return (
+                <div
+                  key={schedule.id}
+                  className={`rounded-xl border p-4 ${isNextSchedule ? 'border-accent/40 bg-accent/[0.08]' : 'border-border bg-bg'}`}
+                >
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-mono text-lg font-bold text-text">{fmtDate(schedule.dateKey)}</div>
+                        {isNextSchedule && (
+                          <span className="rounded-md border border-accent/35 bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
+                            Next on home
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs text-muted">
+                        {schedule.items.length} recruitment{schedule.items.length === 1 ? '' : 's'} selected
                       </div>
                     </div>
-                  ))}
+                    <div className="flex shrink-0 gap-1.5">
+                      <button type="button" onClick={() => openEditSchedule(schedule)} className={editBtnClass}>Edit</button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget({ type: 'schedule', id: schedule.id, label: fmtDate(schedule.dateKey) })}
+                        className={delBtnClass}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {schedule.items.map((item) => (
+                      <div key={item.recruitment.id} className="overflow-hidden rounded-lg border border-border2 bg-card2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imageSrc(item.recruitment.bannerPath)}
+                          alt=""
+                          className="aspect-[16/6] w-full object-cover"
+                          onError={e => (e.currentTarget.style.display = 'none')}
+                        />
+                        <div className="px-2.5 py-2">
+                          <div className="truncate text-xs font-bold">{item.recruitment.student.name}</div>
+                          <div className="truncate text-[11px] text-muted">CV: {item.recruitment.student.characterVoice || '—'}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>
@@ -426,16 +452,30 @@ export function AdminRecruitmentSection({ students }: Props) {
             <div className="font-semibold text-sm">Recruitment Library</div>
             <div className="mt-1 text-xs text-muted">Each card pairs one student, one banner, and one animation.</div>
           </div>
-          <button type="button" onClick={openAddRecruitment} className={addBtnClass}>+ Add Recruitment</button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              className={`${inputClass} sm:w-64`}
+              type="search"
+              value={recruitmentLibraryQuery || ''}
+              onChange={e => setRecruitmentLibraryQuery(e.target.value)}
+              placeholder="Search student..."
+              aria-label="Search recruitment library by student"
+            />
+            <button type="button" onClick={openAddRecruitment} className={addBtnClass}>+ Add Recruitment</button>
+          </div>
         </div>
 
         {recruitments.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border2 bg-bg py-12 text-center text-sm text-muted">
             No recruitment assets.
           </div>
+        ) : filteredRecruitments.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border2 bg-bg py-12 text-center text-sm text-muted">
+            No recruitments match {recruitmentLibraryQuery.trim()}.
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {recruitments.map((recruitment) => (
+            {filteredRecruitments.map((recruitment) => (
               <div key={recruitment.id} className="overflow-hidden rounded-xl border border-border bg-bg">
                 <div className="relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -488,152 +528,172 @@ export function AdminRecruitmentSection({ students }: Props) {
       </section>
 
       {modal === 'recruitment' && (
-        <StModal title={editRecruitment ? 'Edit Recruitment' : 'Add Recruitment'} onClose={() => { setError(null); setModal(null) }} extraWide>
-          <form onSubmit={saveRecruitment} onChange={() => error && setError(null)}>
+        <StModal title={editRecruitment ? 'Edit Recruitment' : 'Add Recruitment'} onClose={() => {
+          if (savingRecruitment) return
+          setError(null)
+          setModal(null)
+        }} extraWide>
+          <form onSubmit={saveRecruitment} onChange={() => error && setError(null)} aria-busy={savingRecruitment}>
             {error && (
               <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-semibold" style={{ color: '#ef4444' }}>
                 {error}
               </div>
             )}
-            <StField label="STUDENT" span2>
-              <input
-                className={inputClass}
-                type="text"
-                list="recruitment-student-options"
-                value={studentQuery || ''}
-                onChange={e => {
-                  const value = e.target.value
-                  const selectedStudent = students.find((student) => studentLabel(student).toLowerCase() === value.trim().toLowerCase())
-                  setStudentQuery(value)
-                  setRecruitmentForm((form) => ({ ...form, studentId: selectedStudent ? String(selectedStudent.id) : '' }))
-                }}
-                placeholder="Search student..."
-                required
-              />
-              <datalist id="recruitment-student-options">
-                {availableStudentsForRecruitment().map((student) => (
-                  <option key={student.id} value={studentLabel(student)} />
-                ))}
-              </datalist>
-              {availableStudentsForRecruitment().length === 0 && (
-                <div className="mt-1.5 text-xs text-muted">Every student already has a recruitment.</div>
+            <fieldset disabled={savingRecruitment} className="disabled:opacity-70">
+              <StField label="STUDENT" span2>
+                <input
+                  className={inputClass}
+                  type="text"
+                  list="recruitment-student-options"
+                  value={studentQuery || ''}
+                  onChange={e => {
+                    const value = e.target.value
+                    const selectedStudent = students.find((student) => studentLabel(student).toLowerCase() === value.trim().toLowerCase())
+                    setStudentQuery(value)
+                    setRecruitmentForm((form) => ({ ...form, studentId: selectedStudent ? String(selectedStudent.id) : '' }))
+                  }}
+                  placeholder="Search student..."
+                  required
+                />
+                <datalist id="recruitment-student-options">
+                  {availableStudentsForRecruitment().map((student) => (
+                    <option key={student.id} value={studentLabel(student)} />
+                  ))}
+                </datalist>
+                {availableStudentsForRecruitment().length === 0 && (
+                  <div className="mt-1.5 text-xs text-muted">Every student already has a recruitment.</div>
+                )}
+              </StField>
+
+              <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+                <StField label="BANNER">
+                  <div className="mb-2 inline-flex rounded-lg border border-border2 bg-card2 p-1">
+                    {(['file', 'url'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${bannerMode === mode ? 'bg-accent text-white' : 'text-muted2 hover:text-text'}`}
+                        onClick={() => {
+                          setBannerMode(mode)
+                          if (mode === 'url') {
+                            setBannerFile(null)
+                            setBannerPreview('')
+                          }
+                        }}
+                      >
+                        {mode === 'file' ? 'Media' : 'URL'}
+                      </button>
+                    ))}
+                  </div>
+                  {bannerMode === 'file' ? (
+                    <input
+                      className={inputClass}
+                      type="file"
+                      accept="image/*"
+                      onChange={e => {
+                        const file = e.target.files?.[0] || null
+                        setBannerFile(file)
+                        setBannerPreview(file ? URL.createObjectURL(file) : '')
+                      }}
+                    />
+                  ) : (
+                    <input
+                      className={inputClass}
+                      type="text"
+                      value={recruitmentForm.bannerPath || ''}
+                      onChange={e => setRecruitmentForm((form) => ({ ...form, bannerPath: e.target.value }))}
+                      placeholder="https://... or /assets/gacha/banner/..."
+                    />
+                  )}
+                </StField>
+
+                <StField label="ANIMATION">
+                  <div className="mb-2 inline-flex rounded-lg border border-border2 bg-card2 p-1">
+                    {(['file', 'url'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${animationMode === mode ? 'bg-accent text-white' : 'text-muted2 hover:text-text'}`}
+                        onClick={() => {
+                          setAnimationMode(mode)
+                          if (mode === 'url') {
+                            setAnimationFile(null)
+                            setAnimationPreview('')
+                          }
+                        }}
+                      >
+                        {mode === 'file' ? 'Media' : 'URL'}
+                      </button>
+                    ))}
+                  </div>
+                  {animationMode === 'file' ? (
+                    <input
+                      className={inputClass}
+                      type="file"
+                      accept="video/*"
+                      onChange={e => {
+                        const file = e.target.files?.[0] || null
+                        setAnimationFile(file)
+                        setAnimationPreview(file ? URL.createObjectURL(file) : '')
+                      }}
+                    />
+                  ) : (
+                    <input
+                      className={inputClass}
+                      type="text"
+                      value={recruitmentForm.animationPath || ''}
+                      onChange={e => setRecruitmentForm((form) => ({ ...form, animationPath: e.target.value }))}
+                      placeholder="https://... or /assets/gacha/animation/..."
+                    />
+                  )}
+                </StField>
+              </div>
+
+              {(bannerPreview || recruitmentForm.bannerPath || animationPreview || recruitmentForm.animationPath) && (
+                <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {(bannerPreview || recruitmentForm.bannerPath) && (
+                    <div>
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">Banner preview</div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={bannerPreview || imageSrc(recruitmentForm.bannerPath)}
+                        alt="Banner preview"
+                        className="h-28 w-full rounded-xl border border-border object-cover"
+                        onError={e => (e.currentTarget.style.display = 'none')}
+                      />
+                    </div>
+                  )}
+                  {(animationPreview || recruitmentForm.animationPath) && (
+                    <div>
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">Animation preview</div>
+                      <video
+                        src={animationPreview || imageSrc(recruitmentForm.animationPath)}
+                        className="h-28 w-full rounded-xl border border-border object-cover"
+                        muted
+                        loop
+                        playsInline
+                        controls
+                      />
+                    </div>
+                  )}
+                </div>
               )}
-            </StField>
-
-            <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
-              <StField label="BANNER">
-                <div className="mb-2 inline-flex rounded-lg border border-border2 bg-card2 p-1">
-                  {(['file', 'url'] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${bannerMode === mode ? 'bg-accent text-white' : 'text-muted2 hover:text-text'}`}
-                      onClick={() => {
-                        setBannerMode(mode)
-                        if (mode === 'url') {
-                          setBannerFile(null)
-                          setBannerPreview('')
-                        }
-                      }}
-                    >
-                      {mode === 'file' ? 'Media' : 'URL'}
-                    </button>
-                  ))}
+            </fieldset>
+            {savingRecruitment && (
+              <div role="status" aria-live="polite" className="mb-3 rounded-xl border border-accent/30 bg-accent/[0.08] px-3 py-3">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent/30 border-t-accent" aria-hidden="true" />
+                  {editRecruitment ? 'Saving recruitment changes...' : 'Adding recruitment...'}
                 </div>
-                {bannerMode === 'file' ? (
-                  <input
-                    className={inputClass}
-                    type="file"
-                    accept="image/*"
-                    onChange={e => {
-                      const file = e.target.files?.[0] || null
-                      setBannerFile(file)
-                      setBannerPreview(file ? URL.createObjectURL(file) : '')
-                    }}
-                  />
-                ) : (
-                  <input
-                    className={inputClass}
-                    type="text"
-                    value={recruitmentForm.bannerPath || ''}
-                    onChange={e => setRecruitmentForm((form) => ({ ...form, bannerPath: e.target.value }))}
-                    placeholder="https://... or /assets/gacha/banner/..."
-                  />
-                )}
-              </StField>
-
-              <StField label="ANIMATION">
-                <div className="mb-2 inline-flex rounded-lg border border-border2 bg-card2 p-1">
-                  {(['file', 'url'] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${animationMode === mode ? 'bg-accent text-white' : 'text-muted2 hover:text-text'}`}
-                      onClick={() => {
-                        setAnimationMode(mode)
-                        if (mode === 'url') {
-                          setAnimationFile(null)
-                          setAnimationPreview('')
-                        }
-                      }}
-                    >
-                      {mode === 'file' ? 'Media' : 'URL'}
-                    </button>
-                  ))}
+                <div className="h-1.5 overflow-hidden rounded-full bg-card2">
+                  <div className="h-full w-full animate-pulse rounded-full bg-accent" />
                 </div>
-                {animationMode === 'file' ? (
-                  <input
-                    className={inputClass}
-                    type="file"
-                    accept="video/*"
-                    onChange={e => {
-                      const file = e.target.files?.[0] || null
-                      setAnimationFile(file)
-                      setAnimationPreview(file ? URL.createObjectURL(file) : '')
-                    }}
-                  />
-                ) : (
-                  <input
-                    className={inputClass}
-                    type="text"
-                    value={recruitmentForm.animationPath || ''}
-                    onChange={e => setRecruitmentForm((form) => ({ ...form, animationPath: e.target.value }))}
-                    placeholder="https://... or /assets/gacha/animation/..."
-                  />
-                )}
-              </StField>
-            </div>
-
-            {(bannerPreview || recruitmentForm.bannerPath || animationPreview || recruitmentForm.animationPath) && (
-              <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {(bannerPreview || recruitmentForm.bannerPath) && (
-                  <div>
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">Banner preview</div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={bannerPreview || imageSrc(recruitmentForm.bannerPath)}
-                      alt="Banner preview"
-                      className="h-28 w-full rounded-xl border border-border object-cover"
-                      onError={e => (e.currentTarget.style.display = 'none')}
-                    />
-                  </div>
-                )}
-                {(animationPreview || recruitmentForm.animationPath) && (
-                  <div>
-                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">Animation preview</div>
-                    <video
-                      src={animationPreview || imageSrc(recruitmentForm.animationPath)}
-                      className="h-28 w-full rounded-xl border border-border object-cover"
-                      muted
-                      loop
-                      playsInline
-                      controls
-                    />
-                  </div>
-                )}
+                <div className="mt-2 text-xs text-muted2">Uploading media and refreshing the recruitment list.</div>
               </div>
             )}
-            <button type="submit" className={submitBtnClass}>{editRecruitment ? 'Save Changes' : 'Add Recruitment'}</button>
+            <button type="submit" className={submitBtnClass} disabled={savingRecruitment}>
+              {savingRecruitment ? 'Working...' : editRecruitment ? 'Save Changes' : 'Add Recruitment'}
+            </button>
           </form>
         </StModal>
       )}

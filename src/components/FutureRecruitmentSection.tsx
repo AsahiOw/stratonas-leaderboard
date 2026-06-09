@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { dateKeyFromDate } from '@/lib/recruitments'
 import { fmtDate, imageSrc } from '@/lib/utils'
 
 export interface FutureRecruitmentSchedule {
@@ -43,6 +44,7 @@ function formatCountdown(dateKey: string, now: number) {
 
 export function FutureRecruitmentSection({ schedule }: Props) {
   const [currentSchedule, setCurrentSchedule] = useState<FutureRecruitmentSchedule | null>(schedule || null)
+  const currentScheduleDateKey = currentSchedule?.dateKey
   const recruitments = useMemo(() => currentSchedule?.recruitments || [], [currentSchedule?.recruitments])
   const videoStageRef = useRef<HTMLDivElement | null>(null)
   const [activeId, setActiveId] = useState(recruitments[0]?.id || '')
@@ -60,11 +62,20 @@ export function FutureRecruitmentSection({ schedule }: Props) {
   }, [currentSchedule?.id, recruitments])
 
   async function refreshFutureRecruitment() {
-    const res = await fetch(`/api/recruitments/future?t=${Date.now()}`, { cache: 'no-store' })
+    const params = new URLSearchParams({
+      todayKey: dateKeyFromDate(),
+      t: String(Date.now()),
+    })
+    const res = await fetch(`/api/recruitments/future?${params}`, { cache: 'no-store' })
     if (!res.ok) throw new Error('Future recruitment lookup failed')
     const nextSchedule = await res.json() as FutureRecruitmentSchedule | null
     setCurrentSchedule(nextSchedule)
   }
+
+  useEffect(() => {
+    if (currentScheduleDateKey && currentScheduleDateKey > dateKeyFromDate()) return
+    refreshFutureRecruitment().catch(() => undefined)
+  }, [currentScheduleDateKey])
 
   useEffect(() => {
     if (!currentSchedule || recruitments.length === 0) return
