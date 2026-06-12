@@ -10,6 +10,8 @@ import { PlayerProfile } from '@/components/PlayerProfile'
 import { LoginModal } from '@/components/LoginModal'
 import { BirthdaySection } from '@/components/BirthdaySection'
 import { HomeIntro } from '@/components/HomeIntro'
+import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
+import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
 type Tab = 'leaderboard' | 'previous' | 'stats' | 'community' | 'admin'
@@ -40,9 +42,27 @@ interface RaidData {
 interface Props {
   initialRaids: RaidData[]
   initialRaidEntries?: Record<string, TableEntry[]>
+  futureRecruitment?: FutureRecruitmentSchedule | null
+  initialBirthdayData?: {
+    birthdayKey: string
+    nextRefreshAt: string
+    students: BirthdayStudent[]
+  } | null
+  initialUpcomingBirthdayData?: {
+    birthdayKey: string
+    nextRefreshAt: string
+    maxDays: number
+    students: BirthdayStudent[]
+  } | null
 }
 
-export function LeaderboardApp({ initialRaids, initialRaidEntries = {} }: Props) {
+export function LeaderboardApp({
+  initialRaids,
+  initialRaidEntries = {},
+  futureRecruitment = null,
+  initialBirthdayData = null,
+  initialUpcomingBirthdayData = null,
+}: Props) {
   const { data: session, status } = useSession()
   const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
 
@@ -230,6 +250,7 @@ export function LeaderboardApp({ initialRaids, initialRaidEntries = {} }: Props)
                 </p>
               </div>
             </div>
+            <FutureRecruitmentSection schedule={futureRecruitment} />
             {latestRaids.length === 0 ? (
               <div className="text-center text-muted py-16 text-sm">No completed raid results for this server filter.</div>
             ) : (
@@ -244,7 +265,7 @@ export function LeaderboardApp({ initialRaids, initialRaidEntries = {} }: Props)
                 />
               ))
             )}
-            <BirthdaySection />
+            <BirthdaySection initialData={initialBirthdayData} initialUpcomingData={initialUpcomingBirthdayData} />
           </div>
         )}
 

@@ -14,6 +14,7 @@ export const PUBLIC_CACHE_TAGS = {
   stats: 'public:stats',
   students: 'public:students',
   birthdays: 'public:birthdays',
+  recruitments: 'public:recruitments',
 } as const
 
 export const PUBLIC_CACHE_CONTROL =

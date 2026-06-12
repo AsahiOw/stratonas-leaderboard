@@ -4,6 +4,7 @@ import { getActiveRaidIds, withRaidActivity } from '@/lib/raid-activity'
 import { getRankedRaidEntries } from '@/lib/raid-entries'
 import { getBirthdayDay, getDaysUntilBirthday } from '@/lib/birthdays'
 import { PUBLIC_CACHE_TAGS, PUBLIC_DATA_REVALIDATE_SECONDS } from '@/lib/cache'
+import { dateKeyFromDate } from '@/lib/recruitments'
 
 const raidInclude = {
   raidBoss: true,
@@ -247,6 +248,51 @@ export const getPublicUpcomingBirthdayStudents = unstable_cache(
   {
     revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
     tags: [PUBLIC_CACHE_TAGS.birthdays, PUBLIC_CACHE_TAGS.students],
+  }
+)
+
+export const getPublicFutureRecruitment = unstable_cache(
+  async (todayKey = dateKeyFromDate()) => {
+    const schedule = await prisma.upcomingRecruitment.findFirst({
+      where: { dateKey: { gt: todayKey } },
+      orderBy: { dateKey: 'asc' },
+      include: {
+        items: {
+          orderBy: { position: 'asc' },
+          include: {
+            recruitment: {
+              include: {
+                student: {
+                  select: {
+                    id: true,
+                    name: true,
+                    characterVoice: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!schedule || schedule.items.length === 0) return null
+
+    return {
+      id: schedule.id,
+      dateKey: schedule.dateKey,
+      recruitments: schedule.items.map(({ recruitment }) => ({
+        id: recruitment.id,
+        bannerPath: recruitment.bannerPath,
+        animationPath: recruitment.animationPath,
+        student: recruitment.student,
+      })),
+    }
+  },
+  ['public-future-recruitment'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.recruitments, PUBLIC_CACHE_TAGS.students],
   }
 )
 

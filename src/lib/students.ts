@@ -63,6 +63,7 @@ export function normalizeStudentCardFields(body: Record<string, unknown>) {
     club: normalizeOptionalStudentText(body.club),
     schoolYear: normalizeOptionalStudentText(body.schoolYear),
     characterAge: normalizeOptionalStudentText(body.characterAge),
+    characterVoice: normalizeOptionalStudentText(body.characterVoice),
     birthday: normalizeOptionalStudentText(body.birthday),
     birthDay: normalizeStudentBirthDay(body.birthDay),
     hobby: normalizeOptionalStudentText(body.hobby),

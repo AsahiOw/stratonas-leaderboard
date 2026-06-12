@@ -5,6 +5,7 @@ import { StModal } from '@/components/ui/StModal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { StField, inputClass } from '@/components/ui/StField'
 import { Toast } from '@/components/ui/Toast'
+import { AdminRecruitmentSection } from '@/components/AdminRecruitmentSection'
 import { fmtDate, imageSrc, proxyImage } from '@/lib/utils'
 
 interface Club {
@@ -24,6 +25,7 @@ interface Student {
   id: number; name: string; image: string; portrait?: string | null; memorial?: string | null
   familyName?: string | null; personalName?: string | null; school?: string | null; club?: string | null
   schoolYear?: string | null; characterAge?: string | null; birthday?: string | null; birthDay?: string | null
+  characterVoice?: string | null
   hobby?: string | null; heightMetric?: string | null; weaponType?: string | null; tacticRole?: string | null
   position?: string | null; weaponName?: string | null; accentColor?: string | null
   memorialOffsetX: number; memorialOffsetY: number; memorialScale: number
@@ -140,7 +142,7 @@ interface XlsxImportProgress {
   error?: string | null
 }
 
-type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries' | 'import' | 'settings'
+type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries' | 'import' | 'recruitment' | 'settings'
 type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries'
 type DeleteConfirmation = {
   title: string
@@ -159,6 +161,7 @@ const navItems: { id: Section; label: string; icon: string }[] = [
   { id: 'bosses', label: 'Bosses', icon: '◉' },
   { id: 'entries', label: 'Entries', icon: '⊞' },
   { id: 'import', label: 'Import', icon: '⇪' },
+  { id: 'recruitment', label: 'Recruitment', icon: '✦' },
   { id: 'settings', label: 'Settings', icon: '⊛' },
 ]
 
@@ -611,6 +614,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     club: '',
     schoolYear: '',
     characterAge: '',
+    characterVoice: '',
     birthday: '',
     birthDay: '',
     hobby: '',
@@ -645,6 +649,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       club: s.club || '',
       schoolYear: s.schoolYear || '',
       characterAge: s.characterAge || '',
+      characterVoice: s.characterVoice || '',
       birthday: s.birthday || '',
       birthDay: s.birthDay || '',
       hobby: s.hobby || '',
@@ -682,6 +687,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       club: sForm.club,
       schoolYear: sForm.schoolYear,
       characterAge: sForm.characterAge,
+      characterVoice: sForm.characterVoice,
       birthday: sForm.birthday,
       birthDay: sForm.birthDay,
       hobby: sForm.hobby,
@@ -1241,7 +1247,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const filteredStudents = students.filter((s) => searchable([
     s.id, s.name, s.image, s.portrait, s.memorial,
     s.familyName, s.personalName, s.school, s.club, s.schoolYear, s.characterAge,
-    s.birthday, s.birthDay, s.hobby, s.heightMetric, s.weaponType, s.tacticRole, s.position, s.weaponName, s.accentColor,
+    s.characterVoice, s.birthday, s.birthDay, s.hobby, s.heightMetric, s.weaponType, s.tacticRole, s.position, s.weaponName, s.accentColor,
     s.memorialOffsetX, s.memorialOffsetY, s.memorialScale,
     s.portraitOffsetX, s.portraitOffsetY, s.portraitScale,
   ], normalizedSearch.students))
@@ -1651,6 +1657,9 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                           {s.birthDay || 'No birthday'} · {s.school || 'No school'}{s.club ? ` / ${s.club}` : ''}
                         </div>
                         <div className="text-[11px] text-muted truncate max-w-[180px]">
+                          CV: {s.characterVoice || '—'}
+                        </div>
+                        <div className="text-[11px] text-muted truncate max-w-[180px]">
                           Accent: {s.accentColor ? 'sampled' : 'pending'}
                         </div>
                         <div className="text-[11px] text-muted truncate max-w-[180px]">
@@ -1684,7 +1693,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="border-b border-border2 bg-white/[0.02]">
-                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'BIRTHDAY', 'ACCENT', 'SCHOOL / CLUB', 'WEAPON / ROLE', 'PORTRAIT OFFSET', 'MEMORIAL OFFSET', 'IMAGE URL', 'MEMORIAL VIDEO', 'ACTIONS'].map((h) => (
+                      {['IMAGE', 'PORTRAIT', 'ID', 'NAME', 'VOICE', 'BIRTHDAY', 'ACCENT', 'SCHOOL / CLUB', 'WEAPON / ROLE', 'PORTRAIT OFFSET', 'MEMORIAL OFFSET', 'IMAGE URL', 'MEMORIAL VIDEO', 'ACTIONS'].map((h) => (
                         <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
                           {h}
                         </th>
@@ -1718,6 +1727,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                         </td>
                         <td className="px-3.5 py-2.5 font-mono text-xs text-muted2 whitespace-nowrap">{s.id}</td>
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{s.name}</td>
+                        <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">{s.characterVoice || '—'}</td>
                         <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">{s.birthDay || s.birthday || '—'}</td>
                         <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">{s.accentColor || '—'}</td>
                         <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">
@@ -2232,6 +2242,10 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
               </div>
             )}
           </div>
+        )}
+
+        {sec === 'recruitment' && (
+          <AdminRecruitmentSection students={students} />
         )}
 
         {sec === 'settings' && (
@@ -2756,6 +2770,15 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                   value={sForm.characterAge}
                   onChange={e => setSForm(f => ({ ...f, characterAge: e.target.value }))}
                   placeholder="e.g. 16 years old"
+                />
+              </StField>
+              <StField label="CHARACTER VOICE">
+                <input
+                  className={inputClass}
+                  type="text"
+                  value={sForm.characterVoice}
+                  onChange={e => setSForm(f => ({ ...f, characterVoice: e.target.value }))}
+                  placeholder="e.g. Haruka Tomatsu"
                 />
               </StField>
               <StField label="HEIGHT">

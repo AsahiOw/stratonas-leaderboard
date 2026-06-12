@@ -25,6 +25,7 @@ type SchaleStudent = {
   Club?: unknown
   SchoolYear?: unknown
   CharacterAge?: unknown
+  CharacterVoice?: unknown
   Birthday?: unknown
   BirthDay?: unknown
   Hobby?: unknown
@@ -195,6 +196,7 @@ async function runStudentImport() {
           club: normalizeOptionalStudentText(student.Club),
           schoolYear: normalizeOptionalStudentText(student.SchoolYear),
           characterAge: normalizeOptionalStudentText(student.CharacterAge),
+          characterVoice: normalizeOptionalStudentText(student.CharacterVoice),
           birthday: normalizeOptionalStudentText(student.Birthday),
           birthDay: normalizeStudentBirthDay(student.BirthDay),
           hobby: normalizeOptionalStudentText(student.Hobby),
@@ -235,6 +237,7 @@ async function runStudentImport() {
             club: student.club,
             schoolYear: student.schoolYear,
             characterAge: student.characterAge,
+            characterVoice: student.characterVoice,
             birthday: student.birthday,
             birthDay: student.birthDay,
             hobby: student.hobby,
