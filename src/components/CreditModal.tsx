@@ -1,29 +1,7 @@
 'use client'
 
 import { StModal } from '@/components/ui/StModal'
-
-type CreditGroup = 'site' | 'kei'
-
-interface Credit {
-  label: string
-  detail: string
-  href: string
-  group: CreditGroup
-  initial: string
-}
-
-const credits: Credit[] = [
-  { label: 'SchaleDB', detail: 'Game data & assets', href: 'https://schaledb.com/home', group: 'site', initial: 'S' },
-  { label: 'Jaymie', detail: 'L2D Animation', href: 'https://www.youtube.com/@JaymieArclight/videos', group: 'site', initial: 'J' },
-  { label: '@MiiverseI', detail: 'Kei animation', href: 'https://x.com/MiiverseI', group: 'kei', initial: 'M' },
-  { label: '@myuton0407', detail: 'Kei avatar', href: 'https://x.com/myuton0407', group: 'kei', initial: 'm' },
-  { label: 'Fish Audio', detail: 'Kei voice', href: 'https://fish.audio/app/', group: 'kei', initial: 'F' },
-]
-
-const groups: { id: CreditGroup; title: string; description: string }[] = [
-  { id: 'site', title: 'Leaderboard', description: 'Data and community resources that power the site.' },
-  { id: 'kei', title: 'Kei greeting', description: 'Animation and voice that bring her welcome to life.' },
-]
+import { SITE_CONTENT } from '@/lib/site-content'
 
 function ExternalIcon() {
   return (
@@ -40,11 +18,11 @@ export function CreditModal({ onClose }: { onClose: () => void }) {
     <StModal title="Credits" onClose={onClose} wide>
       <div className="space-y-6">
         <p className="text-sm leading-6 text-muted2">
-          Stratónas Leaderboard is built with help from these creators and projects.
+          {SITE_CONTENT.creditIntro}
         </p>
 
-        {groups.map((group) => {
-          const items = credits.filter((c) => c.group === group.id)
+        {SITE_CONTENT.creditGroups.map((group) => {
+          const items = SITE_CONTENT.credits.filter((c) => c.group === group.id)
           const isKei = group.id === 'kei'
 
           return (

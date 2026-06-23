@@ -147,6 +147,44 @@ export const getPublicPlayers = unstable_cache(
   }
 )
 
+export const getPublicChatPlayers = unstable_cache(
+  () => prisma.player.findMany({
+    orderBy: { ign: 'asc' },
+    select: {
+      id: true,
+      ign: true,
+      username: true,
+      favouriteStudent: true,
+      favouriteStudentId: true,
+      favouriteStudentData: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      club: true,
+      clubID: true,
+      clubId: true,
+      clubData: {
+        select: {
+          id: true,
+          name: true,
+          uid: true,
+          color: true,
+        },
+      },
+      userID: true,
+      isGuildMember: true,
+      joinedDate: true,
+    },
+  }),
+  ['public-chat-players'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.players],
+  }
+)
+
 export const getPublicRaidEntries = unstable_cache(
   (raidId: string, take?: number, guildOnly = false) => getRankedRaidEntries(raidId, take, { guildOnly }),
   ['public-raid-entries'],

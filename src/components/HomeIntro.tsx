@@ -1,17 +1,6 @@
-const featureItems = [
-  {
-    label: 'Latest rankings',
-    text: 'See the most recent raid submission from Stratónas discord server.',
-  },
-  {
-    label: 'Top 50 cards',
-    text: 'Top 50 stratonas local ranking and their respective student representative.',
-  },
-  {
-    label: 'Profiles and clubs',
-    text: 'Check out player profile and club.',
-  },
-]
+import { SITE_CONTENT } from '@/lib/site-content'
+
+const featureItems = SITE_CONTENT.homeIntro.features
 
 interface HomeIntroProps {
   open: boolean
@@ -54,13 +43,13 @@ export function HomeIntro({ open, onClose }: HomeIntroProps) {
               />
               <div className="min-w-0 flex-1">
                 <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-accent">
-                  Glad you are here
+                  {SITE_CONTENT.homeIntro.eyebrow}
                 </div>
                 <h1 className="text-2xl font-bold leading-tight tracking-[-0.02em] text-text sm:text-3xl">
-                  Welcome to Stratónas Leaderboard.
+                  {SITE_CONTENT.homeIntro.title}
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted2">
-                  This is the community home for raid results, player highlights, club pages, and season history. Start with the latest boards, or wander through the archive at your own pace.
+                  {SITE_CONTENT.homeIntro.body}
                 </p>
               </div>
             </div>

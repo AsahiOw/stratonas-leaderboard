@@ -408,8 +408,30 @@ Backups are saved to `./backups/stratonas_YYYY-MM-DD_HH-MM.sql`.
 | `NEXTAUTH_SECRET` | JWT/session secret. Generate a long random value and keep it stable after deployment. | dev value |
 | `NEXTAUTH_URL` | App URL for NextAuth callbacks | `http://localhost:3000` |
 | `AUTH_TRUST_HOST` | Allows Auth.js to trust the incoming Docker/proxy host. Keep `true` for this self-hosted Docker setup. | `true` |
+| `FREELLMAPI_BASE_URL` | Base URL for the local FreeLLMAPI server. The chat route posts to `/chat/completions` under this URL. Use `http://localhost:3001/v1` when running the app on your host; use `http://host.docker.internal:3001/v1` when the app runs inside Docker and FreeLLMAPI runs on your host. | local: `http://localhost:3001/v1`; Docker: `http://host.docker.internal:3001/v1` |
+| `FREELLMAPI_API_KEY` | Server-only FreeLLMAPI unified bearer key used by the Kei chatbot. Do not prefix with `NEXT_PUBLIC_`. | empty |
+| `FREELLMAPI_CHAT_MODEL` | FreeLLMAPI model name for Kei. `auto` lets FreeLLMAPI route to an available provider/model. Use a model/router path that supports tool/function calling. | `auto` |
+| `BRAVE_SEARCH_API_KEY` | Optional server-only Brave Search API key used by the Kei chatbot for web search/research questions. Do not prefix with `NEXT_PUBLIC_`. | empty |
 
 `NEXTAUTH_SECRET` and `AUTH_TRUST_HOST` are Auth.js/NextAuth v5 settings. This app currently uses credentials login with JWT sessions and role checks stored on the user record.
+
+### Kei Chatbot Provider
+
+Kei uses the FreeLLMAPI OpenAI-compatible chat endpoint. Start your FreeLLMAPI server first, then set these values in `.env` or `.env.docker`:
+
+```env
+FREELLMAPI_BASE_URL=http://localhost:3001/v1
+FREELLMAPI_API_KEY=freellmapi-your-unified-key
+FREELLMAPI_CHAT_MODEL=auto
+```
+
+When the Next.js app runs inside Docker and FreeLLMAPI runs on your host machine, use:
+
+```env
+FREELLMAPI_BASE_URL=http://host.docker.internal:3001/v1
+```
+
+The app sends OpenAI-style tool calls to `FREELLMAPI_BASE_URL/chat/completions`, so keep `FREELLMAPI_CHAT_MODEL` on `auto` or choose a model path that supports tool/function calling.
 
 ## Runtime Data Folders
 

@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:student-lookup": "ts-node --project tsconfig.seed.json src/lib/student-name-matcher.test.ts",
+    "test:chat-agent": "ts-node --project tsconfig.seed.json src/lib/chat-agent.test.ts",
     "postgres:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-postgres.ps1",
     "postgres:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-local-postgres.ps1",
     "db:docker:start": "docker-compose up -d db",
