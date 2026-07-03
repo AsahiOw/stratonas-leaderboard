@@ -117,13 +117,14 @@ docker compose down
 ### Option 2: Host App + Docker Database
 
 Use this when you want the app running directly on your machine but still want PostgreSQL in Docker.
+Start only the database service with `docker compose up -d db`; do not start the full Compose app stack, or Docker will use port `3000`.
 
 macOS/Linux/Git Bash:
 
 ```bash
 npm install
 cp .env.docker.example .env.docker
-npm run db:docker:start
+docker compose up -d db
 npm run db:migrate
 npm run dev:local
 ```
@@ -133,7 +134,7 @@ Windows PowerShell:
 ```powershell
 npm install
 Copy-Item .env.docker.example .env.docker
-npm run db:docker:start
+docker compose up -d db
 $env:DATABASE_URL="postgresql://stratonas:stratonas@localhost:5432/stratonas"
 npx prisma migrate deploy
 npm run dev:local
