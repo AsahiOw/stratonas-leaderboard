@@ -275,8 +275,25 @@ export function Chatbot() {
 
   useEffect(() => {
     if (!open) return
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 80)
-    return () => window.clearTimeout(timer)
+    const viewport = window.visualViewport
+    if (!viewport) return
+    const activeViewport = viewport
+
+    function updateViewportSize() {
+      document.documentElement.style.setProperty('--momotalk-viewport-height', `${activeViewport.height}px`)
+      document.documentElement.style.setProperty('--momotalk-viewport-top', `${activeViewport.offsetTop}px`)
+    }
+
+    updateViewportSize()
+    activeViewport.addEventListener('resize', updateViewportSize)
+    activeViewport.addEventListener('scroll', updateViewportSize)
+
+    return () => {
+      activeViewport.removeEventListener('resize', updateViewportSize)
+      activeViewport.removeEventListener('scroll', updateViewportSize)
+      document.documentElement.style.removeProperty('--momotalk-viewport-height')
+      document.documentElement.style.removeProperty('--momotalk-viewport-top')
+    }
   }, [open])
 
   useEffect(() => {
@@ -411,11 +428,17 @@ export function Chatbot() {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/45 sm:items-center sm:p-4">
+        <div
+          className="fixed inset-x-0 top-0 z-[1000] flex items-stretch justify-center bg-black/45 sm:items-center sm:p-4"
+          style={{
+            height: 'var(--momotalk-viewport-height, 100dvh)',
+            top: 'var(--momotalk-viewport-top, 0px)',
+          }}
+        >
           <section
             role="dialog"
             aria-label="MomoTalk chat with Plana"
-            className="momotalk-dialog relative h-dvh w-full overflow-hidden text-[#2a323e] sm:h-[min(82dvh,760px)] sm:max-w-[1080px] sm:rounded-[10px]"
+            className="momotalk-dialog relative h-full w-full overflow-hidden text-[#2a323e] sm:h-[min(82dvh,760px)] sm:max-w-[1080px] sm:rounded-[10px]"
           >
             <div className="momotalk-open-curtain" aria-hidden>
               <div className="momotalk-open-brand">
@@ -584,7 +607,7 @@ export function Chatbot() {
       )}
 
       {!open && (
-        <div className="fixed bottom-5 left-4 z-[900] sm:left-5">
+        <div className="fixed bottom-5 left-4 z-30 sm:left-5">
           <button
             type="button"
             onClick={() => setOpen(true)}
