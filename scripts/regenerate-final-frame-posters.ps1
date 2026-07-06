@@ -1,8 +1,7 @@
 param(
   [string]$VideoDir = "Development_data/lobbies-optimized",
   [string]$PosterDir = "Development_data/lobby-posters",
-  [int]$Height = 540,
-  [string]$PosterExt = ".jpg",
+  [int]$Height = 720,
   [string]$FfmpegPath = "",
   [switch]$Force
 )
@@ -41,8 +40,8 @@ Write-Host "  posters: $PosterDir"
 
 foreach ($video in $videos) {
   $index += 1
-  $poster = Join-Path $PosterDir "$($video.BaseName)$PosterExt"
-  $tempPoster = "$poster.tmp$PosterExt"
+  $poster = Join-Path $PosterDir "$($video.BaseName).jpg"
+  $tempPoster = "$poster.tmp.jpg"
 
   Write-Host "[$index/$total] $($video.Name)"
 
@@ -64,4 +63,4 @@ foreach ($video in $videos) {
   Move-Item -LiteralPath $tempPoster -Destination $poster -Force
 }
 
-Write-Host "Done. Generated $total .$($PosterExt.TrimStart('.')) posters."
+Write-Host "Done. Generated $total .jpg posters."

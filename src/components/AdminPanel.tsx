@@ -38,6 +38,30 @@ interface ImportState {
   error?: string | null; startedAt?: string | null; completedAt?: string | null
 }
 
+interface MemorialMediaSyncState {
+  id: string; status: 'idle' | 'running' | 'completed' | 'failed' | string
+  stage: string; total: number; processed: number; discovered: number; newVideos: number
+  downloaded: number; optimized: number; posters: number; skipped: number
+  currentItem?: string | null; message?: string | null; error?: string | null
+  lastScheduledRunAt?: string | null; startedAt?: string | null; completedAt?: string | null
+}
+
+interface MemorialVideoAsset {
+  id: string
+  youtubeId?: string | null
+  title: string
+  fileName?: string | null
+  youtubeUrl?: string | null
+  videoUrl?: string | null
+  posterUrl?: string | null
+  status: string
+  downloadedAt?: string | null
+  optimizedAt?: string | null
+  posterGeneratedAt?: string | null
+  error?: string | null
+  updatedAt: string
+}
+
 interface RaidBoss {
   id: string; schaleId?: number | null; name: string; description: string; image?: string | null
   color: string; color2: string; pattern: string
@@ -142,8 +166,8 @@ interface XlsxImportProgress {
   error?: string | null
 }
 
-type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries' | 'import' | 'recruitment' | 'settings'
-type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'raids' | 'bosses' | 'entries'
+type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'videos' | 'raids' | 'bosses' | 'entries' | 'import' | 'recruitment' | 'settings'
+type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'videos' | 'raids' | 'bosses' | 'entries'
 type DeleteConfirmation = {
   title: string
   message: string
@@ -157,6 +181,7 @@ const navItems: { id: Section; label: string; icon: string }[] = [
   { id: 'players', label: 'Players', icon: '◎' },
   { id: 'clubs', label: 'Clubs', icon: '◇' },
   { id: 'students', label: 'Students', icon: '◌' },
+  { id: 'videos', label: 'Videos', icon: '▷' },
   { id: 'raids', label: 'Raids', icon: '⬡' },
   { id: 'bosses', label: 'Bosses', icon: '◉' },
   { id: 'entries', label: 'Entries', icon: '⊞' },
@@ -267,6 +292,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const [showImportProgress, setShowImportProgress] = useState(false)
   const [bossImportState, setBossImportState] = useState<ImportState | null>(null)
   const [showBossImportProgress, setShowBossImportProgress] = useState(false)
+  const [memorialMediaSyncState, setMemorialMediaSyncState] = useState<MemorialMediaSyncState | null>(null)
+  const [memorialVideos, setMemorialVideos] = useState<MemorialVideoAsset[]>([])
   const [xlsxForm, setXlsxForm] = useState({
     server: '',
     startDate: '',
@@ -280,6 +307,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     players: '',
     clubs: '',
     students: '',
+    videos: '',
     raids: '',
     bosses: '',
     entries: '',
@@ -289,6 +317,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     players: INITIAL_VISIBLE_ROWS,
     clubs: INITIAL_VISIBLE_ROWS,
     students: INITIAL_VISIBLE_ROWS,
+    videos: INITIAL_VISIBLE_ROWS,
     raids: INITIAL_VISIBLE_ROWS,
     bosses: INITIAL_VISIBLE_ROWS,
     entries: INITIAL_VISIBLE_ROWS,
@@ -380,6 +409,18 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }, [])
   const loadImportStatus = useCallback(() => fetch('/api/admin/students/import/status').then(r => r.json()).then(setImportState), [])
   const loadBossImportStatus = useCallback(() => fetch('/api/admin/raid-bosses/import/status').then(r => r.json()).then(setBossImportState), [])
+  const loadMemorialMediaSyncStatus = useCallback(() => {
+    fetch('/api/admin/memorial-media/sync/status')
+      .then(r => r.json())
+      .then(setMemorialMediaSyncState)
+      .catch(() => null)
+  }, [])
+  const loadMemorialVideos = useCallback(() => {
+    fetch('/api/admin/memorial-videos', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(setMemorialVideos)
+      .catch(() => null)
+  }, [])
   const loadRaidLookups = useCallback(() => {
     fetch('/api/admin/raid-lookups')
       .then(r => r.json())
@@ -414,8 +455,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }, [])
 
   useEffect(() => {
-    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadXlsxReviewItems(); loadStudentMatchRules()
-  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadXlsxReviewItems, loadStudentMatchRules])
+    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadMemorialMediaSyncStatus(); loadMemorialVideos(); loadXlsxReviewItems(); loadStudentMatchRules()
+  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadMemorialMediaSyncStatus, loadMemorialVideos, loadXlsxReviewItems, loadStudentMatchRules])
 
   useEffect(() => {
     if (!showImportProgress || importState?.status !== 'running') return
@@ -436,6 +477,12 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }, [showBossImportProgress, bossImportState?.status, loadBossImportStatus, loadBosses])
 
   useEffect(() => {
+    if (memorialMediaSyncState?.status !== 'running') return
+    const timer = window.setInterval(loadMemorialMediaSyncStatus, 1000)
+    return () => window.clearInterval(timer)
+  }, [memorialMediaSyncState?.status, loadMemorialMediaSyncStatus])
+
+  useEffect(() => {
     if (importState?.status !== 'completed') return
     loadStudents()
     loadPlayers()
@@ -446,6 +493,13 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     loadBosses()
     loadRaids()
   }, [bossImportState?.status, loadBosses, loadRaids])
+
+  useEffect(() => {
+    if (memorialMediaSyncState?.status !== 'completed') return
+    loadMemorialVideos()
+    loadStudents()
+    loadPlayers()
+  }, [memorialMediaSyncState?.status, loadMemorialVideos, loadPlayers, loadStudents])
 
   useEffect(() => {
     if (!active) setDrawerOpen(false)
@@ -733,6 +787,22 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     setImportState(body)
     setShowImportProgress(true)
     showToast('Student import started.')
+  }
+
+  async function startMemorialMediaSync() {
+    const res = await fetch('/api/admin/memorial-media/sync', { method: 'POST' })
+    const body = await res.json().catch(() => null)
+    if (res.status === 409) {
+      alert('Memorial media sync is already running. Please wait until it finishes.')
+      if (body?.state) setMemorialMediaSyncState(body.state)
+      return
+    }
+    if (!res.ok) {
+      showToast(body?.error || 'Could not start memorial media sync.')
+      return
+    }
+    setMemorialMediaSyncState(body)
+    showToast('Memorial media sync started.')
   }
 
   // ── Raid Boss form ─────────────────────────────────────────────────────────
@@ -1226,6 +1296,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     players: search.players.trim().toLowerCase(),
     clubs: search.clubs.trim().toLowerCase(),
     students: search.students.trim().toLowerCase(),
+    videos: search.videos.trim().toLowerCase(),
     raids: search.raids.trim().toLowerCase(),
     bosses: search.bosses.trim().toLowerCase(),
     entries: search.entries.trim().toLowerCase(),
@@ -1251,6 +1322,9 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     s.memorialOffsetX, s.memorialOffsetY, s.memorialScale,
     s.portraitOffsetX, s.portraitOffsetY, s.portraitScale,
   ], normalizedSearch.students))
+  const filteredVideos = memorialVideos.filter((video) => searchable([
+    video.title, video.fileName, video.videoUrl, video.posterUrl, video.youtubeUrl, video.youtubeId, video.status, video.error,
+  ], normalizedSearch.videos))
   const filteredRaids = raids.filter((r) => searchable([
     r.raidBoss.name, r.raidBoss.description, r.season, r.type.name, r.server.name, r.terrain.name,
     r.pattern, r.startDate, r.endDate,
@@ -1272,6 +1346,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const visiblePlayers = filteredPlayers.slice(0, visibleRows.players)
   const visibleClubs = filteredClubs.slice(0, visibleRows.clubs)
   const visibleStudents = filteredStudents.slice(0, visibleRows.students)
+  const visibleVideos = filteredVideos.slice(0, visibleRows.videos)
   const visibleRaids = filteredRaids.slice(0, visibleRows.raids)
   const visibleBosses = filteredBosses.slice(0, visibleRows.bosses)
   const visibleEntries = filteredEntries.slice(0, visibleRows.entries)
@@ -1765,6 +1840,102 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
           </div>
         )}
 
+        {/* VIDEOS */}
+        {sec === 'videos' && (
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+              <div>
+                <div className="font-bold text-lg">Videos</div>
+                <div className="text-[13px] text-muted mt-1">
+                  Memorial videos served from optimized files or raw lobby fallbacks.
+                </div>
+              </div>
+            </div>
+            {renderListControls('videos', memorialVideos.length, filteredVideos.length, visibleVideos.length, 'Search videos by title, filename, YouTube id, status, or URLs...')}
+
+            <div className="sm:hidden flex flex-col gap-2.5">
+              {visibleVideos.map((video) => (
+                <div key={video.id} className="bg-card border border-border rounded-xl p-3.5">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm break-words">{video.title}</div>
+                      <div className="text-[11px] text-muted font-mono">{video.status}</div>
+                      <div className="text-[11px] text-muted truncate max-w-[260px]">
+                        {video.fileName || 'No local file yet'}
+                      </div>
+                      <div className="text-[11px] text-muted2 font-mono break-all mt-1">
+                        Video: {video.videoUrl || '—'}
+                      </div>
+                      <div className="text-[11px] text-muted2 font-mono break-all mt-1">
+                        Poster: {video.posterUrl || '—'}
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      {video.videoUrl && <a href={video.videoUrl} target="_blank" rel="noreferrer" className={editBtnClass}>Video</a>}
+                      {video.posterUrl && <a href={video.posterUrl} target="_blank" rel="noreferrer" className={editBtnClass}>Poster</a>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {filteredVideos.length === 0 && (
+                <div className="text-center text-muted text-sm py-8">
+                  {memorialVideos.length === 0 ? 'No memorial videos were found in the media folders.' : 'No videos match your search.'}
+                </div>
+              )}
+            </div>
+
+            <div className="hidden sm:block bg-card border border-border rounded-xl overflow-hidden">
+              <div className="horizontal-scrollbar overflow-x-auto overflow-y-hidden">
+                <table className="w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border2 bg-white/[0.02]">
+                      {['STATUS', 'VIDEO NAME', 'FILE NAME', 'YOUTUBE', 'VIDEO LINK', 'POSTER LINK', 'ACTIONS'].map((h) => (
+                        <th key={h} className="px-3.5 py-2.5 text-left text-muted text-[11px] font-semibold tracking-[0.07em] whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleVideos.map((video, i) => (
+                      <tr key={video.id} className={i < visibleVideos.length - 1 ? 'border-b border-border' : ''}>
+                        <td className="px-3.5 py-2.5 text-muted2 text-xs whitespace-nowrap">{video.status}</td>
+                        <td className="px-3.5 py-2.5 font-semibold min-w-[220px]">{video.title}</td>
+                        <td className="px-3.5 py-2.5 text-muted2 text-xs min-w-[260px]">{video.fileName || '—'}</td>
+                        <td className="px-3.5 py-2.5 text-muted text-xs min-w-[180px]">
+                          {video.youtubeUrl ? (
+                            <a href={video.youtubeUrl} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                              {video.youtubeId || 'YouTube'}
+                            </a>
+                          ) : video.youtubeId || '—'}
+                        </td>
+                        <td className="px-3.5 py-2.5 text-muted text-xs min-w-[360px] max-w-[560px]">
+                          <span className="font-mono break-all">{video.videoUrl || '—'}</span>
+                        </td>
+                        <td className="px-3.5 py-2.5 text-muted text-xs min-w-[360px] max-w-[560px]">
+                          <span className="font-mono break-all">{video.posterUrl || '—'}</span>
+                        </td>
+                        <td className="px-3.5 py-2.5">
+                          <div className="flex gap-1.5">
+                            {video.videoUrl && <a href={video.videoUrl} target="_blank" rel="noreferrer" className={editBtnClass}>Video</a>}
+                            {video.posterUrl && <a href={video.posterUrl} target="_blank" rel="noreferrer" className={editBtnClass}>Poster</a>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredVideos.length === 0 && (
+                  <div className="text-center text-muted text-sm py-8">
+                    {memorialVideos.length === 0 ? 'No memorial videos were found in the media folders.' : 'No videos match your search.'}
+                  </div>
+                )}
+              </div>
+            </div>
+            {renderShowMore('videos', filteredVideos.length, visibleVideos.length)}
+          </div>
+        )}
+
         {/* RAIDS */}
         {sec === 'raids' && (
           <div>
@@ -2058,6 +2229,77 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                   {xlsxImporting ? 'Importing...' : 'Import XLSX'}
                 </button>
               </form>
+            </div>
+
+            <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                  <div className="font-bold text-[15px]">Memorial Lobby Media</div>
+                  <div className="text-xs text-muted mt-1">
+                    Check Jaymie Arclight videos, download new lobbies, optimize MP4 files, and generate JPG posters.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={`${addBtnClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+                  disabled={memorialMediaSyncState?.status === 'running'}
+                  onClick={startMemorialMediaSync}
+                >
+                  {memorialMediaSyncState?.status === 'running' ? 'Sync Running...' : 'Check Videos'}
+                </button>
+              </div>
+
+              {memorialMediaSyncState && memorialMediaSyncState.status !== 'idle' && (
+                <div className="mt-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                    <div>
+                      <div className="text-sm font-semibold text-text">{memorialMediaSyncState.stage || 'Waiting'}</div>
+                      <div className="text-xs text-muted">
+                        {memorialMediaSyncState.currentItem || memorialMediaSyncState.message || 'Ready'}
+                      </div>
+                    </div>
+                    <div className="font-mono text-sm text-muted2">
+                      {memorialMediaSyncState.total > 0
+                        ? `${memorialMediaSyncState.processed} / ${memorialMediaSyncState.total}`
+                        : memorialMediaSyncState.status === 'running' ? 'Starting' : 'Complete'}
+                    </div>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-bg border border-border overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-all duration-300"
+                      style={{
+                        width: `${memorialMediaSyncState.total > 0
+                          ? Math.min(100, Math.round((memorialMediaSyncState.processed / memorialMediaSyncState.total) * 100))
+                          : memorialMediaSyncState.status === 'running' ? 8 : 100}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 mt-3">
+                    {[
+                      ['Found', memorialMediaSyncState.newVideos],
+                      ['Downloaded', memorialMediaSyncState.downloaded],
+                      ['Optimized', memorialMediaSyncState.optimized],
+                      ['Posters', memorialMediaSyncState.posters],
+                      ['Skipped', memorialMediaSyncState.skipped],
+                      ['Seen', memorialMediaSyncState.discovered],
+                    ].map(([label, value]) => (
+                      <div key={label} className="bg-card2 border border-border rounded-lg p-2.5">
+                        <div className="text-[10px] text-muted tracking-[0.08em] font-semibold uppercase">{label}</div>
+                        <div className="font-mono text-lg text-text font-bold">{Number(value).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {(memorialMediaSyncState.message || memorialMediaSyncState.error) && (
+                    <div className={`mt-3 border rounded-lg p-3 text-sm ${
+                      memorialMediaSyncState.status === 'failed'
+                        ? 'bg-red/10 border-red/25 text-red'
+                        : 'bg-bg border-border text-muted2'
+                    }`}>
+                      {memorialMediaSyncState.error || memorialMediaSyncState.message}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {(xlsxImporting || xlsxImportProgress?.status === 'running') && (

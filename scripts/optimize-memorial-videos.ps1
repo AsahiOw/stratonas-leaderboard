@@ -1,8 +1,7 @@
 param(
   [string]$SourceDir = "Development_data/lobbies",
   [string]$VideoOutDir = "Development_data/lobbies-optimized",
-  [string]$PosterOutDir = "Development_data/lobby-posters",
-  [int]$Height = 540,
+  [int]$Height = 720,
   [int]$Fps = 24,
   [int]$Crf = 30,
   [string]$Preset = "slow",
@@ -19,10 +18,6 @@ if (-not [IO.Path]::IsPathRooted($SourceDir)) {
 
 if (-not [IO.Path]::IsPathRooted($VideoOutDir)) {
   $VideoOutDir = Join-Path $ProjectRoot $VideoOutDir
-}
-
-if (-not [IO.Path]::IsPathRooted($PosterOutDir)) {
-  $PosterOutDir = Join-Path $ProjectRoot $PosterOutDir
 }
 
 if (-not $FfmpegPath) {
@@ -63,7 +58,6 @@ if (-not (Test-Path -LiteralPath $SourceDir)) {
 }
 
 New-Item -ItemType Directory -Force -Path $VideoOutDir | Out-Null
-New-Item -ItemType Directory -Force -Path $PosterOutDir | Out-Null
 
 $videos = Get-ChildItem -LiteralPath $SourceDir -Filter *.mp4 -File | Sort-Object Name
 $total = $videos.Count
@@ -72,7 +66,6 @@ $index = 0
 foreach ($video in $videos) {
   $index += 1
   $optimizedPath = Join-Path $VideoOutDir $video.Name
-  $posterPath = Join-Path $PosterOutDir "$($video.BaseName).webp"
 
   Write-Host "[$index/$total] $($video.Name)"
 
@@ -92,22 +85,6 @@ foreach ($video in $videos) {
     Move-Item -LiteralPath $tempVideo -Destination $optimizedPath -Force
   } else {
     Write-Host "  optimized video exists; skipping"
-  }
-
-  if ($Force -or -not (Test-Path -LiteralPath $posterPath)) {
-    $tempPoster = "$posterPath.tmp.webp"
-    Remove-TempFile $tempPoster
-
-    Invoke-Ffmpeg @(
-      "-hide_banner", "-loglevel", "error", "-y",
-      "-ss", "1", "-i", $optimizedPath,
-      "-frames:v", "1", "-vf", "scale=-2:$Height",
-      $tempPoster
-    )
-
-    Move-Item -LiteralPath $tempPoster -Destination $posterPath -Force
-  } else {
-    Write-Host "  poster exists; skipping"
   }
 }
 

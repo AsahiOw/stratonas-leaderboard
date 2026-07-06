@@ -37,18 +37,19 @@ The app runs at **http://localhost:3000** in all local modes.
 - Node.js 22+ and npm.
 - Docker Desktop, if using Docker modes.
 - PostgreSQL 16, only if using native development without Docker.
-- FFmpeg, only if generating memorial lobby videos/posters.
+- FFmpeg and yt-dlp, only if generating or syncing memorial lobby videos/posters outside Docker.
 
 Install examples:
 
 ```powershell
 # Windows: install these with winget, Chocolatey, or official installers.
-# Make sure node, npm, docker, psql, and ffmpeg are available in PATH.
+# Make sure node, npm, docker, psql, ffmpeg, and optionally yt-dlp are available in PATH.
+# The repo can also use ./Development_data/yt-dlp.exe on Windows if present.
 ```
 
 ```bash
 # macOS
-brew install node postgresql@16 ffmpeg
+brew install node postgresql@16 ffmpeg yt-dlp
 ```
 
 ## Environment Files
@@ -289,9 +290,39 @@ Generated files go here:
 ./Development_data/lobby-posters       # generated poster images used by the app
 ```
 
-For Docker runs, `./Development_data` is mounted into the app container as read-only, so the app can serve the optimized videos and posters.
+For Docker runs, `./Development_data` is mounted into the app container as writable storage so the app can download, optimize, and serve memorial videos and posters.
 
-### Generate On Windows PowerShell
+### Sync And Generate Cross-Platform
+
+The preferred media command works on Windows, macOS, and Linux:
+
+```bash
+npm run media:memorials
+```
+
+It checks `https://www.youtube.com/@JaymieArclight/videos` with yt-dlp, uses `./Development_data/jaymie-yt-dlp-archive.txt` to skip already downloaded videos, downloads new MP4 files to `./Development_data/lobbies`, then creates 720p optimized MP4 files and 720p `.jpg` final-frame posters.
+
+To process local MP4 files already in `./Development_data/lobbies` without checking YouTube:
+
+```bash
+npm run media:process-existing
+```
+
+The scripts skip existing optimized videos and posters. The server also checks automatically every Thursday at `00:00 UTC+7`, and admins can start the same sync from the Admin Import page.
+
+Each sync also scans `./Development_data/lobbies` for existing raw MP4 files that are missing either a matching optimized MP4 or JPG poster, so local files downloaded before the automation are completed without being downloaded again.
+
+Video optimization uses ffmpeg and can affect app responsiveness on the same machine. The cross-platform media job limits ffmpeg to 2 threads by default; set `MEDIA_FFMPEG_THREADS=1` for gentler background processing or a higher value for faster offline processing.
+
+Windows uses `./Development_data/yt-dlp.exe` when that file exists; otherwise install `yt-dlp` and make it available in PATH. macOS users can install dependencies with:
+
+```bash
+brew install ffmpeg yt-dlp
+```
+
+If YouTube requires sign-in or age confirmation, update `./Development_data/cookies.txt` with exported YouTube cookies from a signed-in browser session. As an alternative for local runs, set `MEDIA_YTDLP_COOKIES_FROM_BROWSER` to a yt-dlp browser value such as `chrome`, `edge`, or `firefox`.
+
+### Legacy Windows PowerShell Scripts
 
 ```powershell
 .\scripts\optimize-memorial-videos.ps1
@@ -305,7 +336,7 @@ Rebuild all existing outputs:
 .\scripts\regenerate-final-frame-posters.ps1 -Force
 ```
 
-### Generate On macOS/Linux
+### Legacy macOS/Linux Scripts
 
 ```bash
 chmod +x ./scripts/optimize-memorial-videos.sh
@@ -324,14 +355,14 @@ Rebuild all existing outputs:
 ### Add One New Student Video
 
 1. Add the new MP4 to `./Development_data/lobbies`.
-2. Run the two media scripts for your OS.
-3. In the admin panel, run the SchaleDB student import/update so the new student can match the video.
+2. Run `npm run media:process-existing`.
+3. The media command refreshes student memorial links after it creates new optimized media.
 
-The scripts skip existing optimized videos/posters unless you pass `-Force` on PowerShell or `--force` on macOS/Linux.
+The media scripts skip existing optimized videos/posters unless you use the legacy `-Force` PowerShell option or legacy `--force` macOS/Linux option.
 
 ### Production Media
 
-Production still reads media from `./Development_data/lobbies-optimized` and `./Development_data/lobby-posters` next to the running app. Generate those folders on the server, or copy them from your development machine.
+Production reads and writes media in `./Development_data/lobbies`, `./Development_data/lobbies-optimized`, and `./Development_data/lobby-posters` next to the running app. Docker production installs `ffmpeg` and `yt-dlp`; make sure the host `Development_data` folder is writable by the container user.
 
 ## Script Compatibility
 
@@ -340,12 +371,14 @@ Production still reads media from `./Development_data/lobbies-optimized` and `./
 | `npm run dev:local` | Yes | Yes | Starts Next.js on `127.0.0.1:3000`. |
 | `npm run build` | Yes | Yes | Runs Prisma generate and Next build. |
 | `npm run start` | Yes | Yes | Starts a built Next.js app. Docker production is recommended for deployment. |
+| `npm run media:memorials` | Yes | Yes | Checks Jaymie Arclight videos, downloads new MP4s, optimizes videos, and creates JPG posters. |
+| `npm run media:process-existing` | Yes | Yes | Processes local MP4 files already in `Development_data/lobbies` without checking YouTube. |
 | `npm run postgres:start` / `postgres:stop` | Yes | No | PowerShell-only native PostgreSQL helpers. |
 | `npm run db:docker:start` / `db:docker:stop` | Yes | Yes | Requires Docker Compose. |
 | `npm run db:migrate` | Git Bash/WSL only | Yes | Uses shell syntax and `sed`; not native PowerShell. |
 | `npm run admin:create` | Git Bash/WSL only | Yes | Use the PowerShell `npx tsx ...` command above on Windows. |
-| `scripts/*.ps1` media scripts | Yes | No | PowerShell versions for Windows. |
-| `scripts/*.sh` media scripts | Git Bash/WSL possible | Yes | Shell versions for macOS/Linux. |
+| `scripts/*.ps1` media scripts | Yes | No | Legacy PowerShell media scripts for Windows. |
+| `scripts/*.sh` media scripts | Git Bash/WSL possible | Yes | Legacy shell media scripts for macOS/Linux. |
 | `scripts/backup.sh` | Git Bash/WSL only | Yes | Requires Docker Compose to be running. |
 
 ## Useful Commands

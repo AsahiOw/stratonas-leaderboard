@@ -1,7 +1,7 @@
 services:
   app:
     volumes:
-      - ./Development_data:/app/Development_data:ro
+      - ./Development_data:/app/Development_data
       - ./public/assets/club:/app/public/assets/club
       - ./public/assets/gacha:/app/public/assets/gacha
 

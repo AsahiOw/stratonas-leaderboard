@@ -3,7 +3,7 @@ set -euo pipefail
 
 SOURCE_DIR="Development_data/lobbies"
 VIDEO_OUT_DIR="Development_data/lobbies-optimized"
-HEIGHT="540"
+HEIGHT="720"
 FPS="24"
 CRF="30"
 PRESET="slow"
