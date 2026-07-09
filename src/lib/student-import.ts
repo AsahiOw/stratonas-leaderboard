@@ -12,8 +12,8 @@ import {
 
 export const STUDENT_IMPORT_ID = 'schaledb-students'
 const SCHALE_STUDENTS_URL = 'https://schaledb.com/data/en/students.min.json'
-const MEMORIAL_LOBBY_VIDEOS_DIR = path.join(process.cwd(), 'Development_data', 'lobbies')
-const OPTIMIZED_MEMORIAL_LOBBY_VIDEOS_DIR = path.join(process.cwd(), 'Development_data', 'lobbies-optimized')
+const MEMORIAL_LOBBY_VIDEOS_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), 'Development_data', 'lobbies')
+const OPTIMIZED_MEMORIAL_LOBBY_VIDEOS_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), 'Development_data', 'lobbies-optimized')
 const BATCH_SIZE = 50
 
 type SchaleStudent = {
@@ -88,6 +88,29 @@ export async function startStudentImport() {
   if (lock.count === 0) return false
 
   void runStudentImport()
+  return true
+}
+
+export async function runStudentImportSync() {
+  await ensureStudentImportState()
+
+  const lock = await prisma.studentImportState.updateMany({
+    where: { id: STUDENT_IMPORT_ID, NOT: { status: 'running' } },
+    data: {
+      status: 'running',
+      total: 0,
+      processed: 0,
+      added: 0,
+      skipped: 0,
+      error: null,
+      startedAt: new Date(),
+      completedAt: null,
+    },
+  })
+
+  if (lock.count === 0) return false
+
+  await runStudentImport()
   return true
 }
 

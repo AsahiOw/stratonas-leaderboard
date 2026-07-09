@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:student-lookup": "ts-node --project tsconfig.seed.json src/lib/student-name-matcher.test.ts",
+    "test:chat-agent": "ts-node --project tsconfig.seed.json src/lib/chat-agent.test.ts",
     "postgres:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-postgres.ps1",
     "postgres:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-local-postgres.ps1",
     "db:docker:start": "docker-compose up -d db",
@@ -19,6 +20,9 @@
     "db:seed:docker": "set -a; . ./.env.docker; set +a; tsx prisma/seed.ts",
     "admin:create": "set -a; . ./.env.docker; set +a; DATABASE_URL=$(printf '%s' \"$DATABASE_URL\" | sed 's/@db:5432/@localhost:5432/'); tsx prisma/create-admin.ts",
     "admin:create:docker": "set -a; . ./.env.docker; set +a; tsx prisma/create-admin.ts",
+    "media:memorials": "tsx scripts/memorial-media-sync.ts",
+    "media:process-existing": "tsx scripts/memorial-media-sync.ts --process-existing",
+    "media:videos:backfill": "tsx scripts/backfill-memorial-video-assets.ts",
     "wiki:memorials": "set -a; . ./.env.docker; set +a; DATABASE_URL=$(printf '%s' \"$DATABASE_URL\" | sed 's/@db:5432/@localhost:5432/'); tsx scripts/scrape-memorial-lobbies.ts",
     "wiki:memorials:docker": "set -a; . ./.env.docker; set +a; tsx scripts/scrape-memorial-lobbies.ts",
     "postinstall": "prisma generate"

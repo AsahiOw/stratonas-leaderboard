@@ -196,6 +196,48 @@ model RaidBossImportState {
   updatedAt   DateTime  @updatedAt
 }
 
+model MemorialMediaSyncState {
+  id                 String    @id @default("jaymie-memorial-media")
+  status             String    @default("idle")
+  stage              String    @default("idle")
+  total              Int       @default(0)
+  processed          Int       @default(0)
+  discovered         Int       @default(0)
+  newVideos          Int       @default(0)
+  downloaded         Int       @default(0)
+  optimized          Int       @default(0)
+  posters            Int       @default(0)
+  skipped            Int       @default(0)
+  currentItem        String?
+  message            String?
+  error              String?
+  lastScheduledRunAt DateTime?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model MemorialVideoAsset {
+  id                String    @id @default(cuid())
+  youtubeId         String?   @unique
+  title             String
+  fileName          String?   @unique
+  youtubeUrl        String?
+  videoUrl          String?
+  posterUrl         String?
+  status            String    @default("discovered")
+  downloadedAt      DateTime?
+  optimizedAt       DateTime?
+  posterGeneratedAt DateTime?
+  error             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status])
+  @@index([title])
+}
+
 model RaidType {
   id    String @id @default(cuid())
   name  String @unique

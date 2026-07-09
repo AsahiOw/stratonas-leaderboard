@@ -37,18 +37,19 @@ The app runs at **http://localhost:3000** in all local modes.
 - Node.js 22+ and npm.
 - Docker Desktop, if using Docker modes.
 - PostgreSQL 16, only if using native development without Docker.
-- FFmpeg, only if generating memorial lobby videos/posters.
+- FFmpeg and yt-dlp, only if generating or syncing memorial lobby videos/posters outside Docker.
 
 Install examples:
 
 ```powershell
 # Windows: install these with winget, Chocolatey, or official installers.
-# Make sure node, npm, docker, psql, and ffmpeg are available in PATH.
+# Make sure node, npm, docker, psql, ffmpeg, and optionally yt-dlp are available in PATH.
+# The repo can also use ./Development_data/yt-dlp.exe on Windows if present.
 ```
 
 ```bash
 # macOS
-brew install node postgresql@16 ffmpeg
+brew install node postgresql@16 ffmpeg yt-dlp
 ```
 
 ## Environment Files
@@ -117,13 +118,14 @@ docker compose down
 ### Option 2: Host App + Docker Database
 
 Use this when you want the app running directly on your machine but still want PostgreSQL in Docker.
+Start only the database service with `docker compose up -d db`; do not start the full Compose app stack, or Docker will use port `3000`.
 
 macOS/Linux/Git Bash:
 
 ```bash
 npm install
 cp .env.docker.example .env.docker
-npm run db:docker:start
+docker compose up -d db
 npm run db:migrate
 npm run dev:local
 ```
@@ -133,7 +135,7 @@ Windows PowerShell:
 ```powershell
 npm install
 Copy-Item .env.docker.example .env.docker
-npm run db:docker:start
+docker compose up -d db
 $env:DATABASE_URL="postgresql://stratonas:stratonas@localhost:5432/stratonas"
 npx prisma migrate deploy
 npm run dev:local
@@ -288,9 +290,39 @@ Generated files go here:
 ./Development_data/lobby-posters       # generated poster images used by the app
 ```
 
-For Docker runs, `./Development_data` is mounted into the app container as read-only, so the app can serve the optimized videos and posters.
+For Docker runs, `./Development_data` is mounted into the app container as writable storage so the app can download, optimize, and serve memorial videos and posters.
 
-### Generate On Windows PowerShell
+### Sync And Generate Cross-Platform
+
+The preferred media command works on Windows, macOS, and Linux:
+
+```bash
+npm run media:memorials
+```
+
+It checks `https://www.youtube.com/@JaymieArclight/videos` with yt-dlp, uses `./Development_data/jaymie-yt-dlp-archive.txt` to skip already downloaded videos, downloads new MP4 files to `./Development_data/lobbies`, then creates 720p optimized MP4 files and 720p `.jpg` final-frame posters.
+
+To process local MP4 files already in `./Development_data/lobbies` without checking YouTube:
+
+```bash
+npm run media:process-existing
+```
+
+The scripts skip existing optimized videos and posters. The server also checks automatically every Thursday at `00:00 UTC+7`, and admins can start the same sync from the Admin Import page.
+
+Each sync also scans `./Development_data/lobbies` for existing raw MP4 files that are missing either a matching optimized MP4 or JPG poster, so local files downloaded before the automation are completed without being downloaded again.
+
+Video optimization uses ffmpeg and can affect app responsiveness on the same machine. The cross-platform media job limits ffmpeg to 2 threads by default; set `MEDIA_FFMPEG_THREADS=1` for gentler background processing or a higher value for faster offline processing.
+
+Windows uses `./Development_data/yt-dlp.exe` when that file exists; otherwise install `yt-dlp` and make it available in PATH. macOS users can install dependencies with:
+
+```bash
+brew install ffmpeg yt-dlp
+```
+
+If YouTube requires sign-in or age confirmation, update `./Development_data/cookies.txt` with exported YouTube cookies from a signed-in browser session. As an alternative for local runs, set `MEDIA_YTDLP_COOKIES_FROM_BROWSER` to a yt-dlp browser value such as `chrome`, `edge`, or `firefox`.
+
+### Legacy Windows PowerShell Scripts
 
 ```powershell
 .\scripts\optimize-memorial-videos.ps1
@@ -304,7 +336,7 @@ Rebuild all existing outputs:
 .\scripts\regenerate-final-frame-posters.ps1 -Force
 ```
 
-### Generate On macOS/Linux
+### Legacy macOS/Linux Scripts
 
 ```bash
 chmod +x ./scripts/optimize-memorial-videos.sh
@@ -323,14 +355,14 @@ Rebuild all existing outputs:
 ### Add One New Student Video
 
 1. Add the new MP4 to `./Development_data/lobbies`.
-2. Run the two media scripts for your OS.
-3. In the admin panel, run the SchaleDB student import/update so the new student can match the video.
+2. Run `npm run media:process-existing`.
+3. The media command refreshes student memorial links after it creates new optimized media.
 
-The scripts skip existing optimized videos/posters unless you pass `-Force` on PowerShell or `--force` on macOS/Linux.
+The media scripts skip existing optimized videos/posters unless you use the legacy `-Force` PowerShell option or legacy `--force` macOS/Linux option.
 
 ### Production Media
 
-Production still reads media from `./Development_data/lobbies-optimized` and `./Development_data/lobby-posters` next to the running app. Generate those folders on the server, or copy them from your development machine.
+Production reads and writes media in `./Development_data/lobbies`, `./Development_data/lobbies-optimized`, and `./Development_data/lobby-posters` next to the running app. Docker production installs `ffmpeg` and `yt-dlp`; make sure the host `Development_data` folder is writable by the container user.
 
 ## Script Compatibility
 
@@ -339,12 +371,14 @@ Production still reads media from `./Development_data/lobbies-optimized` and `./
 | `npm run dev:local` | Yes | Yes | Starts Next.js on `127.0.0.1:3000`. |
 | `npm run build` | Yes | Yes | Runs Prisma generate and Next build. |
 | `npm run start` | Yes | Yes | Starts a built Next.js app. Docker production is recommended for deployment. |
+| `npm run media:memorials` | Yes | Yes | Checks Jaymie Arclight videos, downloads new MP4s, optimizes videos, and creates JPG posters. |
+| `npm run media:process-existing` | Yes | Yes | Processes local MP4 files already in `Development_data/lobbies` without checking YouTube. |
 | `npm run postgres:start` / `postgres:stop` | Yes | No | PowerShell-only native PostgreSQL helpers. |
 | `npm run db:docker:start` / `db:docker:stop` | Yes | Yes | Requires Docker Compose. |
 | `npm run db:migrate` | Git Bash/WSL only | Yes | Uses shell syntax and `sed`; not native PowerShell. |
 | `npm run admin:create` | Git Bash/WSL only | Yes | Use the PowerShell `npx tsx ...` command above on Windows. |
-| `scripts/*.ps1` media scripts | Yes | No | PowerShell versions for Windows. |
-| `scripts/*.sh` media scripts | Git Bash/WSL possible | Yes | Shell versions for macOS/Linux. |
+| `scripts/*.ps1` media scripts | Yes | No | Legacy PowerShell media scripts for Windows. |
+| `scripts/*.sh` media scripts | Git Bash/WSL possible | Yes | Legacy shell media scripts for macOS/Linux. |
 | `scripts/backup.sh` | Git Bash/WSL only | Yes | Requires Docker Compose to be running. |
 
 ## Useful Commands
@@ -408,8 +442,30 @@ Backups are saved to `./backups/stratonas_YYYY-MM-DD_HH-MM.sql`.
 | `NEXTAUTH_SECRET` | JWT/session secret. Generate a long random value and keep it stable after deployment. | dev value |
 | `NEXTAUTH_URL` | App URL for NextAuth callbacks | `http://localhost:3000` |
 | `AUTH_TRUST_HOST` | Allows Auth.js to trust the incoming Docker/proxy host. Keep `true` for this self-hosted Docker setup. | `true` |
+| `FREELLMAPI_BASE_URL` | Base URL for the local FreeLLMAPI server. The chat route posts to `/chat/completions` under this URL. Use `http://localhost:3001/v1` when running the app on your host; use `http://host.docker.internal:3001/v1` when the app runs inside Docker and FreeLLMAPI runs on your host. | local: `http://localhost:3001/v1`; Docker: `http://host.docker.internal:3001/v1` |
+| `FREELLMAPI_API_KEY` | Server-only FreeLLMAPI unified bearer key used by the Kei chatbot. Do not prefix with `NEXT_PUBLIC_`. | empty |
+| `FREELLMAPI_CHAT_MODEL` | FreeLLMAPI model name for Kei. `auto` lets FreeLLMAPI route to an available provider/model. Use a model/router path that supports tool/function calling. | `auto` |
+| `BRAVE_SEARCH_API_KEY` | Optional server-only Brave Search API key used by the Kei chatbot for web search/research questions. Do not prefix with `NEXT_PUBLIC_`. | empty |
 
 `NEXTAUTH_SECRET` and `AUTH_TRUST_HOST` are Auth.js/NextAuth v5 settings. This app currently uses credentials login with JWT sessions and role checks stored on the user record.
+
+### Kei Chatbot Provider
+
+Kei uses the FreeLLMAPI OpenAI-compatible chat endpoint. Start your FreeLLMAPI server first, then set these values in `.env` or `.env.docker`:
+
+```env
+FREELLMAPI_BASE_URL=http://localhost:3001/v1
+FREELLMAPI_API_KEY=freellmapi-your-unified-key
+FREELLMAPI_CHAT_MODEL=auto
+```
+
+When the Next.js app runs inside Docker and FreeLLMAPI runs on your host machine, use:
+
+```env
+FREELLMAPI_BASE_URL=http://host.docker.internal:3001/v1
+```
+
+The app sends OpenAI-style tool calls to `FREELLMAPI_BASE_URL/chat/completions`, so keep `FREELLMAPI_CHAT_MODEL` on `auto` or choose a model path that supports tool/function calling.
 
 ## Runtime Data Folders
 

@@ -3,8 +3,7 @@ set -euo pipefail
 
 VIDEO_DIR="Development_data/lobbies-optimized"
 POSTER_DIR="Development_data/lobby-posters"
-HEIGHT="540"
-POSTER_EXT=".jpg"
+HEIGHT="720"
 FORCE="0"
 TEMP_POSTER=""
 
@@ -20,7 +19,6 @@ while [[ $# -gt 0 ]]; do
     --video-dir) VIDEO_DIR="$2"; shift 2 ;;
     --poster-dir) POSTER_DIR="$2"; shift 2 ;;
     --height) HEIGHT="$2"; shift 2 ;;
-    --poster-ext) POSTER_EXT="$2"; shift 2 ;;
     --force) FORCE="1"; shift ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
@@ -59,8 +57,8 @@ for VIDEO in "${VIDEOS[@]}"; do
   INDEX="$((INDEX + 1))"
   NAME="$(basename "$VIDEO")"
   BASENAME="${NAME%.*}"
-  POSTER="$POSTER_DIR/$BASENAME$POSTER_EXT"
-  TEMP_POSTER="$POSTER.tmp$POSTER_EXT"
+  POSTER="$POSTER_DIR/$BASENAME.jpg"
+  TEMP_POSTER="$POSTER.tmp.jpg"
 
   echo "[$INDEX/$TOTAL] $NAME"
 
@@ -80,4 +78,4 @@ for VIDEO in "${VIDEOS[@]}"; do
   TEMP_POSTER=""
 done
 
-echo "Done. Generated $TOTAL ${POSTER_EXT#.} posters."
+echo "Done. Generated $TOTAL jpg posters."
