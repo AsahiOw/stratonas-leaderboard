@@ -687,11 +687,45 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     portraitScale: '1',
   }
   const [sForm, setSForm] = useState(emptyS)
+  const [studentImageMode, setStudentImageMode] = useState<'file' | 'url'>('file')
+  const [studentPortraitMode, setStudentPortraitMode] = useState<'file' | 'url'>('file')
+  const [studentImageFile, setStudentImageFile] = useState<File | null>(null)
+  const [studentPortraitFile, setStudentPortraitFile] = useState<File | null>(null)
+  const [studentImagePreview, setStudentImagePreview] = useState('')
+  const [studentPortraitPreview, setStudentPortraitPreview] = useState('')
   const [studentError, setStudentError] = useState<string | null>(null)
 
-  function openAddStudent() { setStudentError(null); setSForm(emptyS); setEditTarget(null); setModal('student') }
+  useEffect(() => {
+    if (!studentImageFile) {
+      setStudentImagePreview('')
+      return
+    }
+
+    const preview = URL.createObjectURL(studentImageFile)
+    setStudentImagePreview(preview)
+    return () => URL.revokeObjectURL(preview)
+  }, [studentImageFile])
+
+  useEffect(() => {
+    if (!studentPortraitFile) {
+      setStudentPortraitPreview('')
+      return
+    }
+
+    const preview = URL.createObjectURL(studentPortraitFile)
+    setStudentPortraitPreview(preview)
+    return () => URL.revokeObjectURL(preview)
+  }, [studentPortraitFile])
+
+  function openAddStudent() {
+    setStudentError(null); setStudentImageMode('file'); setStudentPortraitMode('file'); setStudentImageFile(null); setStudentPortraitFile(null); setSForm(emptyS); setEditTarget(null); setModal('student')
+  }
   function openEditStudent(s: Student) {
     setStudentError(null)
+    setStudentImageMode('file')
+    setStudentPortraitMode('file')
+    setStudentImageFile(null)
+    setStudentPortraitFile(null)
     setSForm({
       id: String(s.id),
       name: s.name,
@@ -730,8 +764,9 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   async function saveStudent(e: React.FormEvent) {
     e.preventDefault()
     setStudentError(null)
-    const payload = {
-      id: Number(sForm.id),
+    const payload = new FormData()
+    Object.entries({
+      id: sForm.id,
       name: sForm.name,
       image: sForm.image,
       portrait: sForm.portrait,
@@ -752,16 +787,18 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       position: sForm.position,
       weaponName: sForm.weaponName,
       accentColor: sForm.accentColor,
-      memorialOffsetX: Number(sForm.memorialOffsetX),
-      memorialOffsetY: Number(sForm.memorialOffsetY),
-      memorialScale: Number(sForm.memorialScale),
-      portraitOffsetX: Number(sForm.portraitOffsetX),
-      portraitOffsetY: Number(sForm.portraitOffsetY),
-      portraitScale: Number(sForm.portraitScale),
-    }
+      memorialOffsetX: sForm.memorialOffsetX,
+      memorialOffsetY: sForm.memorialOffsetY,
+      memorialScale: sForm.memorialScale,
+      portraitOffsetX: sForm.portraitOffsetX,
+      portraitOffsetY: sForm.portraitOffsetY,
+      portraitScale: sForm.portraitScale,
+    }).forEach(([key, value]) => payload.append(key, value))
+    if (studentImageFile) payload.append('imageFile', studentImageFile)
+    if (studentPortraitFile) payload.append('portraitFile', studentPortraitFile)
     const res = editTarget
-      ? await fetch(`/api/admin/students/${(editTarget as Student).id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      : await fetch('/api/admin/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      ? await fetch(`/api/admin/students/${(editTarget as Student).id}`, { method: 'PUT', body: payload })
+      : await fetch('/api/admin/students', { method: 'POST', body: payload })
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: 'Could not save student.' }))
       const message = body.error || 'Could not save student.'
@@ -770,6 +807,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       return
     }
     showToast(editTarget ? 'Student updated.' : 'Student added.')
+    setStudentImageFile(null); setStudentPortraitFile(null)
     setModal(null); loadStudents(); loadPlayers()
   }
   async function startStudentImport() {
@@ -1725,7 +1763,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                     <div className="flex items-center gap-3 min-w-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={proxyImage(s.image)}
+                        src={imageSrc(s.image)}
                         alt={s.name}
                         className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                         onError={e => (e.currentTarget.style.display = 'none')}
@@ -1786,7 +1824,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                         <td className="px-3.5 py-2.5">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={proxyImage(s.image)}
+                            src={imageSrc(s.image)}
                             alt={s.name}
                             className="w-11 h-11 rounded-lg object-cover border border-border"
                             onError={e => (e.currentTarget.style.display = 'none')}
@@ -1796,7 +1834,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                           {s.portrait ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={proxyImage(s.portrait)}
+                              src={imageSrc(s.portrait)}
                               alt={`${s.name} portrait`}
                               className="w-11 h-11 rounded-lg object-cover border border-border"
                               onError={e => (e.currentTarget.style.display = 'none')}
@@ -3092,23 +3130,75 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                 />
               </StField>
             </div>
-            <StField label="IMAGE URL" span2>
-              <input
-                className={inputClass}
-                type="url"
-                value={sForm.image}
-                onChange={e => setSForm(f => ({ ...f, image: e.target.value }))}
-                placeholder="https://schaledb.com/images/student/collection/10000.webp"
-              />
+            <StField label="IMAGE" span2>
+              <div className="mb-2 inline-flex rounded-lg border border-border2 bg-card2 p-1">
+                {(['file', 'url'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${studentImageMode === mode ? 'bg-accent text-white' : 'text-muted2 hover:text-text'}`}
+                    onClick={() => {
+                      setStudentImageMode(mode)
+                      if (mode === 'url') setStudentImageFile(null)
+                    }}
+                  >
+                    {mode === 'file' ? 'Media' : 'URL'}
+                  </button>
+                ))}
+              </div>
+              {studentImageMode === 'file' ? (
+                <input
+                  key="student-image-file"
+                  className={inputClass}
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setStudentImageFile(e.target.files?.[0] || null)}
+                />
+              ) : (
+                <input
+                  key="student-image-url"
+                  className={inputClass}
+                  type="url"
+                  value={sForm.image}
+                  onChange={e => setSForm(f => ({ ...f, image: e.target.value }))}
+                  placeholder="https://schaledb.com/images/student/collection/10000.webp"
+                />
+              )}
             </StField>
-            <StField label="PORTRAIT URL" span2>
-              <input
-                className={inputClass}
-                type="url"
-                value={sForm.portrait}
-                onChange={e => setSForm(f => ({ ...f, portrait: e.target.value }))}
-                placeholder="https://schaledb.com/images/student/portrait/10000.webp"
-              />
+            <StField label="PORTRAIT" span2>
+              <div className="mb-2 inline-flex rounded-lg border border-border2 bg-card2 p-1">
+                {(['file', 'url'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${studentPortraitMode === mode ? 'bg-accent text-white' : 'text-muted2 hover:text-text'}`}
+                    onClick={() => {
+                      setStudentPortraitMode(mode)
+                      if (mode === 'url') setStudentPortraitFile(null)
+                    }}
+                  >
+                    {mode === 'file' ? 'Media' : 'URL'}
+                  </button>
+                ))}
+              </div>
+              {studentPortraitMode === 'file' ? (
+                <input
+                  key="student-portrait-file"
+                  className={inputClass}
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setStudentPortraitFile(e.target.files?.[0] || null)}
+                />
+              ) : (
+                <input
+                  key="student-portrait-url"
+                  className={inputClass}
+                  type="url"
+                  value={sForm.portrait}
+                  onChange={e => setSForm(f => ({ ...f, portrait: e.target.value }))}
+                  placeholder="https://schaledb.com/images/student/portrait/10000.webp"
+                />
+              )}
             </StField>
             <StField label="MEMORIAL VIDEO" span2>
               <input
@@ -3185,11 +3275,11 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                 />
               </StField>
             </div>
-            {(sForm.image || sForm.portrait || sForm.memorial) && (
+            {(studentImagePreview || sForm.image || studentPortraitPreview || sForm.portrait || sForm.memorial) && (
               <div className="mb-3 flex flex-wrap gap-3">
                 {[
-                  ['Image', sForm.image, 'image'],
-                  ['Portrait', sForm.portrait, 'image'],
+                  ['Image', studentImagePreview || sForm.image, 'image'],
+                  ['Portrait', studentPortraitPreview || sForm.portrait, 'image'],
                   ['Memorial video', sForm.memorial, 'video'],
                 ].filter((item): item is [string, string, string] => Boolean(item[1])).map(([label, src, kind]) => (
                   <div key={label}>
@@ -3207,7 +3297,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={proxyImage(src)}
+                        src={imageSrc(src)}
                         alt={`${label} preview`}
                         className="h-24 w-24 rounded-xl border border-border object-cover"
                         onError={e => (e.currentTarget.style.display = 'none')}

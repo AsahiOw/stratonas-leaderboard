@@ -23,6 +23,7 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 RUN mkdir -p /app/Development_data/lobbies /app/Development_data/lobbies-optimized /app/Development_data/lobby-posters && chown -R nextjs:nodejs /app/Development_data
 RUN mkdir -p /app/public/assets/club && chown -R nextjs:nodejs /app/public/assets/club
+RUN mkdir -p /app/public/assets/custom-student && chown -R nextjs:nodejs /app/public/assets/custom-student
 RUN mkdir -p /app/public/assets/gacha/banner /app/public/assets/gacha/animation && chown -R nextjs:nodejs /app/public/assets/gacha
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

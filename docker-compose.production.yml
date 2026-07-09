@@ -3,6 +3,7 @@ services:
     volumes:
       - ./Development_data:/app/Development_data
       - ./public/assets/club:/app/public/assets/club
+      - ./public/assets/custom-student:/app/public/assets/custom-student
       - ./public/assets/gacha:/app/public/assets/gacha
 
   db:

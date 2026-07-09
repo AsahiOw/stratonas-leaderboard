@@ -42,6 +42,16 @@ function isStudentVariant(name: string) {
   return baseStudentName(name) !== name.trim().toLowerCase()
 }
 
+function uniqueStudentsByExactName<T extends { id: number; name: string }>(students: T[]) {
+  const rows = new Map<string, T>()
+  students.forEach((student) => {
+    const key = student.name.trim().toLowerCase()
+    const existing = rows.get(key)
+    if (!existing || student.id < existing.id) rows.set(key, student)
+  })
+  return Array.from(rows.values())
+}
+
 function avg(total: number, count: number) {
   return count > 0 ? Math.round(total / count) : 0
 }
@@ -195,43 +205,10 @@ export const getPublicRaidEntries = unstable_cache(
 )
 
 export const getPublicBirthdayStudents = unstable_cache(
-  (birthdayKey: string) => prisma.student.findMany({
-    where: { birthDay: birthdayKey },
-    orderBy: { name: 'asc' },
-    select: {
-      id: true,
-      name: true,
-      image: true,
-      memorial: true,
-      familyName: true,
-      personalName: true,
-      school: true,
-      club: true,
-      schoolYear: true,
-      characterAge: true,
-      birthday: true,
-      birthDay: true,
-      hobby: true,
-      heightMetric: true,
-      weaponType: true,
-      tacticRole: true,
-      position: true,
-      weaponName: true,
-      accentColor: true,
-    },
-  }),
-  ['public-birthday-students'],
-  {
-    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
-    tags: [PUBLIC_CACHE_TAGS.birthdays, PUBLIC_CACHE_TAGS.students],
-  }
-)
-
-export const getPublicUpcomingBirthdayStudents = unstable_cache(
-  async (_birthdayKey: string, take?: number, maxDays = 60) => {
+  async (birthdayKey: string) => {
     const students = await prisma.student.findMany({
-      where: { birthDay: { not: null } },
-      orderBy: { name: 'asc' },
+      where: { birthDay: birthdayKey },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         name: true,
@@ -255,7 +232,44 @@ export const getPublicUpcomingBirthdayStudents = unstable_cache(
       },
     })
 
-    const upcoming = students
+    return uniqueStudentsByExactName(students)
+  },
+  ['public-birthday-students-v2'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.birthdays, PUBLIC_CACHE_TAGS.students],
+  }
+)
+
+export const getPublicUpcomingBirthdayStudents = unstable_cache(
+  async (_birthdayKey: string, take?: number, maxDays = 60) => {
+    const students = await prisma.student.findMany({
+      where: { birthDay: { not: null } },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        memorial: true,
+        familyName: true,
+        personalName: true,
+        school: true,
+        club: true,
+        schoolYear: true,
+        characterAge: true,
+        birthday: true,
+        birthDay: true,
+        hobby: true,
+        heightMetric: true,
+        weaponType: true,
+        tacticRole: true,
+        position: true,
+        weaponName: true,
+        accentColor: true,
+      },
+    })
+
+    const upcoming = uniqueStudentsByExactName(students)
       .map((student) => ({ ...student, daysUntilBirthday: getDaysUntilBirthday(student.birthDay) }))
       .filter((student): student is typeof student & { daysUntilBirthday: number } => (
         student.daysUntilBirthday !== null &&
@@ -282,7 +296,7 @@ export const getPublicUpcomingBirthdayStudents = unstable_cache(
     const rows = Array.from(uniqueStudents.values())
     return take ? rows.slice(0, take) : rows
   },
-  ['public-upcoming-birthday-students'],
+  ['public-upcoming-birthday-students-v2'],
   {
     revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
     tags: [PUBLIC_CACHE_TAGS.birthdays, PUBLIC_CACHE_TAGS.students],

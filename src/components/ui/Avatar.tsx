@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { proxyImage } from '@/lib/utils'
+import { imageSrc } from '@/lib/utils'
 
 interface Props {
   initials: string
@@ -19,7 +19,7 @@ export function Avatar({ initials, color = 'var(--accent)', size = 32, image, al
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={proxyImage(image)}
+        src={imageSrc(image)}
         alt={alt}
         width={size}
         height={size}

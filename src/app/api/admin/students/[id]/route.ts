@@ -3,6 +3,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
+import { deleteCustomStudentMedia, deleteCustomStudentMediaFolder, saveCustomStudentMedia } from '@/lib/custom-student-media'
 import {
   normalizePortraitOffsetNumber,
   normalizePortraitScale,
@@ -13,9 +14,30 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+async function readStudentBody(req: Request) {
+  const contentType = req.headers.get('content-type') || ''
+  if (!contentType.includes('multipart/form-data')) {
+    return { body: await req.json(), imageFile: null, portraitFile: null }
+  }
+
+  const form = await req.formData()
+  const body = Object.fromEntries(form.entries())
+  const imageFile = form.get('imageFile')
+  const portraitFile = form.get('portraitFile')
+
+  return {
+    body,
+    imageFile: imageFile instanceof File && imageFile.size > 0 ? imageFile : null,
+    portraitFile: portraitFile instanceof File && portraitFile.size > 0 ? portraitFile : null,
+  }
+}
+
 function studentErrorResponse(error: unknown, fallback = 'Could not save student.') {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
     return NextResponse.json({ error: 'Student not found.' }, { status: 404 })
+  }
+  if (error instanceof Error && error.message) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
   }
   return NextResponse.json({ error: fallback }, { status: 500 })
 }
@@ -27,10 +49,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const id = normalizeStudentId(rawId)
   if (!id) return NextResponse.json({ error: 'Invalid student id' }, { status: 400 })
 
-  const body = await req.json()
+  const { body, imageFile, portraitFile } = await readStudentBody(req)
   const name = typeof body.name === 'string' ? body.name.trim() : ''
-  const image = typeof body.image === 'string' && body.image.trim() ? body.image.trim() : studentImageUrl(id)
-  const portrait = typeof body.portrait === 'string' && body.portrait.trim() ? body.portrait.trim() : null
   const memorial = typeof body.memorial === 'string' && body.memorial.trim() ? body.memorial.trim() : null
   const memorialOffsetX = normalizePortraitOffsetNumber(body.memorialOffsetX, -7.6)
   const memorialOffsetY = normalizePortraitOffsetNumber(body.memorialOffsetY, 0)
@@ -43,7 +63,26 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const cardFields = normalizeStudentCardFields(body)
   if (!name) return NextResponse.json({ error: 'Student name is required' }, { status: 400 })
 
+  const savedMedia: string[] = []
+  let studentUpdated = false
+
   try {
+    const currentStudent = await prisma.student.findUnique({ where: { id } })
+    if (!currentStudent) return NextResponse.json({ error: 'Student not found.' }, { status: 404 })
+
+    const image = imageFile
+      ? await saveCustomStudentMedia(imageFile, id, 'image').then((value) => {
+        savedMedia.push(value)
+        return value
+      })
+      : typeof body.image === 'string' && body.image.trim() ? body.image.trim() : studentImageUrl(id)
+    const portrait = portraitFile
+      ? await saveCustomStudentMedia(portraitFile, id, 'portrait').then((value) => {
+        savedMedia.push(value)
+        return value
+      })
+      : typeof body.portrait === 'string' && body.portrait.trim() ? body.portrait.trim() : null
+
     const student = await prisma.student.update({
       where: { id },
       data: {
@@ -60,6 +99,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         portraitScale,
       },
     })
+    studentUpdated = true
+    if (student.image !== currentStudent.image) {
+      await deleteCustomStudentMedia(id, currentStudent.image)
+    }
+    if (student.portrait !== currentStudent.portrait) {
+      await deleteCustomStudentMedia(id, currentStudent.portrait)
+    }
     await prisma.player.updateMany({
       where: { favouriteStudentId: id },
       data: { favouriteStudent: student.name },
@@ -68,6 +114,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     invalidatePublicData()
     return NextResponse.json(student)
   } catch (error) {
+    if (!studentUpdated) {
+      await Promise.all(savedMedia.map((value) => deleteCustomStudentMedia(id, value)))
+    }
     return studentErrorResponse(error)
   }
 }
@@ -85,6 +134,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       data: { favouriteStudentId: null },
     })
     await prisma.student.delete({ where: { id } })
+    await deleteCustomStudentMediaFolder(id)
     invalidatePublicData()
     return NextResponse.json({ ok: true })
   } catch (error) {
