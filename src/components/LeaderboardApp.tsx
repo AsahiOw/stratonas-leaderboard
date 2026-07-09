@@ -314,7 +314,7 @@ export function LeaderboardApp({
         {/* COMMUNITY */}
         {visitedTabs.community && (
           <div className={`pt-7 ${tab === 'community' ? 'view-transition' : 'hidden'}`}>
-            <CommunityPage />
+            <CommunityPage onPlayerClick={handlePlayerClick} />
           </div>
         )}
 

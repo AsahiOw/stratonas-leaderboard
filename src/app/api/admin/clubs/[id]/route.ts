@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
-import { saveClubLogo } from '@/lib/club-logo-upload'
+import { deleteClubLogo, saveClubLogo } from '@/lib/club-logo-upload'
 
 export const runtime = 'nodejs'
 
@@ -27,11 +27,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   })
   if (duplicate) return NextResponse.json({ error: 'Club already exists.' }, { status: 409 })
 
+  const currentClub = await prisma.club.findUnique({
+    where: { id },
+    select: { logo: true },
+  })
+  if (!currentClub) return NextResponse.json({ error: 'Club not found.' }, { status: 404 })
+
   const logo = logoFile instanceof File && logoFile.size > 0 ? await saveClubLogo(logoFile, name) : existingLogo
   const club = await prisma.club.update({
     where: { id },
     data: { name, uid, logo, color },
   })
+  if (currentClub.logo && currentClub.logo !== logo) {
+    await deleteClubLogo(currentClub.logo).catch(() => undefined)
+  }
   await prisma.player.updateMany({
     where: { clubId: id },
     data: { club: name, clubID: uid },

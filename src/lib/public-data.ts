@@ -575,17 +575,51 @@ export const getPublicClubProfile = unstable_cache(
 
 export const getPublicCommunityHub = unstable_cache(
   async () => {
-    const [clubSummaries, stats] = await Promise.all([
+    const [clubSummaries, publicPlayers, stats] = await Promise.all([
       getPublicClubSummaries(),
+      prisma.player.findMany({
+        orderBy: { ign: 'asc' },
+        select: {
+          id: true,
+          ign: true,
+          username: true,
+          isGuildMember: true,
+          favouriteStudent: true,
+          favouriteStudentData: true,
+          club: true,
+          clubId: true,
+          clubData: true,
+        },
+      }),
       getPublicStats(),
     ])
+    const playerStats = new Map(stats.topPlayers.map((player) => [player.playerId, player]))
 
     return {
       topClubs: clubSummaries.slice(0, 24),
       featuredPlayers: stats.topPlayers.slice(0, clubSummaries.length),
+      players: publicPlayers.map((player) => {
+        const statsRow = playerStats.get(player.id)
+        return {
+          rank: statsRow?.rank || null,
+          playerId: player.id,
+          name: player.ign,
+          username: player.username,
+          isGuildMember: player.isGuildMember,
+          club: playerClubName(player),
+          clubId: playerClubId(player),
+          favouriteStudent: player.favouriteStudentData?.name || player.favouriteStudent,
+          favouriteStudentImage: player.favouriteStudentData?.image || null,
+          totalScore: statsRow?.totalScore || 0,
+          entryCount: statsRow?.entryCount || 0,
+          averageScore: statsRow?.averageScore || 0,
+          bestRank: statsRow?.bestRank || null,
+          podiums: statsRow?.podiums || 0,
+        }
+      }),
     }
   },
-  ['public-community-hub-v2'],
+  ['public-community-hub-v5'],
   {
     revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
     tags: [PUBLIC_CACHE_TAGS.community, PUBLIC_CACHE_TAGS.raids, PUBLIC_CACHE_TAGS.clubs, PUBLIC_CACHE_TAGS.players, PUBLIC_CACHE_TAGS.raidEntries],

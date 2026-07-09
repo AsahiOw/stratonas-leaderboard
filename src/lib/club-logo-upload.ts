@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'fs/promises'
+import { mkdir, rm, writeFile } from 'fs/promises'
 import path from 'path'
 
 export const CLUB_LOGO_DIR = path.join(process.cwd(), 'public', 'assets', 'club')
@@ -27,4 +27,13 @@ export async function saveClubLogo(file: File, clubName: string) {
   const filename = `${slugify(clubName)}-${Date.now()}.${extensionFor(file)}`
   await writeFile(path.join(CLUB_LOGO_DIR, filename), Buffer.from(await file.arrayBuffer()))
   return `/assets/club/${filename}`
+}
+
+export async function deleteClubLogo(logo: string | null | undefined) {
+  if (!logo?.startsWith('/assets/club/')) return
+
+  const filename = path.basename(logo)
+  if (!filename || filename !== logo.slice('/assets/club/'.length)) return
+
+  await rm(path.join(CLUB_LOGO_DIR, filename), { force: true })
 }
