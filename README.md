@@ -360,6 +360,25 @@ Rebuild all existing outputs:
 
 The media scripts skip existing optimized videos/posters unless you use the legacy `-Force` PowerShell option or legacy `--force` macOS/Linux option.
 
+### Generate One Poster At A Specific Second
+
+Use these scripts when one optimized MP4 needs a poster from a specific timestamp instead of the final frame. The video must already exist in `./Development_data/lobbies-optimized`, and the generated poster is written to `./Development_data/lobby-posters` with the same base filename.
+
+Windows PowerShell:
+
+```powershell
+.\scripts\generate-posters.ps1 -VideoName "Aru.mp4" -Seconds 12.5
+```
+
+macOS/Linux/Git Bash:
+
+```bash
+chmod +x ./scripts/generate-posters.sh
+./scripts/generate-posters.sh --video-name "Aru.mp4" --seconds 12.5
+```
+
+If the poster already exists, pass `-Force` on PowerShell or `--force` on macOS/Linux/Git Bash to overwrite it. The `.mp4` extension is optional, so `Aru` and `Aru.mp4` both target `./Development_data/lobbies-optimized/Aru.mp4`.
+
 ### Production Media
 
 Production reads and writes media in `./Development_data/lobbies`, `./Development_data/lobbies-optimized`, and `./Development_data/lobby-posters` next to the running app. Docker production installs `ffmpeg` and `yt-dlp`; make sure the host `Development_data` folder is writable by the container user.
@@ -373,6 +392,7 @@ Production reads and writes media in `./Development_data/lobbies`, `./Developmen
 | `npm run start` | Yes | Yes | Starts a built Next.js app. Docker production is recommended for deployment. |
 | `npm run media:memorials` | Yes | Yes | Checks Jaymie Arclight videos, downloads new MP4s, optimizes videos, and creates JPG posters. |
 | `npm run media:process-existing` | Yes | Yes | Processes local MP4 files already in `Development_data/lobbies` without checking YouTube. |
+| `scripts/generate-posters.ps1` / `scripts/generate-posters.sh` | Yes | Yes | Generates one poster from a specific second of one optimized MP4. |
 | `npm run postgres:start` / `postgres:stop` | Yes | No | PowerShell-only native PostgreSQL helpers. |
 | `npm run db:docker:start` / `db:docker:stop` | Yes | Yes | Requires Docker Compose. |
 | `npm run db:migrate` | Git Bash/WSL only | Yes | Uses shell syntax and `sed`; not native PowerShell. |

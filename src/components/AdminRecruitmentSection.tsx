@@ -49,6 +49,8 @@ const delBtnClass =
   'bg-red/10 border border-red/25 rounded-md px-2.5 py-1 text-red text-xs hover:bg-red/20 transition-colors'
 const submitBtnClass =
   'w-full bg-accent rounded-lg py-3 text-white font-bold text-sm cursor-pointer mt-1.5 hover:bg-accent/90 transition-colors disabled:cursor-not-allowed disabled:opacity-70'
+const HOME_QUEUE_PAGE_SIZE = 4
+const RECRUITMENT_LIBRARY_PAGE_SIZE = 6
 
 function tomorrowDateKey() {
   const date = new Date()
@@ -78,6 +80,8 @@ export function AdminRecruitmentSection({ students }: Props) {
   const [scheduleForm, setScheduleForm] = useState({ dateKey: '', recruitmentIds: [] as string[] })
   const [scheduleRecruitmentQuery, setScheduleRecruitmentQuery] = useState('')
   const [recruitmentLibraryQuery, setRecruitmentLibraryQuery] = useState('')
+  const [homeQueuePage, setHomeQueuePage] = useState(1)
+  const [recruitmentLibraryPage, setRecruitmentLibraryPage] = useState(1)
   const minScheduleDate = useMemo(() => tomorrowDateKey(), [])
 
   const showToast = useCallback((message: string) => {
@@ -324,6 +328,72 @@ export function AdminRecruitmentSection({ students }: Props) {
   const todayKey = dateKeyFromDate()
   const nextSchedule = schedules.find((schedule) => schedule.dateKey > todayKey) || null
   const displayedSchedules = [...schedules].reverse()
+  const homeQueuePageCount = Math.max(1, Math.ceil(displayedSchedules.length / HOME_QUEUE_PAGE_SIZE))
+  const visibleSchedules = displayedSchedules.slice(
+    (homeQueuePage - 1) * HOME_QUEUE_PAGE_SIZE,
+    homeQueuePage * HOME_QUEUE_PAGE_SIZE
+  )
+  const recruitmentLibraryPageCount = Math.max(1, Math.ceil(filteredRecruitments.length / RECRUITMENT_LIBRARY_PAGE_SIZE))
+  const visibleRecruitments = filteredRecruitments.slice(
+    (recruitmentLibraryPage - 1) * RECRUITMENT_LIBRARY_PAGE_SIZE,
+    recruitmentLibraryPage * RECRUITMENT_LIBRARY_PAGE_SIZE
+  )
+
+  useEffect(() => {
+    setHomeQueuePage((page) => Math.min(page, homeQueuePageCount))
+  }, [homeQueuePageCount])
+
+  useEffect(() => {
+    setRecruitmentLibraryPage(1)
+  }, [recruitmentLibraryQuery])
+
+  useEffect(() => {
+    setRecruitmentLibraryPage((page) => Math.min(page, recruitmentLibraryPageCount))
+  }, [recruitmentLibraryPageCount])
+
+  function PaginationControls({
+    page,
+    pageCount,
+    total,
+    pageSize,
+    onPageChange,
+  }: {
+    page: number
+    pageCount: number
+    total: number
+    pageSize: number
+    onPageChange: (page: number) => void
+  }) {
+    if (total <= pageSize) return null
+    const firstItem = (page - 1) * pageSize + 1
+    const lastItem = Math.min(page * pageSize, total)
+
+    return (
+      <div className="mt-4 flex flex-col gap-2 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          Showing {firstItem}-{lastItem} of {total}
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+            disabled={page <= 1}
+            className="rounded-md border border-border bg-card2 px-3 py-1.5 font-semibold text-muted2 transition-colors hover:border-border2 hover:text-text disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.min(pageCount, page + 1))}
+            disabled={page >= pageCount}
+            className="rounded-md border border-border bg-card2 px-3 py-1.5 font-semibold text-muted2 transition-colors hover:border-border2 hover:text-text disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
@@ -388,61 +458,70 @@ export function AdminRecruitmentSection({ students }: Props) {
             No upcoming recruitment dates.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {displayedSchedules.map((schedule) => {
-              const isNextSchedule = schedule.id === nextSchedule?.id
-              return (
-                <div
-                  key={schedule.id}
-                  className={`rounded-xl border p-4 ${isNextSchedule ? 'border-accent/40 bg-accent/[0.08]' : 'border-border bg-bg'}`}
-                >
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="font-mono text-lg font-bold text-text">{fmtDate(schedule.dateKey)}</div>
-                        {isNextSchedule && (
-                          <span className="rounded-md border border-accent/35 bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
-                            Next on home
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs text-muted">
-                        {schedule.items.length} recruitment{schedule.items.length === 1 ? '' : 's'} selected
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-1.5">
-                      <button type="button" onClick={() => openEditSchedule(schedule)} className={editBtnClass}>Edit</button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget({ type: 'schedule', id: schedule.id, label: fmtDate(schedule.dateKey) })}
-                        className={delBtnClass}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    {schedule.items.map((item) => (
-                      <div key={item.recruitment.id} className="overflow-hidden rounded-lg border border-border2 bg-card2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={imageSrc(item.recruitment.bannerPath)}
-                          alt=""
-                          className="aspect-[16/6] w-full object-cover"
-                          onError={e => (e.currentTarget.style.display = 'none')}
-                        />
-                        <div className="px-2.5 py-2">
-                          <div className="truncate text-xs font-bold">{item.recruitment.student.name}</div>
-                          <div className="truncate text-[11px] text-muted">CV: {item.recruitment.student.characterVoice || '—'}</div>
+          <>
+            <div className="grid grid-cols-1 gap-3">
+              {visibleSchedules.map((schedule) => {
+                const isNextSchedule = schedule.id === nextSchedule?.id
+                return (
+                  <div
+                    key={schedule.id}
+                    className={`rounded-xl border p-4 ${isNextSchedule ? 'border-accent/40 bg-accent/[0.08]' : 'border-border bg-bg'}`}
+                  >
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="font-mono text-lg font-bold text-text">{fmtDate(schedule.dateKey)}</div>
+                          {isNextSchedule && (
+                            <span className="rounded-md border border-accent/35 bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-accent">
+                              Next on home
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-muted">
+                          {schedule.items.length} recruitment{schedule.items.length === 1 ? '' : 's'} selected
                         </div>
                       </div>
-                    ))}
+                      <div className="flex shrink-0 gap-1.5">
+                        <button type="button" onClick={() => openEditSchedule(schedule)} className={editBtnClass}>Edit</button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget({ type: 'schedule', id: schedule.id, label: fmtDate(schedule.dateKey) })}
+                          className={delBtnClass}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      {schedule.items.map((item) => (
+                        <div key={item.recruitment.id} className="overflow-hidden rounded-lg border border-border2 bg-card2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imageSrc(item.recruitment.bannerPath)}
+                            alt=""
+                            className="aspect-[16/6] w-full object-cover"
+                            onError={e => (e.currentTarget.style.display = 'none')}
+                          />
+                          <div className="px-2.5 py-2">
+                            <div className="truncate text-xs font-bold">{item.recruitment.student.name}</div>
+                            <div className="truncate text-[11px] text-muted">CV: {item.recruitment.student.characterVoice || '—'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+            <PaginationControls
+              page={homeQueuePage}
+              pageCount={homeQueuePageCount}
+              total={displayedSchedules.length}
+              pageSize={HOME_QUEUE_PAGE_SIZE}
+              onPageChange={setHomeQueuePage}
+            />
+          </>
         )}
       </section>
 
@@ -474,56 +553,65 @@ export function AdminRecruitmentSection({ students }: Props) {
             No recruitments match {recruitmentLibraryQuery.trim()}.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredRecruitments.map((recruitment) => (
-              <div key={recruitment.id} className="overflow-hidden rounded-xl border border-border bg-bg">
-                <div className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imageSrc(recruitment.bannerPath)}
-                    alt={recruitment.student.name}
-                    className="aspect-[16/6] w-full object-cover"
-                    onError={e => (e.currentTarget.style.display = 'none')}
-                  />
-                </div>
-                <div className="p-3">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-bold">{recruitment.student.name}</div>
-                      <div className="truncate text-[11px] text-muted">CV: {recruitment.student.characterVoice || '—'}</div>
-                    </div>
+          <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleRecruitments.map((recruitment) => (
+                <div key={recruitment.id} className="overflow-hidden rounded-xl border border-border bg-bg">
+                  <div className="relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={proxyImage(recruitment.student.image)}
-                      alt=""
-                      className="h-10 w-10 shrink-0 rounded-lg border border-border object-cover"
+                      src={imageSrc(recruitment.bannerPath)}
+                      alt={recruitment.student.name}
+                      className="aspect-[16/6] w-full object-cover"
                       onError={e => (e.currentTarget.style.display = 'none')}
                     />
                   </div>
-                  <div className="mb-3 grid grid-cols-2 gap-2 text-[11px] text-muted">
-                    <div className="rounded-lg border border-border bg-card px-2 py-1.5">
-                      <div className="font-bold uppercase tracking-[0.08em] text-muted2">Banner</div>
-                      <div className="truncate">{recruitment.bannerPath}</div>
+                  <div className="p-3">
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-bold">{recruitment.student.name}</div>
+                        <div className="truncate text-[11px] text-muted">CV: {recruitment.student.characterVoice || '—'}</div>
+                      </div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={proxyImage(recruitment.student.image)}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-lg border border-border object-cover"
+                        onError={e => (e.currentTarget.style.display = 'none')}
+                      />
                     </div>
-                    <div className="rounded-lg border border-border bg-card px-2 py-1.5">
-                      <div className="font-bold uppercase tracking-[0.08em] text-muted2">Animation</div>
-                      <div className="truncate">{recruitment.animationPath}</div>
+                    <div className="mb-3 grid grid-cols-2 gap-2 text-[11px] text-muted">
+                      <div className="rounded-lg border border-border bg-card px-2 py-1.5">
+                        <div className="font-bold uppercase tracking-[0.08em] text-muted2">Banner</div>
+                        <div className="truncate">{recruitment.bannerPath}</div>
+                      </div>
+                      <div className="rounded-lg border border-border bg-card px-2 py-1.5">
+                        <div className="font-bold uppercase tracking-[0.08em] text-muted2">Animation</div>
+                        <div className="truncate">{recruitment.animationPath}</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <button type="button" onClick={() => openEditRecruitment(recruitment)} className={editBtnClass}>Edit</button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget({ type: 'recruitment', id: recruitment.id, label: recruitment.student.name })}
-                      className={delBtnClass}
-                    >
-                      Delete
-                    </button>
+                    <div className="flex gap-1.5">
+                      <button type="button" onClick={() => openEditRecruitment(recruitment)} className={editBtnClass}>Edit</button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget({ type: 'recruitment', id: recruitment.id, label: recruitment.student.name })}
+                        className={delBtnClass}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <PaginationControls
+              page={recruitmentLibraryPage}
+              pageCount={recruitmentLibraryPageCount}
+              total={filteredRecruitments.length}
+              pageSize={RECRUITMENT_LIBRARY_PAGE_SIZE}
+              onPageChange={setRecruitmentLibraryPage}
+            />
+          </>
         )}
       </section>
 

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import { lockBodyScroll } from '@/lib/body-scroll-lock'
 import { SettingsModal } from '@/components/SettingsModal'
 import { CreditModal } from '@/components/CreditModal'
@@ -21,11 +22,14 @@ interface Props {
   serverFilter: ServerFilter
   setServerFilter: (s: ServerFilter) => void
   previousRaidCount: number
+  adminFullWidth?: boolean
+  onToggleAdminFullWidth?: () => void
 }
 
 export function Navbar({
   tab, setTab, loggedIn, onLoginClick,
   introOpen = false, onIntroToggle, serverFilter, setServerFilter, previousRaidCount,
+  adminFullWidth = false, onToggleAdminFullWidth,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [burgerOpen, setBurgerOpen] = useState(false)
@@ -194,9 +198,25 @@ export function Navbar({
   function renderBurgerMenu(variant: 'dropdown' | 'panel', options?: { includeExtras?: boolean }) {
     const close = closeBurgerMenus
     const includeExtras = options?.includeExtras ?? variant === 'panel'
+    const AdminWidthIcon = adminFullWidth ? Minimize2 : Maximize2
 
     return (
       <>
+        {loggedIn && tab === 'admin' && onToggleAdminFullWidth && (
+          <button
+            type="button"
+            onClick={() => { onToggleAdminFullWidth(); close() }}
+            className={burgerItemClass(variant)}
+          >
+            <span className="inline-flex items-center gap-2">
+              <AdminWidthIcon size={15} aria-hidden />
+              {adminFullWidth ? 'Compact admin width' : 'Full admin width'}
+            </span>
+          </button>
+        )}
+        {loggedIn && tab === 'admin' && onToggleAdminFullWidth && variant === 'dropdown' && (
+          <div className="my-1 border-t border-border" aria-hidden />
+        )}
         {includeExtras && onIntroToggle && (
           <button
             type="button"

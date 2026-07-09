@@ -161,6 +161,11 @@ function SendIcon() {
   )
 }
 
+function MomoTalkIcon({ className }: { className: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={MOMOTALK_ICON} alt="" className={className} draggable={false} />
+}
+
 function PlanaAvatar({
   expression,
   sizeClass,
@@ -442,7 +447,7 @@ export function Chatbot() {
           >
             <div className="momotalk-open-curtain" aria-hidden>
               <div className="momotalk-open-brand">
-                <Image src={MOMOTALK_ICON} alt="" width={82} height={82} priority className="h-[74px] w-[74px] rounded-[18px] object-cover sm:h-[82px] sm:w-[82px]" draggable={false} />
+                <MomoTalkIcon className="h-[74px] w-[74px] rounded-[18px] object-cover sm:h-[82px] sm:w-[82px]" />
                 <div className="text-[30px] font-black leading-none tracking-normal text-white sm:text-[38px]">MomoTalk</div>
               </div>
             </div>
@@ -450,7 +455,7 @@ export function Chatbot() {
             <div className="momotalk-chat-shell flex h-full w-full flex-col bg-white">
               <header className="flex h-[58px] shrink-0 items-center justify-between bg-[#fc96ab] px-4 text-white sm:h-[64px] sm:px-5">
                 <div className="flex min-w-0 items-center gap-2">
-                  <Image src={MOMOTALK_ICON} alt="" width={32} height={32} priority className="h-8 w-8 rounded-[7px] object-cover" draggable={false} />
+                  <MomoTalkIcon className="h-8 w-8 rounded-[7px] object-cover" />
                   <div className="truncate text-[28px] font-black leading-none sm:text-[34px]">MomoTalk</div>
                   <button
                     type="button"
@@ -615,7 +620,7 @@ export function Chatbot() {
             aria-expanded={open}
             className="inline-flex h-14 w-14 items-center justify-center rounded-full border border-[#fc96ab]/60 bg-[#fc96ab] p-1.5 text-white shadow-[0_12px_34px_rgba(0,0,0,0.45)] transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#fc96ab]/50 focus:ring-offset-2 focus:ring-offset-bg"
           >
-            <Image src={MOMOTALK_ICON} alt="" width={44} height={44} priority className="h-11 w-11 rounded-full object-cover" draggable={false} />
+            <MomoTalkIcon className="h-11 w-11 rounded-full object-cover" />
           </button>
         </div>
       )}

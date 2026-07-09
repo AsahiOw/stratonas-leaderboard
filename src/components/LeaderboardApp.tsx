@@ -71,6 +71,7 @@ export function LeaderboardApp({
   const [showLogin, setShowLogin] = useState(false)
   const [showIntro, setShowIntro] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
+  const [adminFullWidth, setAdminFullWidth] = useState(false)
   const [pendingReturnScroll, setPendingReturnScroll] = useState<number | null>(null)
   const [raidEntries, setRaidEntries] = useState<Record<string, TableEntry[]>>(initialRaidEntries)
   const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
@@ -213,7 +214,7 @@ export function LeaderboardApp({
     })
   }
 
-  const containerMax = tab === 'admin' || tab === 'community' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'admin' || tab === 'community' ? 'max-w-[1100px]' : 'max-w-[940px]'
   const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
@@ -228,6 +229,8 @@ export function LeaderboardApp({
         previousRaidCount={previousCount}
         introOpen={tab === 'leaderboard' && showIntro}
         onIntroToggle={handleIntroToggle}
+        adminFullWidth={adminFullWidth}
+        onToggleAdminFullWidth={() => setAdminFullWidth((fullWidth) => !fullWidth)}
       />
 
       <div className={`mx-auto w-full ${containerMax} ${containerPad}`}>
