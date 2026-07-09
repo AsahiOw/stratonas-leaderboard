@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react'
+
 interface Props {
-  icon: string
+  icon: ReactNode
   label: string
   value: string | number
   sub?: string
@@ -12,7 +14,7 @@ export function StatCard({ icon, label, value, sub, color = 'var(--accent)' }: P
       className="bg-card border border-border rounded-2xl px-5 py-4"
       style={{ boxShadow: `0 0 28px ${color}10` }}
     >
-      <div className="text-xl mb-2">{icon}</div>
+      <div className="text-muted2 mb-2">{icon}</div>
       <div
         className="font-mono font-bold text-xl leading-tight break-words"
         style={{ color }}

@@ -1,4 +1,5 @@
 'use client'
+import { Clapperboard, ClipboardList, FileUp, GraduationCap, LayoutDashboard, School, Settings, Skull, Swords, Ticket, UsersRound, type LucideIcon } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StModal } from '@/components/ui/StModal'
@@ -176,18 +177,18 @@ type DeleteConfirmation = {
   onConfirm: () => Promise<void> | void
 }
 
-const navItems: { id: Section; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: '◈' },
-  { id: 'players', label: 'Players', icon: '◎' },
-  { id: 'clubs', label: 'Clubs', icon: '◇' },
-  { id: 'students', label: 'Students', icon: '◌' },
-  { id: 'videos', label: 'Videos', icon: '▷' },
-  { id: 'raids', label: 'Raids', icon: '⬡' },
-  { id: 'bosses', label: 'Bosses', icon: '◉' },
-  { id: 'entries', label: 'Entries', icon: '⊞' },
-  { id: 'import', label: 'Import', icon: '⇪' },
-  { id: 'recruitment', label: 'Recruitment', icon: '✦' },
-  { id: 'settings', label: 'Settings', icon: '⊛' },
+const navItems: { id: Section; label: string; icon: LucideIcon }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'players', label: 'Players', icon: UsersRound },
+  { id: 'clubs', label: 'Clubs', icon: School },
+  { id: 'students', label: 'Students', icon: GraduationCap },
+  { id: 'videos', label: 'Videos', icon: Clapperboard },
+  { id: 'raids', label: 'Raids', icon: Swords },
+  { id: 'bosses', label: 'Bosses', icon: Skull },
+  { id: 'entries', label: 'Entries', icon: ClipboardList },
+  { id: 'import', label: 'Import', icon: FileUp },
+  { id: 'recruitment', label: 'Recruitment', icon: Ticket },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 const RAID_TYPES = ['Total Assault', 'Grand Assault']
@@ -1283,6 +1284,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
 
   const latestRaidCount = raids.filter(r => r.isActive).length
   const currentNav = navItems.find((n) => n.id === sec)
+  const CurrentNavIcon = currentNav?.icon
   const clubHexInvalid = clubColorDraft.hex.trim().length > 0 && !normalizeHexColor(clubColorDraft.hex)
   const clubRgbInvalid = clubColorDraft.rgb.trim().length > 0 && !parseRgbColor(clubColorDraft.rgb)
   const bossColorInvalid = {
@@ -1430,7 +1432,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
           </svg>
         </button>
         <div className="flex items-center gap-2 text-sm text-muted2">
-          <span className="text-base">{currentNav?.icon}</span>
+          {CurrentNavIcon && <CurrentNavIcon size={16} aria-hidden />}
           <span className="font-semibold text-text">{currentNav?.label}</span>
         </div>
         <div className="text-[10px] text-muted tracking-[0.1em] font-semibold">ADMIN</div>
@@ -1461,18 +1463,21 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
           </button>
         </div>
         <nav className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">
-          {navItems.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => selectSection(n.id)}
-              className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors border-l-2 font-sans ${sec === n.id
-                ? 'bg-accent/[0.12] border-accent text-accent font-semibold'
-                : 'border-transparent text-muted2 hover:text-text hover:bg-white/5'
-                }`}
-            >
-              <span className="text-base">{n.icon}</span>{n.label}
-            </button>
-          ))}
+          {navItems.map((n) => {
+            const Icon = n.icon
+            return (
+              <button
+                key={n.id}
+                onClick={() => selectSection(n.id)}
+                className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors border-l-2 font-sans ${sec === n.id
+                  ? 'bg-accent/[0.12] border-accent text-accent font-semibold'
+                  : 'border-transparent text-muted2 hover:text-text hover:bg-white/5'
+                  }`}
+              >
+                <Icon size={16} aria-hidden />{n.label}
+              </button>
+            )
+          })}
         </nav>
       </aside>
 

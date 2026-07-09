@@ -1,4 +1,5 @@
 'use client'
+import { Archive, ChartColumn, ClipboardList, Landmark, Swords, UsersRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ReturnLocationLink } from '@/components/ReturnLocationLink'
 import { ServerBadge } from '@/components/ui/ServerBadge'
@@ -184,12 +185,12 @@ export function StatsPage({ onPlayerClick }: Props) {
   return (
     <div className="mx-auto max-w-[1040px] pb-10">
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">
-        <StatCard icon="◎" label="Players" value={fmtNum(stats.snapshot.totalPlayers)} sub="Registered players" color="var(--accent)" />
-        <StatCard icon="⊞" label="Entries" value={fmtNum(stats.snapshot.totalEntries)} sub="Submitted scores" color="var(--green)" />
-        <StatCard icon="⬡" label="Latest Raids" value={fmtNum(stats.snapshot.latestRaids)} sub="Shown on leaderboard" color="#f87171" />
-        <StatCard icon="◈" label="Archived" value={fmtNum(stats.snapshot.completedRaids)} sub="Previous results" color="#a78bfa" />
-        <StatCard icon="◉" label="Clubs" value={fmtNum(stats.snapshot.uniqueClubs)} sub="Excluding guests" color="var(--gold)" />
-        <StatCard icon="▦" label="Avg Entries" value={fmtNum(stats.snapshot.averageEntriesPerRaid)} sub="Per raid" color="#38bdf8" />
+        <StatCard icon={<UsersRound size={18} aria-hidden />} label="Players" value={fmtNum(stats.snapshot.totalPlayers)} sub="Registered players" color="var(--accent)" />
+        <StatCard icon={<ClipboardList size={18} aria-hidden />} label="Entries" value={fmtNum(stats.snapshot.totalEntries)} sub="Submitted scores" color="var(--green)" />
+        <StatCard icon={<Swords size={18} aria-hidden />} label="Latest Raids" value={fmtNum(stats.snapshot.latestRaids)} sub="Shown on leaderboard" color="#f87171" />
+        <StatCard icon={<Archive size={18} aria-hidden />} label="Archived" value={fmtNum(stats.snapshot.completedRaids)} sub="Previous results" color="#a78bfa" />
+        <StatCard icon={<Landmark size={18} aria-hidden />} label="Clubs" value={fmtNum(stats.snapshot.uniqueClubs)} sub="Excluding guests" color="var(--gold)" />
+        <StatCard icon={<ChartColumn size={18} aria-hidden />} label="Avg Entries" value={fmtNum(stats.snapshot.averageEntriesPerRaid)} sub="Per raid" color="#38bdf8" />
       </div>
 
       <section className={`${sectionClass} mb-5`}>
