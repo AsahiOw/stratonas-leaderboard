@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
-import { SiteFooter } from '@/components/SiteFooter'
-import { GreetingToast } from '@/components/GreetingToast'
-import { Chatbot } from '@/components/Chatbot'
+import { RouteChrome } from '@/components/RouteChrome'
 
 export const metadata: Metadata = {
   title: 'Stratónas — Guild Leaderboard',
@@ -27,9 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans bg-bg text-text min-h-screen antialiased" suppressHydrationWarning>
         <SessionProvider>
           {children}
-          <SiteFooter />
-          <Chatbot />
-          <GreetingToast />
+          <RouteChrome />
         </SessionProvider>
       </body>
     </html>

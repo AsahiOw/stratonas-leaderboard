@@ -1,16 +1,17 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { Navbar } from '@/components/Navbar'
 import { RaidBlock } from '@/components/RaidBlock'
 import { StatsPage } from '@/components/StatsPage'
 import { CommunityPage } from '@/components/CommunityPage'
 import { AdminPanel } from '@/components/AdminPanel'
 import { PlayerProfile } from '@/components/PlayerProfile'
-import { LoginModal } from '@/components/LoginModal'
 import { BirthdaySection } from '@/components/BirthdaySection'
 import { HomeIntro } from '@/components/HomeIntro'
 import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
+import { loginAssetSources } from '@/lib/login-sprites'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
@@ -63,12 +64,12 @@ export function LeaderboardApp({
   initialBirthdayData = null,
   initialUpcomingBirthdayData = null,
 }: Props) {
+  const router = useRouter()
   const { data: session, status } = useSession()
   const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
 
   const [tab, setTab] = useState<Tab>('leaderboard')
   const [serverFilter, setServerFilter] = useState<ServerFilter>('all')
-  const [showLogin, setShowLogin] = useState(false)
   const [showIntro, setShowIntro] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
   const [adminFullWidth, setAdminFullWidth] = useState(false)
@@ -104,6 +105,13 @@ export function LeaderboardApp({
 
     setShowIntro(nextIntroOpen)
     if (storedIntroOpen === null) window.localStorage.setItem(INTRO_OPEN_KEY, 'true')
+  }, [])
+
+  useEffect(() => {
+    loginAssetSources.forEach((source) => {
+      const image = new Image()
+      image.src = source
+    })
   }, [])
 
   useEffect(() => {
@@ -148,7 +156,7 @@ export function LeaderboardApp({
       signOut({ redirect: false })
       if (tab === 'admin') setTab('leaderboard')
     } else {
-      setShowLogin(true)
+      router.push('/login')
     }
   }
 
@@ -183,11 +191,6 @@ export function LeaderboardApp({
   useEffect(() => {
     if (visitedTabs.previous) loadRaidEntries(previousRaids.map((raid) => raid.id))
   }, [previousRaids, visitedTabs.previous, loadRaidEntries])
-
-  function handleLogin() {
-    setShowLogin(false)
-    setTab('admin')
-  }
 
   function scrollToTop() {
     window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
@@ -325,7 +328,7 @@ export function LeaderboardApp({
             <div className="text-lg font-semibold text-muted2 mb-2">Admin Access Required</div>
             <div className="text-sm mb-6">Please log in to manage leaderboard data.</div>
             <button
-              onClick={() => setShowLogin(true)}
+              onClick={() => router.push('/login')}
               className="bg-accent rounded-lg px-6 py-2.5 text-white font-bold text-sm hover:bg-accent/90 transition-colors"
             >
               Login as Admin
@@ -339,7 +342,6 @@ export function LeaderboardApp({
         )}
       </div>
 
-      {showLogin && <LoginModal onLogin={handleLogin} onClose={() => setShowLogin(false)} />}
       {profilePlayerId && <PlayerProfile playerId={profilePlayerId} returnTab={tab} onClose={() => setProfilePlayerId(null)} />}
     </div>
   )
