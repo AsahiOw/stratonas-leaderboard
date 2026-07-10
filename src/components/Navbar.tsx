@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { LogIn, Maximize2, Minimize2 } from 'lucide-react'
+import { LogIn, LogOut, Maximize2, Minimize2 } from 'lucide-react'
 import { lockBodyScroll } from '@/lib/body-scroll-lock'
 import { SettingsModal } from '@/components/SettingsModal'
 import { CreditModal } from '@/components/CreditModal'
@@ -251,7 +251,12 @@ export function Navbar({
           onClick={() => { onLoginClick(); close() }}
           className={burgerItemClass(variant, loggedIn ? 'danger' : 'accent')}
         >
-          {loggedIn ? '→ Logout' : (
+          {loggedIn ? (
+            <span className="inline-flex items-center gap-2">
+              <LogOut size={15} aria-hidden />
+              Logout
+            </span>
+          ) : (
             <span className="inline-flex items-center gap-2">
               <LogIn size={15} aria-hidden />
               Admin Login

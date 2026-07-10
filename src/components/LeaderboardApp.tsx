@@ -11,7 +11,7 @@ import { PlayerProfile } from '@/components/PlayerProfile'
 import { BirthdaySection } from '@/components/BirthdaySection'
 import { HomeIntro } from '@/components/HomeIntro'
 import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
-import { loginAssetSources } from '@/lib/login-sprites'
+import { loginAssetSources, loginAudioSources } from '@/lib/login-sprites'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
@@ -111,6 +111,13 @@ export function LeaderboardApp({
     loginAssetSources.forEach((source) => {
       const image = new Image()
       image.src = source
+    })
+
+    loginAudioSources.forEach((source) => {
+      const audio = new Audio()
+      audio.preload = 'auto'
+      audio.src = source
+      audio.load()
     })
   }, [])
 

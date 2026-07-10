@@ -82,7 +82,11 @@ export function LoginScene() {
   }
 
   function handleKeiClick() {
-    if (passwordVisible && !keiAngry) setKeiAngry(true)
+    if (!passwordVisible || keiAngry) return
+
+    const audio = new Audio('/assets/sfx/SFX_Emoticon_Motion_Steam.wav')
+    void audio.play()
+    setKeiAngry(true)
   }
 
   return (
@@ -119,7 +123,7 @@ export function LoginScene() {
                 src="/assets/images/angry-effect.png"
                 alt=""
                 aria-hidden="true"
-                className="absolute left-[44%] top-[7%] h-24 w-24 -translate-x-1/2 select-none"
+                className="absolute left-[38%] top-[12%] h-12 w-12 -translate-x-1/2 select-none"
               />
             )}
           </span>

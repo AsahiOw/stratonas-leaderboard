@@ -55,3 +55,4 @@ export const loginSpriteSources = Array.from(
 )
 
 export const loginAssetSources = [...loginSpriteSources, '/assets/images/angry-effect.png']
+export const loginAudioSources = ['/assets/sfx/SFX_Emoticon_Motion_Steam.wav']
