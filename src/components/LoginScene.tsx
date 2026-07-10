@@ -74,7 +74,7 @@ export function LoginScene() {
     setFocus(null)
     setFailed(false)
     const result = await signIn('credentials', { email, password, redirect: false })
-    if (result?.ok) {
+    if (result?.ok && !result.error) {
       router.replace('/')
     } else {
       setFailed(true)

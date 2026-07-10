@@ -3,23 +3,11 @@ import { NextRequest, NextResponse } from 'next/server'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 const isProduction = process.env.NODE_ENV === 'production'
 
-function makeNonce() {
-  const bytes = new Uint8Array(16)
-  crypto.getRandomValues(bytes)
-
-  let binary = ''
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index])
-  }
-
-  return btoa(binary)
-}
-
 function normalizeCsp(directives: string[]) {
   return directives.join('; ').replace(/\s{2,}/g, ' ').trim()
 }
 
-function contentSecurityPolicy(nonce: string) {
+function contentSecurityPolicy() {
   const devConnectSources = isProduction
     ? []
     : ['http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*']
@@ -27,7 +15,7 @@ function contentSecurityPolicy(nonce: string) {
 
   return normalizeCsp([
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'${isProduction ? '' : " 'unsafe-eval'"}`,
+    `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
@@ -79,8 +67,7 @@ function applySecurityHeaders(response: NextResponse, csp: string) {
 }
 
 export function proxy(request: NextRequest) {
-  const nonce = makeNonce()
-  const csp = contentSecurityPolicy(nonce)
+  const csp = contentSecurityPolicy()
 
   if (!SAFE_METHODS.has(request.method) && !isSameOrigin(request)) {
     return applySecurityHeaders(
@@ -89,15 +76,7 @@ export function proxy(request: NextRequest) {
     )
   }
 
-  const requestHeaders = new Headers(request.headers)
-  requestHeaders.set('x-nonce', nonce)
-  requestHeaders.set('Content-Security-Policy', csp)
-
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  })
+  const response = NextResponse.next()
 
   return applySecurityHeaders(response, csp)
 }
@@ -105,7 +84,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: '/((?!_next/static|_next/image|favicon.ico).*)',
+      source: '/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },
