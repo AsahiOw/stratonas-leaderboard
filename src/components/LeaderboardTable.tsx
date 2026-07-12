@@ -144,7 +144,7 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap, returnTa
                     className="font-mono font-bold text-[15px] tabular-nums"
                     style={{ color: p.isGuild ? accent : 'var(--muted2)' }}
                   >
-                    {p.score.toLocaleString()}
+                    {p.score.toLocaleString('en-US')}
                   </span>
                 </td>
               </tr>

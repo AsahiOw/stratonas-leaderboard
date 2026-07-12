@@ -95,7 +95,7 @@ const SHOW_MORE_ROWS = 50
 type PagedSection = 'currentRaidLeaders' | 'topPlayers' | 'clubStandings' | 'raidBreakdown'
 
 function fmtNum(n: number) {
-  return n.toLocaleString()
+  return n.toLocaleString('en-US')
 }
 
 function PlayerButton({ name, playerId, onPlayerClick }: { name: string; playerId: string; onPlayerClick?: (playerId: string) => void }) {

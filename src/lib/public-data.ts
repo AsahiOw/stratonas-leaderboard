@@ -38,7 +38,7 @@ function baseStudentName(name: string) {
     .toLowerCase()
 }
 
-function isStudentVariant(name: string) {
+export function isStudentVariant(name: string) {
   return baseStudentName(name) !== name.trim().toLowerCase()
 }
 
@@ -342,6 +342,68 @@ export const getPublicFutureRecruitment = unstable_cache(
     }
   },
   ['public-future-recruitment'],
+  {
+    revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
+    tags: [PUBLIC_CACHE_TAGS.recruitments, PUBLIC_CACHE_TAGS.students],
+  }
+)
+
+export const getPublicRecruitmentCalendar = unstable_cache(
+  async (todayKey = dateKeyFromDate()) => {
+    const schedules = await prisma.upcomingRecruitment.findMany({
+      where: { dateKey: { gte: todayKey } },
+      orderBy: { dateKey: 'asc' },
+      include: {
+        items: {
+          orderBy: { position: 'asc' },
+          include: {
+            recruitment: {
+              include: {
+                student: {
+                  select: {
+                    id: true,
+                    name: true,
+                    image: true,
+                    portrait: true,
+                    familyName: true,
+                    personalName: true,
+                    school: true,
+                    club: true,
+                    schoolYear: true,
+                    characterAge: true,
+                    characterVoice: true,
+                    birthday: true,
+                    birthDay: true,
+                    hobby: true,
+                    heightMetric: true,
+                    weaponType: true,
+                    tacticRole: true,
+                    position: true,
+                    weaponName: true,
+                    accentColor: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    return schedules
+      .filter((schedule) => schedule.items.length > 0)
+      .map((schedule) => ({
+        id: schedule.id,
+        dateKey: schedule.dateKey,
+        recruitments: schedule.items.map(({ recruitment }) => ({
+          id: recruitment.id,
+          bannerPath: recruitment.bannerPath,
+          animationPath: recruitment.animationPath,
+          student: recruitment.student,
+        })),
+      }))
+  },
+  ['public-recruitment-calendar'],
   {
     revalidate: PUBLIC_DATA_REVALIDATE_SECONDS,
     tags: [PUBLIC_CACHE_TAGS.recruitments, PUBLIC_CACHE_TAGS.students],

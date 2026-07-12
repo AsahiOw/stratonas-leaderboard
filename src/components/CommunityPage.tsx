@@ -58,7 +58,7 @@ interface Props {
 }
 
 function fmtNum(value: number | null | undefined) {
-  return typeof value === 'number' ? value.toLocaleString() : '-'
+  return typeof value === 'number' ? value.toLocaleString('en-US') : '-'
 }
 
 function fmtCompact(value: number | null | undefined) {

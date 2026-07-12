@@ -75,7 +75,7 @@ function fmtCompactScore(value: number) {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1).replace('.', ',')}B`
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace('.', ',')}M`
   if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace('.', ',')}K`
-  return value.toLocaleString()
+  return value.toLocaleString('en-US')
 }
 
 function returnLabel(tab: string) {
@@ -342,11 +342,11 @@ export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: 
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {[
-                  ['Average Score', player.journey.averageScore.toLocaleString()],
+                  ['Average Score', player.journey.averageScore.toLocaleString('en-US')],
                   ['Average Rank', player.journey.averageRank ? `#${player.journey.averageRank}` : '-'],
-                  ['Top 10 Finishes', player.journey.top10s.toLocaleString()],
-                  ['Top 50 Finishes', player.journey.top50s.toLocaleString()],
-                  ['Best Score', player.journey.bestScore ? player.journey.bestScore.toLocaleString() : '-'],
+                  ['Top 10 Finishes', player.journey.top10s.toLocaleString('en-US')],
+                  ['Top 50 Finishes', player.journey.top50s.toLocaleString('en-US')],
+                  ['Best Score', player.journey.bestScore ? player.journey.bestScore.toLocaleString('en-US') : '-'],
                   ['Participation Rate', `${player.journey.participationRate}%`],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border border-border bg-card2 px-3 py-2">
@@ -396,7 +396,7 @@ export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: 
                         className="font-mono font-bold text-base"
                         style={{ color: accent }}
                       >
-                        {e.score.toLocaleString()}
+                        {e.score.toLocaleString('en-US')}
                       </div>
                     </div>
                   </div>
@@ -430,7 +430,7 @@ export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: 
                     <div className="flex items-center justify-between sm:justify-end gap-3 sm:shrink-0">
                       <RankBadge rank={e.rank} size="sm" />
                       <span className="font-mono font-bold text-muted2 text-sm">
-                        {e.score.toLocaleString()}
+                        {e.score.toLocaleString('en-US')}
                       </span>
                     </div>
                   </div>

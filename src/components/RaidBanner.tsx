@@ -97,7 +97,7 @@ export function RaidBanner({ raid, topPlayer }: Props) {
                 className="font-mono text-[13px] font-bold"
                 style={{ color: raid.color }}
               >
-                {topPlayer.score.toLocaleString()} pts
+                {topPlayer.score.toLocaleString('en-US')} pts
               </div>
             </div>
           )}

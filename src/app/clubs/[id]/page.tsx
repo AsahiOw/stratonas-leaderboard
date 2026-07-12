@@ -8,7 +8,7 @@ import { getPublicClubProfile } from '@/lib/public-data'
 export const dynamic = 'force-dynamic'
 
 function fmtNum(value: number | null | undefined) {
-  return typeof value === 'number' ? value.toLocaleString() : '-'
+  return typeof value === 'number' ? value.toLocaleString('en-US') : '-'
 }
 
 function fmtCompactScore(value: number | null | undefined) {
@@ -16,7 +16,7 @@ function fmtCompactScore(value: number | null | undefined) {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1).replace('.', ',')}B`
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace('.', ',')}M`
   if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace('.', ',')}K`
-  return value.toLocaleString()
+  return value.toLocaleString('en-US')
 }
 
 export default async function ClubPage({ params }: { params: Promise<{ id: string }> }) {

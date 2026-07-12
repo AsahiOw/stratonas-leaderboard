@@ -1232,7 +1232,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     requestDelete({
       title: 'Delete entry?',
       message: 'This will permanently remove this leaderboard score entry.',
-      itemLabel: `${entry.player.ign} - ${entry.raid.raidBoss.name} - ${entry.score.toLocaleString()}`,
+      itemLabel: `${entry.player.ign} - ${entry.raid.raidBoss.name} - ${entry.score.toLocaleString('en-US')}`,
       onConfirm: () => deleteEntry(entry.id),
     })
   }
@@ -1554,7 +1554,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2.5 sm:shrink-0">
-                    <span className="text-green font-mono text-[13px]">+{e.score.toLocaleString()}</span>
+                    <span className="text-green font-mono text-[13px]">+{e.score.toLocaleString('en-US')}</span>
                     <span className="text-muted text-[11px]">
                       {new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
@@ -1750,7 +1750,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
             </div>
             {importState?.status === 'running' && (
               <div className="mb-3 bg-accent/[0.08] border border-accent/25 rounded-xl px-4 py-3 text-[13px] text-muted2">
-                Import running: {importState.processed.toLocaleString()} / {importState.total ? importState.total.toLocaleString() : '...'} processed
+                Import running: {importState.processed.toLocaleString('en-US')} / {importState.total ? importState.total.toLocaleString('en-US') : '...'} processed
               </div>
             )}
             {renderListControls('students', students.length, filteredStudents.length, visibleStudents.length, 'Search students by id, name, birthday, school, or media URLs...')}
@@ -2060,7 +2060,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
             </div>
             {bossImportState?.status === 'running' && (
               <div className="mb-3 bg-accent/[0.08] border border-accent/25 rounded-xl px-4 py-3 text-[13px] text-muted2">
-                Import running: {bossImportState.processed.toLocaleString()} / {bossImportState.total ? bossImportState.total.toLocaleString() : '...'} processed
+                Import running: {bossImportState.processed.toLocaleString('en-US')} / {bossImportState.total ? bossImportState.total.toLocaleString('en-US') : '...'} processed
               </div>
             )}
             {renderListControls('bosses', bosses.length, filteredBosses.length, visibleBosses.length, 'Search bosses by name, description, or image URL...')}
@@ -2158,7 +2158,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                       </span>
                     </div>
                     <span className="font-mono text-accent font-semibold">
-                      {e.score.toLocaleString()}
+                      {e.score.toLocaleString('en-US')}
                     </span>
                   </div>
                 </div>
@@ -2192,7 +2192,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                         <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{e.player.ign}</td>
                         <td className="px-3.5 py-2.5 text-muted2">{e.raid.raidBoss.name} S{e.raid.season} · {e.raid.terrain.name}</td>
                         <td className="px-3.5 py-2.5"><ServerBadge server={e.raid.server.name} /></td>
-                        <td className="px-3.5 py-2.5 font-mono text-accent font-semibold">{e.score.toLocaleString()}</td>
+                        <td className="px-3.5 py-2.5 font-mono text-accent font-semibold">{e.score.toLocaleString('en-US')}</td>
                         <td className="px-3.5 py-2.5 text-muted font-mono text-xs whitespace-nowrap">
                           {new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </td>
@@ -2328,7 +2328,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                     ].map(([label, value]) => (
                       <div key={label} className="bg-card2 border border-border rounded-lg p-2.5">
                         <div className="text-[10px] text-muted tracking-[0.08em] font-semibold uppercase">{label}</div>
-                        <div className="font-mono text-lg text-text font-bold">{Number(value).toLocaleString()}</div>
+                        <div className="font-mono text-lg text-text font-bold">{Number(value).toLocaleString('en-US')}</div>
                       </div>
                     ))}
                   </div>
@@ -3342,18 +3342,18 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                 />
               </div>
               <div className="flex justify-between mt-2 text-[12px] text-muted">
-                <span>{importState.processed.toLocaleString()} / {importState.total ? importState.total.toLocaleString() : '...'} processed</span>
+                <span>{importState.processed.toLocaleString('en-US')} / {importState.total ? importState.total.toLocaleString('en-US') : '...'} processed</span>
                 <span>{importState.total > 0 ? `${Math.round((importState.processed / importState.total) * 100)}%` : 'Starting'}</span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               <div className="bg-card2 border border-border rounded-xl p-3">
                 <div className="text-[11px] text-muted tracking-[0.08em] font-semibold">ADDED</div>
-                <div className="font-mono text-xl text-green font-bold">{importState.added.toLocaleString()}</div>
+                <div className="font-mono text-xl text-green font-bold">{importState.added.toLocaleString('en-US')}</div>
               </div>
               <div className="bg-card2 border border-border rounded-xl p-3">
                 <div className="text-[11px] text-muted tracking-[0.08em] font-semibold">SKIPPED</div>
-                <div className="font-mono text-xl text-muted2 font-bold">{importState.skipped.toLocaleString()}</div>
+                <div className="font-mono text-xl text-muted2 font-bold">{importState.skipped.toLocaleString('en-US')}</div>
               </div>
             </div>
             {importState.error && (
@@ -3538,18 +3538,18 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                 />
               </div>
               <div className="flex justify-between mt-2 text-[12px] text-muted">
-                <span>{bossImportState.processed.toLocaleString()} / {bossImportState.total ? bossImportState.total.toLocaleString() : '...'} processed</span>
+                <span>{bossImportState.processed.toLocaleString('en-US')} / {bossImportState.total ? bossImportState.total.toLocaleString('en-US') : '...'} processed</span>
                 <span>{bossImportState.total > 0 ? `${Math.round((bossImportState.processed / bossImportState.total) * 100)}%` : 'Starting'}</span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               <div className="bg-card2 border border-border rounded-xl p-3">
                 <div className="text-[11px] text-muted tracking-[0.08em] font-semibold">ADDED</div>
-                <div className="font-mono text-xl text-green font-bold">{bossImportState.added.toLocaleString()}</div>
+                <div className="font-mono text-xl text-green font-bold">{bossImportState.added.toLocaleString('en-US')}</div>
               </div>
               <div className="bg-card2 border border-border rounded-xl p-3">
                 <div className="text-[11px] text-muted tracking-[0.08em] font-semibold">SKIPPED</div>
-                <div className="font-mono text-xl text-muted2 font-bold">{bossImportState.skipped.toLocaleString()}</div>
+                <div className="font-mono text-xl text-muted2 font-bold">{bossImportState.skipped.toLocaleString('en-US')}</div>
               </div>
             </div>
             {bossImportState.error && (

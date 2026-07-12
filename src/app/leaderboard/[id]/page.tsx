@@ -123,7 +123,7 @@ export default async function RaidLeaderboardPage({ params }: { params: Promise<
               <div className="text-[10px] font-semibold tracking-[0.1em] text-muted uppercase">Current Leader</div>
               <div className="mt-1 font-bold text-lg">{topPlayer?.name || '—'}</div>
               <div className="font-mono text-sm font-bold" style={{ color: raid.color }}>
-                {topPlayer ? topPlayer.score.toLocaleString() : 'No score'} pts
+                {topPlayer ? topPlayer.score.toLocaleString('en-US') : 'No score'} pts
               </div>
             </div>
           </div>

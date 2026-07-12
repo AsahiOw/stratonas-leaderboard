@@ -24,7 +24,7 @@ interface Props {
 }
 
 function fmtNum(value: number | null | undefined) {
-  return typeof value === 'number' ? value.toLocaleString() : '-'
+  return typeof value === 'number' ? value.toLocaleString('en-US') : '-'
 }
 
 export function ClubRoster({ roster, clubColor }: Props) {

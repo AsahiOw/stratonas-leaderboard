@@ -102,7 +102,7 @@ function TopThreePodium({
                     <div className="max-w-[170px] truncate text-sm font-extrabold text-text">{entry.name}</div>
                   )}
                   <div className="font-mono text-[13px] font-black tabular-nums" style={{ color: style.rank }}>
-                    {entry.score.toLocaleString()}
+                    {entry.score.toLocaleString('en-US')}
                   </div>
                 </div>
                 {entry.clubId ? (
@@ -230,7 +230,7 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
           style={{ borderColor: `${raid.color}25` }}
         >
           <span key={hideGuests ? 'guild-only-summary' : 'all-players-summary'} className="leaderboard-filter-transition text-xs text-muted">
-            Top: {topPlayer?.name} ({topPlayer?.score.toLocaleString()} pts)
+            Top: {topPlayer?.name} ({topPlayer?.score.toLocaleString('en-US')} pts)
           </span>
           <button
             onClick={() => setOpen(true)}

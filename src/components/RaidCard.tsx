@@ -441,7 +441,7 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
             textShadow: '0 4px 0 rgba(255,255,255,0.34), 0 5px 5px rgba(0,0,0,0.42)',
           }}
         >
-          {entry.score ? entry.score.toLocaleString() : ''}
+          {entry.score ? entry.score.toLocaleString('en-US') : ''}
         </div>
 
         {/* Club name */}

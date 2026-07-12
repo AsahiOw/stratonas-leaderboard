@@ -14,7 +14,7 @@ type PlayerProfileData = NonNullable<Awaited<ReturnType<typeof getPublicPlayerPr
 type PlayerEntry = PlayerProfileData['entries'][number]
 
 function fmtNum(value: number | null | undefined) {
-  return typeof value === 'number' ? value.toLocaleString() : '-'
+  return typeof value === 'number' ? value.toLocaleString('en-US') : '-'
 }
 
 function fmtCompactScore(value: number | null | undefined) {
@@ -22,7 +22,7 @@ function fmtCompactScore(value: number | null | undefined) {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1).replace('.', ',')}B`
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace('.', ',')}M`
   if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace('.', ',')}K`
-  return value.toLocaleString()
+  return value.toLocaleString('en-US')
 }
 
 export default async function PlayerPage({ params }: { params: Promise<{ id: string }> }) {

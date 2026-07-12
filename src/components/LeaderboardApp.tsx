@@ -11,11 +11,12 @@ import { PlayerProfile } from '@/components/PlayerProfile'
 import { BirthdaySection } from '@/components/BirthdaySection'
 import { HomeIntro } from '@/components/HomeIntro'
 import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
+import { RecruitmentCalendar, type RecruitmentCalendarSchedule } from '@/components/RecruitmentCalendar'
 import { loginAssetSources, loginAudioSources } from '@/lib/login-sprites'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
-type Tab = 'leaderboard' | 'previous' | 'stats' | 'community' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'calendar' | 'stats' | 'community' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type ReturnLocation = { tab: Tab; scrollY: number }
 const INTRO_OPEN_KEY = 'stratonas:intro-open'
@@ -44,6 +45,8 @@ interface Props {
   initialRaids: RaidData[]
   initialRaidEntries?: Record<string, TableEntry[]>
   futureRecruitment?: FutureRecruitmentSchedule | null
+  recruitmentCalendar?: RecruitmentCalendarSchedule[]
+  birthdayCalendar?: BirthdayStudent[]
   initialBirthdayData?: {
     birthdayKey: string
     nextRefreshAt: string
@@ -61,6 +64,8 @@ export function LeaderboardApp({
   initialRaids,
   initialRaidEntries = {},
   futureRecruitment = null,
+  recruitmentCalendar = [],
+  birthdayCalendar = [],
   initialBirthdayData = null,
   initialUpcomingBirthdayData = null,
 }: Props) {
@@ -78,6 +83,7 @@ export function LeaderboardApp({
   const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
     leaderboard: true,
     previous: false,
+    calendar: false,
     stats: false,
     community: false,
     admin: false,
@@ -128,7 +134,7 @@ export function LeaderboardApp({
 
       window.sessionStorage.removeItem('stratonas:return-location')
       const saved = JSON.parse(raw) as Partial<ReturnLocation>
-      const tabs: Tab[] = ['leaderboard', 'previous', 'stats', 'community', 'admin']
+      const tabs: Tab[] = ['leaderboard', 'previous', 'calendar', 'stats', 'community', 'admin']
       if (!saved.tab || !tabs.includes(saved.tab) || saved.tab === 'admin') return
 
       setTab(saved.tab)
@@ -224,7 +230,7 @@ export function LeaderboardApp({
     })
   }
 
-  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'admin' || tab === 'community' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'admin' || tab === 'community' || tab === 'calendar' ? 'max-w-[1100px]' : 'max-w-[940px]'
   const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
@@ -307,6 +313,13 @@ export function LeaderboardApp({
                 />
               ))
             )}
+          </div>
+        )}
+
+        {/* RECRUITMENT CALENDAR */}
+        {visitedTabs.calendar && (
+          <div className={tab === 'calendar' ? 'view-transition' : 'hidden'}>
+            <RecruitmentCalendar schedules={recruitmentCalendar} birthdayStudents={birthdayCalendar} />
           </div>
         )}
 

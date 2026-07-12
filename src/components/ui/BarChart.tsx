@@ -23,7 +23,7 @@ export function BarChart({ data, color }: Props) {
               }}
             >
               <span className="font-mono text-[10px] text-white font-bold whitespace-nowrap">
-                {d.val.toLocaleString()}
+                {d.val.toLocaleString('en-US')}
               </span>
             </div>
           </div>

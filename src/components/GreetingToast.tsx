@@ -146,7 +146,7 @@ function getGreetingContent(): GreetingContent {
     ...getDayPhrases(now.getDay()),
   ]
   const picked = candidates[Math.floor(Math.random() * candidates.length)]
-  const day = now.toLocaleDateString(undefined, { weekday: 'long' })
+  const day = now.toLocaleDateString('en-US', { weekday: 'long' })
   return { eyebrow: picked.eyebrow, phrase: picked.text, day, video: picked.video, voice: picked.voice }
 }
 

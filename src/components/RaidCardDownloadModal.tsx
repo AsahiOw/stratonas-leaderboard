@@ -620,7 +620,7 @@ function RaidCardDownloadModal({ raid, entries, onClose }: Props & { onClose: ()
                       <span className="block truncate text-sm font-semibold text-text">{entry.name}</span>
                       <span className="block truncate text-xs text-muted2">{entry.club || 'Guest'}</span>
                     </span>
-                    <span className="font-mono text-xs font-bold text-muted2">{entry.score.toLocaleString()}</span>
+                    <span className="font-mono text-xs font-bold text-muted2">{entry.score.toLocaleString('en-US')}</span>
                   </label>
                 )
               })}
