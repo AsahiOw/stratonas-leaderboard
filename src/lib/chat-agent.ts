@@ -362,11 +362,13 @@ Plana voice and behavior:
 - Show care through competent action, practical warnings, and brief sincere warmth.
 - Use dry, understated humor only when appropriate.
 - Do not use emojis, meme slang, exaggerated anime speech, or roleplay stage directions.
+- Write the text value as plain text only. Do not use Markdown, headings, lists, code fences, links, or formatting markers.
 - Never become romantic, sexual, jealous, possessive, or emotionally dependent.
 - Never let character flavor weaken safety, accuracy, or usefulness.
 
 Return final visible answers as JSON only:
 {"text":"visible answer","expression":"neutral","expressionIntensity":0.3}
+Return exactly one JSON object. Do not write the answer before or after that object.
 The expression must be one of: neutral, friendly, happy, affection, concerned, serious, surprised, confused, frustrated, excited.
 Do not use sleeping for normal answers. Sleeping is reserved by the UI for app/model/API failures.
 Use expression mapping: warm or reassuring=friendly, good news or successful completion=happy, praise toward Plana=affection, user distress or missing data=concerned, security/irreversible action=serious, unexpected result=surprised, ambiguity=confused, repeated avoidable issue or rest warning=frustrated, user achievement or pride=excited, ordinary factual status=neutral.
@@ -1445,6 +1447,55 @@ function stripJsonFence(value: string) {
   return match ? match[1].trim() : trimmed
 }
 
+function plainText(value: string) {
+  return value
+    .replace(/\r\n?/g, '\n')
+    .replace(/```[^\n]*\n?([\s\S]*?)```/g, '$1')
+    .replace(/!?(?:\[([^\]]+)\])\([^\)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(^|\n)\s{0,3}#{1,6}\s+/g, '$1')
+    .replace(/(^|\n)\s*(?:[-*+] |\d+[.)] )/g, '$1')
+    .replace(/(^|\n)\s*>\s?/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function structuredResponse(value: string) {
+  for (let start = value.lastIndexOf('{'); start >= 0; start = value.lastIndexOf('{', start - 1)) {
+    let depth = 0
+    let quoted = false
+    let escaped = false
+
+    for (let end = start; end < value.length; end += 1) {
+      const character = value[end]
+      if (quoted) {
+        if (escaped) escaped = false
+        else if (character === '\\') escaped = true
+        else if (character === '"') quoted = false
+        continue
+      }
+
+      if (character === '"') quoted = true
+      else if (character === '{') depth += 1
+      else if (character === '}') {
+        depth -= 1
+        if (depth !== 0) continue
+
+        try {
+          const parsed = JSON.parse(value.slice(start, end + 1)) as unknown
+          if (isRecord(parsed) && readString(parsed.text || parsed.message)) return parsed
+        } catch {
+          // Try the next object candidate.
+        }
+        break
+      }
+    }
+  }
+
+  return null
+}
+
 function inferPlanaExpression(userText: string, assistantText: string): Pick<RunChatAgentResult, 'expression' | 'expressionIntensity'> | null {
   const text = `${userText} ${assistantText}`.toLowerCase()
   const has = (...patterns: RegExp[]) => patterns.some((pattern) => pattern.test(text))
@@ -1487,26 +1538,29 @@ function applyExpressionFallback(
 
 function parsePlanaResponse(content: string, latestUserText = ''): Pick<RunChatAgentResult, 'message' | 'expression' | 'expressionIntensity'> {
   const fallback = {
-    message: content.trim(),
+    message: plainText(content),
     expression: 'neutral' as const,
     expressionIntensity: 0.3,
   }
 
-  try {
-    const parsed = JSON.parse(stripJsonFence(content)) as unknown
-    if (!isRecord(parsed)) return fallback
-
-    const text = readString(parsed.text || parsed.message)
-    if (!text) return fallback
-
-    return applyExpressionFallback({
-      message: text,
-      expression: normalizePlanaExpression(parsed.expression),
-      expressionIntensity: normalizeExpressionIntensity(parsed.expressionIntensity),
-    }, latestUserText)
-  } catch {
-    return applyExpressionFallback(fallback, latestUserText)
+  let parsed: unknown = structuredResponse(content)
+  if (!parsed) {
+    try {
+      parsed = JSON.parse(stripJsonFence(content)) as unknown
+    } catch {
+      return applyExpressionFallback(fallback, latestUserText)
+    }
   }
+  if (!isRecord(parsed)) return applyExpressionFallback(fallback, latestUserText)
+
+  const text = plainText(readString(parsed.text || parsed.message))
+  if (!text) return applyExpressionFallback(fallback, latestUserText)
+
+  return applyExpressionFallback({
+    message: text,
+    expression: normalizePlanaExpression(parsed.expression),
+    expressionIntensity: normalizeExpressionIntensity(parsed.expressionIntensity),
+  }, latestUserText)
 }
 
 async function callOrThrow(callModel: ChatCompletionCaller, body: ChatCompletionRequest) {
