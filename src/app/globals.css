@@ -396,7 +396,34 @@ body {
 .planner-mode-toggle .planner-mode-active { background: var(--accent); color: #fff; }
 .planner-mode-toggle button:focus-visible { position: relative; outline: 2px solid #1d7cf2; outline-offset: -2px; }
 
+.planner-view-toggle {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--border2);
+  border-radius: 0.55rem;
+  background: var(--card);
+}
+
+.planner-view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  border-right: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted2);
+  cursor: pointer;
+  padding: 0.56rem 0.65rem;
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
+.planner-view-toggle button:last-child { border-right: 0; }
+.planner-view-toggle .planner-view-active { background: var(--card2); color: var(--text); }
+.planner-view-toggle button:focus-visible { position: relative; outline: 2px solid #1d7cf2; outline-offset: -2px; }
+
 .planner-today-button,
+.planner-fullscreen-button,
 .planner-month-controls button {
   border: 1px solid var(--border2);
   background: var(--card);
@@ -410,6 +437,17 @@ body {
   padding: 0.55rem 0.75rem;
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+.planner-fullscreen-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .planner-month-controls {
@@ -427,7 +465,137 @@ body {
 .planner-month-controls button:first-child { border-radius: 0.5rem 0 0 0.5rem; }
 .planner-month-controls button + button { border-left: 0; border-radius: 0 0.5rem 0.5rem 0; }
 .planner-today-button:hover,
+.planner-fullscreen-button:hover,
 .planner-month-controls button:hover { border-color: var(--accent); color: var(--text); background: var(--card2); transform: translateY(-1px); }
+
+.recruitment-list-view {
+  display: block;
+}
+
+.recruitment-list-section {
+  overflow: hidden;
+  border: 1px solid rgba(227, 218, 196, 0.55);
+  border-radius: 1rem;
+  background: var(--planner-paper);
+  box-shadow: 0 18px 42px -32px rgba(0, 0, 0, 0.72);
+}
+
+.recruitment-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(120, 105, 92, 0.18);
+  background: linear-gradient(90deg, rgba(248,242,229,0.96), rgba(238,228,210,0.88));
+  padding: 0.8rem 1rem;
+  color: #302d3b;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.recruitment-list-heading b {
+  display: inline-flex;
+  min-width: 1.65rem;
+  height: 1.65rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cfc2aa;
+  border-radius: 999px;
+  background: #fbf6eb;
+  font-size: 0.68rem;
+}
+
+.recruitment-queue-grid {
+  display: grid;
+  grid-auto-flow: dense;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding: 0.65rem;
+}
+
+.recruitment-queue {
+  grid-column: span 6;
+  min-width: 0;
+  border: 1px solid rgba(172, 157, 136, 0.55);
+  border-radius: 0.75rem;
+  background: rgba(255, 252, 245, 0.76);
+  padding: 0.65rem;
+}
+
+.recruitment-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  color: #302d3b;
+}
+
+.recruitment-queue-kicker {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: #81798a;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.recruitment-queue-header h3 { font-size: 0.82rem; font-weight: 900; }
+
+.recruitment-release-distance {
+  flex: none;
+  border: 1px solid rgba(79, 142, 247, 0.4);
+  border-radius: 999px;
+  background: rgba(79, 142, 247, 0.12);
+  padding: 0.28rem 0.45rem;
+  color: #2467bd;
+  font-size: 0.58rem;
+  font-weight: 900;
+}
+
+.recruitment-release-distance.is-past {
+  border-color: rgba(112, 103, 118, 0.28);
+  background: rgba(112, 103, 118, 0.1);
+  color: #706776;
+}
+
+.recruitment-queue-items {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.recruitment-list-card-span-2 { grid-column: span 2; }
+.recruitment-list-card-span-3 { grid-column: span 3; }
+.recruitment-list-card-span-6 { grid-column: span 6; }
+
+.recruitment-list-card {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  border: 1px solid #d3c7b1;
+  border-radius: 0.55rem;
+  background: rgba(255, 252, 245, 0.9);
+  color: #302d3b;
+  cursor: pointer;
+  padding: 0.32rem 0.4rem;
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.recruitment-list-card:hover { transform: translateY(-1px); border-color: rgba(79, 142, 247, 0.7); background: #fff; }
+.recruitment-list-card:focus-visible { outline: 3px solid #1d7cf2; outline-offset: 2px; }
+.recruitment-list-card img { width: 2.35rem; aspect-ratio: 0.82; border-radius: 0.35rem; object-fit: cover; object-position: center top; }
+.recruitment-list-card > span { min-width: 0; }
+.recruitment-list-card strong { display: block; overflow: hidden; font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+.recruitment-list-card small { display: block; overflow: hidden; margin-top: 0.12rem; color: #81798a; font-size: 0.56rem; text-overflow: ellipsis; white-space: nowrap; }
+.recruitment-list-empty { padding: 1.2rem 1rem; color: #81798a; font-size: 0.8rem; }
 
 .recruitment-planner {
   position: relative;
@@ -815,12 +983,6 @@ body {
 .calendar-student-sticker:hover { filter: drop-shadow(3px 7px 5px rgba(50,44,54,0.32)); transform: translateY(-5px) rotate(var(--sticker-angle)) scale(1.05); }
 .calendar-student-sticker:focus-visible { outline: 3px solid #1d7cf2; outline-offset: 4px; border-radius: 0.35rem; }
 .calendar-sticker-stack-dense .calendar-student-sticker { width: clamp(1.9rem, 3.35vw, 2.95rem); }
-.calendar-student-sticker-press { filter: drop-shadow(1px 1px 1px rgba(50,44,54,0.2)); transform: translateY(1px) rotate(var(--sticker-angle)) scale(0.94); }
-.calendar-student-sticker-opening-start { filter: drop-shadow(4px 10px 7px rgba(50,44,54,0.36)); transform: translateY(-7px) rotate(calc(var(--sticker-angle) * 0.3)) scale(1.04); z-index: 20 !important; }
-.calendar-student-sticker-opening-move { opacity: 0.12; pointer-events: none; }
-.calendar-student-sticker-closing-start,
-.calendar-student-sticker-closing-move { opacity: 0.12; pointer-events: none; }
-
 .calendar-sticker-tape {
   position: absolute;
   z-index: 3;
@@ -1001,91 +1163,12 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.recruitment-dossier-motion-press,
 .recruitment-dossier-motion-opening-start,
 .recruitment-dossier-motion-opening-move,
-.recruitment-dossier-motion-closing-start,
 .recruitment-dossier-motion-closing-move { opacity: 0; pointer-events: none; }
 .recruitment-dossier-motion-ready { animation: dossierContentReveal 240ms ease-out both; }
 .recruitment-dossier-motion-ready .dossier-grid { animation: dossierContentReveal 320ms 70ms ease-out both; }
 .recruitment-dossier-motion-ready > .dossier-section { animation: dossierContentReveal 340ms 130ms ease-out both; }
-
-.shared-recruitment-transition {
-  position: fixed;
-  z-index: 380;
-  inset: 0;
-  pointer-events: none;
-}
-
-.shared-recruitment-folder,
-.shared-recruitment-portrait {
-  position: fixed;
-  transform-origin: top left;
-  will-change: transform, opacity;
-}
-
-.shared-recruitment-folder {
-  overflow: hidden;
-  border: 1px solid rgba(107, 98, 86, 0.3);
-  border-radius: 0.8rem;
-  background:
-    linear-gradient(90deg, rgba(206, 82, 91, 0.17) 0 2px, transparent 2px),
-    repeating-linear-gradient(0deg, transparent 0 28px, rgba(64, 58, 69, 0.055) 28px 29px),
-    #f7f1e5;
-  box-shadow: 0 18px 38px rgba(22,18,29,0.26), inset 0 0 0 1px rgba(255,255,255,0.72);
-  transform: var(--shared-folder-transform);
-  transition: transform 450ms cubic-bezier(0.2, 0.82, 0.2, 1), opacity 180ms ease;
-}
-
-.shared-recruitment-folder::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  background: linear-gradient(115deg, rgba(255,255,255,0.54), transparent 42%);
-}
-
-.shared-recruitment-folder-tab {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  right: 9%;
-  border-radius: 0 0 0.4rem 0.4rem;
-  background: var(--pickup-accent);
-  color: #fff;
-  padding: 0.35rem 0.62rem;
-  font-family: var(--mono);
-  font-size: 0.52rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-}
-
-.shared-recruitment-folder-sheet {
-  position: absolute;
-  z-index: 2;
-  right: 8%;
-  bottom: 9%;
-  left: 8%;
-  height: 44%;
-  border: 1px solid rgba(82,72,85,0.16);
-  background: rgba(255,253,248,0.66);
-  box-shadow: 3px 4px 0 rgba(58,48,63,0.08);
-}
-.shared-recruitment-folder-sheet-one { transform: rotate(-1.3deg); }
-.shared-recruitment-folder-sheet-two { transform: translate(1.2%, -3%) rotate(1deg); }
-
-.shared-recruitment-portrait {
-  z-index: 5;
-  overflow: hidden;
-  border: 2px solid #fffdf7;
-  border-radius: 0.28rem 0.36rem 0.42rem 0.3rem;
-  background: #fffdf7;
-  box-shadow: 3px 5px 0 rgba(57,47,62,0.15), 0 8px 16px rgba(45,37,49,0.16);
-  transform: var(--shared-portrait-transform);
-  transition: transform 450ms cubic-bezier(0.2, 0.82, 0.2, 1), border-radius 450ms ease, opacity 140ms ease;
-}
-.shared-recruitment-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
-.shared-recruitment-transition-closing .shared-recruitment-folder,
-.shared-recruitment-transition-closing .shared-recruitment-portrait { transition-duration: 410ms; }
 
 .st-modal-transition-backdrop-from-bottom { background-color: rgba(13,13,19,0.08) !important; }
 .st-modal-transition-backdrop-rising { background-color: rgba(13,13,19,0.72) !important; transition: background-color 450ms ease; }
@@ -1098,23 +1181,43 @@ body {
   .calendar-student-sticker,
   .calendar-student-sticker:hover,
   .planner-today-button,
+  .planner-fullscreen-button,
   .planner-month-controls button,
   .recruitment-planner,
-  .shared-recruitment-folder,
-  .shared-recruitment-portrait,
   .st-modal-transition-shell-from-bottom,
   .st-modal-transition-shell-rising,
   .st-modal-transition-shell-to-bottom { transition: none; animation: none; transform: none; }
 }
 
+@media (max-width: 1100px) {
+  .recruitment-planner-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .planner-controls {
+    align-self: stretch;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+}
+
 @media (max-width: 640px) {
-  .recruitment-planner-intro { align-items: flex-start; flex-direction: column; }
   .planner-controls { align-self: stretch; flex-wrap: wrap; justify-content: space-between; }
   .planner-mode-toggle { width: 100%; }
   .planner-mode-toggle button { flex: 1; }
+  .planner-view-toggle { width: 100%; }
+  .planner-view-toggle button { flex: 1; justify-content: center; }
   .planner-today-button { flex: 1; }
+  .planner-fullscreen-button { display: none; }
   .planner-month-controls { flex: 1; }
   .planner-month-controls button { flex: 1; }
+  .recruitment-queue-grid { grid-template-columns: 1fr; padding: 0.5rem; }
+  .recruitment-queue { grid-column: 1; padding: 0.55rem; }
+  .recruitment-queue-header { gap: 0.5rem; }
+  .recruitment-queue-items { grid-template-columns: 1fr; }
+  .recruitment-queue-items .recruitment-list-card { grid-column: 1; }
   .planner-top-strip { padding-left: 1.35rem; font-size: 0.48rem; }
   .planner-top-strip span:last-child { display: none; }
   .planner-month-heading { min-height: 5.2rem; padding-left: 1.45rem; }
@@ -1205,6 +1308,79 @@ body {
   .dossier-fields-three,
   .dossier-fields-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .recruitment-banner-sticker { width: 91%; }
+}
+
+/* The fullscreen modal preserves the original planner and scales it as one unit. */
+.calendar-fullscreen {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.calendar-fullscreen-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.calendar-fullscreen-canvas {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.calendar-fullscreen-board {
+  --planner-paper: #f4efe3;
+  --planner-paper-deep: #e7dfcc;
+  --planner-ink: #242335;
+  --planner-muted: #777181;
+  --planner-line: rgba(73, 70, 89, 0.17);
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform-origin: top center;
+}
+
+.calendar-fullscreen-board .planner-month-heading {
+  min-height: clamp(4.5rem, 10dvh, 6.25rem);
+  padding-block: clamp(0.45rem, 1.4dvh, 0.85rem);
+}
+
+.calendar-fullscreen-board .birthday-planner .planner-month-heading {
+  min-height: clamp(5rem, 11dvh, 7rem);
+}
+
+.calendar-fullscreen-board .planner-weekdays > div {
+  padding-block: clamp(0.32rem, 0.9dvh, 0.55rem);
+}
+
+.calendar-fullscreen-board .planner-day,
+.calendar-fullscreen-board .birthday-planner .planner-day {
+  min-height: clamp(6.5rem, 12dvh, 7.5rem);
+}
+
+@media (max-width: 640px) {
+  .calendar-fullscreen-toolbar { flex-wrap: wrap; justify-content: stretch; }
+  .calendar-fullscreen-toolbar .planner-mode-toggle { width: auto; flex: 1 1 100%; }
+  .calendar-fullscreen-toolbar .planner-today-button,
+  .calendar-fullscreen-toolbar .planner-month-controls { flex: 1; }
+}
+
+@media (min-width: 641px) {
+  .calendar-fullscreen-board .planner-top-strip { font-size: 0.68rem; }
+  .calendar-fullscreen-board .planner-month-kicker { font-size: 0.67rem; }
+  .calendar-fullscreen-board .planner-weekdays { font-size: 0.7rem; }
+  .calendar-fullscreen-board .planner-day-number { font-size: 0.86rem; }
+  .calendar-fullscreen-board .recruitment-date-marker { min-width: 4.35rem; font-size: 0.53rem; }
+  .calendar-fullscreen-board .calendar-student-sticker { width: clamp(2.6rem, 4.8vw, 4.4rem); }
+  .calendar-fullscreen-board .calendar-sticker-stack-dense .calendar-student-sticker { width: clamp(2.2rem, 3.8vw, 3.55rem); }
+  .calendar-fullscreen-board .birthday-student-sticker { width: clamp(2.85rem, 4.9vw, 4.6rem); }
+  .calendar-fullscreen-board .birthday-student-sticker > span:last-child { font-size: clamp(0.54rem, 0.9vw, 0.7rem); }
 }
 
 @media (min-width: 768px) {

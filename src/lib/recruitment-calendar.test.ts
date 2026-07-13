@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildCalendarDays, groupSchedulesByDate, monthFromDateKey, shiftMonth } from './recruitment-calendar'
+import { arrangeRecruitmentQueue, buildCalendarDays, daysBetweenDateKeys, groupSchedulesByDate, monthFromDateKey, pairedRecruitmentRowCount, recruitmentReleaseLabel, shiftMonth } from './recruitment-calendar'
 
 test('builds a Sunday-to-Saturday calendar grid across month boundaries', () => {
   const days = buildCalendarDays(new Date(2026, 2, 1))
@@ -33,4 +33,60 @@ test('groups every scheduled recruitment under its start date', () => {
 
   assert.deepEqual(grouped.get('2026-07-20')?.map((schedule) => schedule.id), ['a', 'b'])
   assert.deepEqual(grouped.get('2026-07-27')?.map((schedule) => schedule.id), ['c'])
+})
+
+test('describes upcoming and past recruitment dates from today', () => {
+  assert.equal(daysBetweenDateKeys('2026-07-13', '2026-07-13'), 0)
+  assert.equal(daysBetweenDateKeys('2026-07-24', '2026-07-13'), 11)
+  assert.equal(daysBetweenDateKeys('2026-07-01', '2026-07-13'), -12)
+  assert.equal(daysBetweenDateKeys('invalid', '2026-07-13'), null)
+  assert.equal(recruitmentReleaseLabel(0), 'Releases today')
+  assert.equal(recruitmentReleaseLabel(1), 'Releases tomorrow')
+  assert.equal(recruitmentReleaseLabel(-1), 'Released yesterday')
+  assert.equal(recruitmentReleaseLabel(11), 'Releases in 11 days')
+  assert.equal(recruitmentReleaseLabel(-12), 'Released 12 days ago')
+})
+
+test('balances every recruitment queue arrangement across paired block rows', () => {
+  const cases = [
+    { count: 1, rows: 1, expected: [1] },
+    { count: 2, rows: 1, expected: [2] },
+    { count: 2, rows: 2, expected: [1, 1] },
+    { count: 3, rows: 1, expected: [3] },
+    { count: 3, rows: 2, expected: [2, 1] },
+    { count: 4, rows: 2, expected: [2, 2] },
+    { count: 5, rows: 3, expected: [2, 1, 2] },
+    { count: 6, rows: 2, expected: [3, 3] },
+    { count: 6, rows: 3, expected: [2, 2, 2] },
+    { count: 7, rows: 3, expected: [3, 2, 2] },
+    { count: 8, rows: 3, expected: [3, 2, 3] },
+    { count: 9, rows: 3, expected: [3, 3, 3] },
+    { count: 10, rows: 4, expected: [3, 2, 2, 3] },
+  ]
+
+  cases.forEach(({ count, rows, expected }) => {
+    const arrangement = arrangeRecruitmentQueue(count, rows)
+    assert.deepEqual(arrangement, expected)
+    assert.equal(arrangement.reduce((total, rowSize) => total + rowSize, 0), count)
+    assert.ok(arrangement.every((rowSize) => rowSize >= 1 && rowSize <= 3))
+  })
+
+  assert.deepEqual(arrangeRecruitmentQueue(0, 3), [])
+})
+
+test('supports every paired queue size without losing cards or creating partial rows', () => {
+  for (let leftCount = 1; leftCount <= 30; leftCount += 1) {
+    for (let rightCount = 1; rightCount <= 30; rightCount += 1) {
+      const targetRows = pairedRecruitmentRowCount(leftCount, rightCount)
+
+      for (const count of [leftCount, rightCount]) {
+        const arrangement = arrangeRecruitmentQueue(count, targetRows)
+        assert.equal(arrangement.length, Math.min(targetRows, count))
+        assert.equal(arrangement.reduce((total, rowSize) => total + rowSize, 0), count)
+        assert.ok(arrangement.every((rowSize) => rowSize >= 1 && rowSize <= 3))
+        assert.ok(Math.max(...arrangement) - Math.min(...arrangement) <= 1)
+        assert.ok(arrangement.every((rowSize) => 6 % rowSize === 0))
+      }
+    }
+  }
 })

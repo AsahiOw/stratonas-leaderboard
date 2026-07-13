@@ -5,6 +5,7 @@ import { lockBodyScroll } from '@/lib/body-scroll-lock'
 
 interface Props {
   title: string
+  headerActions?: React.ReactNode
   onClose: () => void
   children: React.ReactNode
   wide?: boolean
@@ -17,9 +18,10 @@ interface Props {
    * `flex-1 min-h-0` to fill the available height.
    */
   fullScreen?: boolean
+  viewportFullScreen?: boolean
 }
 
-export function StModal({ title, onClose, children, wide, extraWide, fullScreen, variant = 'default', transitionState }: Props) {
+export function StModal({ title, headerActions, onClose, children, wide, extraWide, fullScreen, viewportFullScreen, variant = 'default', transitionState }: Props) {
   // Portal the modal to `document.body` so it overlays the entire viewport
   // regardless of where it is mounted in the React tree. Without this,
   // ancestors that create a containing block for fixed elements (anything
@@ -44,7 +46,9 @@ export function StModal({ title, onClose, children, wide, extraWide, fullScreen,
   // Outer dialog sizing on >= sm. Mobile (`<sm`) always renders edge-to-edge
   // via `w-full h-full`; the `sm:` variants take over from 640 px upward.
   let dialogSizeClass: string
-  if (fullScreen) {
+  if (viewportFullScreen) {
+    dialogSizeClass = 'sm:h-[calc(100dvh-1rem)] sm:max-h-none sm:w-[calc(100vw-1rem)] sm:max-w-none'
+  } else if (fullScreen) {
     dialogSizeClass =
       'sm:w-[95vw] sm:max-w-[1200px] sm:h-[92vh] sm:max-h-[95vh]'
   } else if (extraWide) {
@@ -61,7 +65,7 @@ export function StModal({ title, onClose, children, wide, extraWide, fullScreen,
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[300] flex items-stretch justify-center overflow-hidden p-0 sm:items-center sm:p-5 ${
+      className={`fixed inset-0 z-[300] flex items-stretch justify-center overflow-hidden p-0 sm:items-center ${viewportFullScreen ? 'sm:p-2' : 'sm:p-5'} ${
         planner ? 'bg-[rgba(13,13,19,0.72)] backdrop-blur-[3px]' : 'bg-black/75'
       } ${transitionState ? `st-modal-transition-backdrop-${transitionState}` : ''}`}
       onClick={onClose}
@@ -72,10 +76,15 @@ export function StModal({ title, onClose, children, wide, extraWide, fullScreen,
         } ${dialogSizeClass} ${transitionState ? `st-modal-transition-shell-${transitionState}` : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={`flex shrink-0 items-center justify-between border-b px-5 py-4 sm:px-6 sm:py-4 ${
+        <div className={`flex shrink-0 flex-wrap items-center gap-3 border-b px-5 py-4 sm:px-6 sm:py-4 ${
           planner ? 'border-[#cfc2aa] bg-[linear-gradient(90deg,#f8f2e5,#eee4d2)] text-[#302d3b]' : 'border-border bg-card'
         }`}>
-          <span className="truncate pr-3 text-base font-bold">{title}</span>
+          <span className="min-w-0 flex-1 truncate pr-3 text-base font-bold">{title}</span>
+          {headerActions && (
+            <div className="order-3 flex w-full min-w-0 items-center justify-end sm:order-none sm:w-auto">
+              {headerActions}
+            </div>
+          )}
           <button
             onClick={onClose}
             aria-label="Close"
