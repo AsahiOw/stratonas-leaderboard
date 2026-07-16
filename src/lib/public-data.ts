@@ -349,9 +349,8 @@ export const getPublicFutureRecruitment = unstable_cache(
 )
 
 export const getPublicRecruitmentCalendar = unstable_cache(
-  async (todayKey = dateKeyFromDate()) => {
+  async () => {
     const schedules = await prisma.upcomingRecruitment.findMany({
-      where: { dateKey: { gte: todayKey } },
       orderBy: { dateKey: 'asc' },
       include: {
         items: {

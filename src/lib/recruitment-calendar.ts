@@ -49,3 +49,52 @@ export function groupSchedulesByDate<T extends { dateKey: string }>(schedules: T
     return groups
   }, new Map<string, T[]>())
 }
+
+export function daysBetweenDateKeys(dateKey: string, todayKey: string) {
+  if (!isValidDateKey(dateKey) || !isValidDateKey(todayKey)) return null
+  const [year, month, day] = dateKey.split('-').map(Number)
+  const [todayYear, todayMonth, todayDay] = todayKey.split('-').map(Number)
+  return Math.round((Date.UTC(year, month - 1, day) - Date.UTC(todayYear, todayMonth - 1, todayDay)) / 86_400_000)
+}
+
+export function recruitmentReleaseLabel(days: number) {
+  if (days === 0) return 'Releases today'
+  if (days === 1) return 'Releases tomorrow'
+  if (days === -1) return 'Released yesterday'
+  if (days > 1) return `Releases in ${days} days`
+  return `Released ${Math.abs(days)} days ago`
+}
+
+/**
+ * Distribute a queue across the requested number of rows with no partial rows.
+ * Extra items are placed from the outside inward so three-row groups retain the
+ * planner's balanced patterns: 5 => 2/1/2, 7 => 3/2/2, 8 => 3/2/3.
+ */
+export function arrangeRecruitmentQueue(itemCount: number, requestedRows: number) {
+  if (itemCount <= 0) return []
+
+  const rowCount = Math.max(1, Math.min(Math.floor(requestedRows), itemCount))
+  const baseSize = Math.floor(itemCount / rowCount)
+  let remainder = itemCount % rowCount
+  const rows = Array.from({ length: rowCount }, () => baseSize)
+  const outsideInOrder: number[] = []
+
+  for (let offset = 0; outsideInOrder.length < rowCount; offset += 1) {
+    const left = offset
+    const right = rowCount - 1 - offset
+    if (left <= right) outsideInOrder.push(left)
+    if (right > left) outsideInOrder.push(right)
+  }
+
+  for (const rowIndex of outsideInOrder) {
+    if (remainder === 0) break
+    rows[rowIndex] += 1
+    remainder -= 1
+  }
+
+  return rows
+}
+
+export function pairedRecruitmentRowCount(itemCount: number, pairedItemCount: number) {
+  return Math.max(1, Math.ceil(Math.max(itemCount, pairedItemCount) / 3))
+}

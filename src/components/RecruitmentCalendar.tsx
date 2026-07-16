@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   CalendarDays,
   CakeSlice,
@@ -11,6 +10,9 @@ import {
   Crosshair,
   GraduationCap,
   IdCard,
+  LayoutGrid,
+  List,
+  Maximize2,
   Paperclip,
   Radio,
   Sparkles,
@@ -18,7 +20,7 @@ import {
   Ticket,
 } from 'lucide-react'
 import { StModal } from '@/components/ui/StModal'
-import { buildCalendarDays, groupSchedulesByDate, monthFromDateKey, monthStart, shiftMonth } from '@/lib/recruitment-calendar'
+import { arrangeRecruitmentQueue, buildCalendarDays, daysBetweenDateKeys, groupSchedulesByDate, monthStart, pairedRecruitmentRowCount, recruitmentReleaseLabel, shiftMonth } from '@/lib/recruitment-calendar'
 import { dateKeyFromDate } from '@/lib/recruitments'
 import { parseBirthdayKey } from '@/lib/birthdays'
 import { fmtDate, imageSrc } from '@/lib/utils'
@@ -64,17 +66,14 @@ interface Props {
 }
 
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-type StickerSlot = { x: string; y: string; angle: number }
-type Rect = { left: number; top: number; width: number; height: number }
+type StickerSlot = { x: string; y: string; angle: number; layer?: number }
 type Selection = { recruitment: RecruitmentCalendarRecruitment; dateKey: string }
 type CalendarMode = 'recruitment' | 'birthday'
-type MotionPhase = 'press' | 'opening-start' | 'opening-move' | 'ready' | 'closing-start' | 'closing-move'
+type RecruitmentView = 'calendar' | 'list'
+type MotionPhase = 'opening-start' | 'opening-move' | 'ready' | 'closing-move'
 type FileMotion = Selection & {
   source: HTMLElement
-  sourceRect: Rect
   phase: MotionPhase
-  portraitRect?: Rect
-  folderRect?: Rect
 }
 
 const stickerLayouts: Record<number, StickerSlot[]> = {
@@ -84,27 +83,27 @@ const stickerLayouts: Record<number, StickerSlot[]> = {
     { x: '55%', y: '6%', angle: 6 },
   ],
   3: [
-    { x: '5%', y: '38%', angle: -7 },
-    { x: '55%', y: '38%', angle: 5 },
+    { x: '5%', y: '50%', angle: -7 },
+    { x: '55%', y: '50%', angle: 5 },
     { x: '30%', y: '0%', angle: -3 },
   ],
   4: [
-    { x: '5%', y: '50%', angle: -7 },
-    { x: '53%', y: '50%', angle: 5 },
-    { x: '5%', y: '0%', angle: -3 },
-    { x: '53%', y: '0%', angle: 6 },
+    { x: '2%', y: '38%', angle: -7, layer: 2 },
+    { x: '27%', y: '0%', angle: 4, layer: 4 },
+    { x: '52%', y: '38%', angle: -4, layer: 3 },
+    { x: '73%', y: '0%', angle: 6, layer: 5 },
   ],
   5: [
-    { x: '3%', y: '45%', angle: -7 },
-    { x: '35%', y: '45%', angle: 4 },
-    { x: '67%', y: '45%', angle: -4 },
+    { x: '3%', y: '55%', angle: -7 },
+    { x: '35%', y: '55%', angle: 4 },
+    { x: '67%', y: '55%', angle: -4 },
     { x: '19%', y: '0%', angle: 6 },
     { x: '52%', y: '0%', angle: -5 },
   ],
   6: [
-    { x: '3%', y: '45%', angle: -7 },
-    { x: '35%', y: '45%', angle: 4 },
-    { x: '67%', y: '45%', angle: -4 },
+    { x: '3%', y: '55%', angle: -7 },
+    { x: '35%', y: '55%', angle: 4 },
+    { x: '67%', y: '55%', angle: -4 },
     { x: '3%', y: '0%', angle: 6 },
     { x: '35%', y: '0%', angle: -5 },
     { x: '67%', y: '0%', angle: 5 },
@@ -113,19 +112,6 @@ const stickerLayouts: Record<number, StickerSlot[]> = {
 
 function stickerLayoutFor(count: number) {
   return stickerLayouts[Math.min(Math.max(count, 1), 6)]
-}
-
-function rectFor(element: Element): Rect {
-  const rect = element.getBoundingClientRect()
-  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
-}
-
-function transformFrom(target: Rect, source: Rect) {
-  const x = source.left - target.left
-  const y = source.top - target.top
-  const scaleX = Math.max(0.01, source.width / target.width)
-  const scaleY = Math.max(0.01, source.height / target.height)
-  return `translate(${x}px, ${y}px) scale(${scaleX}, ${scaleY})`
 }
 
 function formatClub(value?: string | null) {
@@ -188,16 +174,12 @@ function CalendarStudentSticker({
   index,
   slot,
   onSelect,
-  isSelected,
-  motionPhase,
 }: {
   recruitment: RecruitmentCalendarRecruitment
   dateKey: string
   index: number
   slot: StickerSlot
   onSelect: (source: HTMLButtonElement) => void
-  isSelected: boolean
-  motionPhase?: MotionPhase
 }) {
   const accent = studentAccent(recruitment.student)
   const style = {
@@ -205,7 +187,7 @@ function CalendarStudentSticker({
     '--sticker-y': slot.y,
     '--sticker-angle': `${slot.angle + ((recruitment.student.id % 3) - 1)}deg`,
     '--sticker-accent': accent,
-    zIndex: index + 2,
+    zIndex: slot.layer ?? index + 2,
   } as CSSProperties
 
   return (
@@ -213,7 +195,7 @@ function CalendarStudentSticker({
       type="button"
       onClick={(event) => onSelect(event.currentTarget)}
       style={style}
-      className={`calendar-student-sticker ${isSelected ? `calendar-student-sticker-selected calendar-student-sticker-${motionPhase}` : ''}`}
+      className="calendar-student-sticker"
       aria-label={`Open ${recruitment.student.name}'s recruitment file, starting ${fmtDate(dateKey)}`}
       title={`${recruitment.student.name} — ${fmtDate(dateKey)}`}
     >
@@ -230,15 +212,11 @@ function StickerStack({
   dateKey,
   onSelect,
   onViewMore,
-  activeRecruitmentId,
-  motionPhase,
 }: {
   recruitments: RecruitmentCalendarRecruitment[]
   dateKey: string
   onSelect: (recruitment: RecruitmentCalendarRecruitment, source: HTMLButtonElement) => void
   onViewMore: () => void
-  activeRecruitmentId?: string
-  motionPhase?: MotionPhase
 }) {
   const dense = recruitments.length > 4
   const slots = stickerLayoutFor(recruitments.length)
@@ -255,8 +233,6 @@ function StickerStack({
           index={index}
           slot={slots[index]}
           onSelect={(source) => onSelect(recruitment, source)}
-          isSelected={recruitment.id === activeRecruitmentId}
-          motionPhase={motionPhase}
         />
       ))}
       {extraCount > 0 && (
@@ -283,11 +259,67 @@ function StickerStack({
   )
 }
 
-function RecruitmentDateMarker({ count }: { count: number }) {
+function RecruitmentQueueList({
+  schedules,
+  todayKey,
+  onSelect,
+}: {
+  schedules: RecruitmentCalendarSchedule[]
+  todayKey: string
+  onSelect: (recruitment: RecruitmentCalendarRecruitment, dateKey: string, source: HTMLButtonElement) => void
+}) {
+  const upcoming = schedules.filter((schedule) => schedule.dateKey >= todayKey)
+
+  function renderQueues(queues: RecruitmentCalendarSchedule[]) {
+    return queues.map((schedule, index) => {
+      const days = daysBetweenDateKeys(schedule.dateKey, todayKey) ?? 0
+      const pairedSchedule = queues[index % 2 === 0 ? index + 1 : index - 1]
+      const pairedCount = pairedSchedule?.recruitments.length || schedule.recruitments.length
+      const targetRows = pairedRecruitmentRowCount(schedule.recruitments.length, pairedCount)
+      const rowSizes = arrangeRecruitmentQueue(schedule.recruitments.length, targetRows)
+      const cardSpans = rowSizes.flatMap((rowSize) => Array.from({ length: rowSize }, () => 6 / rowSize))
+      return (
+        <article key={schedule.id} className="recruitment-queue">
+          <header className="recruitment-queue-header">
+            <div>
+              <span className="recruitment-queue-kicker">Banner release</span>
+              <h3>{fmtDate(schedule.dateKey)}</h3>
+            </div>
+            <span className={`recruitment-release-distance ${days < 0 ? 'is-past' : ''}`}>{recruitmentReleaseLabel(days)}</span>
+          </header>
+          <div className="recruitment-queue-items">
+            {schedule.recruitments.map((recruitment, recruitmentIndex) => (
+              <button
+                key={recruitment.id}
+                type="button"
+                className={`recruitment-list-card recruitment-list-card-span-${cardSpans[recruitmentIndex]}`}
+                onClick={(event) => onSelect(recruitment, schedule.dateKey, event.currentTarget)}
+                aria-label={`Open ${recruitment.student.name}'s recruitment file, starting ${fmtDate(schedule.dateKey)}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={stickerImage(recruitment.student, recruitment.bannerPath)} alt="" loading="lazy" />
+                <span>
+                  <strong>{recruitment.student.name}</strong>
+                  <small>{[recruitment.student.school, formatClub(recruitment.student.club)].filter(Boolean).join(' · ')}</small>
+                </span>
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </article>
+      )
+    })
+  }
+
   return (
-    <div className="recruitment-date-marker" aria-label={`${count} recruitment${count === 1 ? '' : 's'} scheduled`}>
-      <Ticket size={13} aria-hidden="true" />
-      <span>RECRUIT</span>
+    <div className="recruitment-list-view" aria-label="Recruitment release list">
+      <section className="recruitment-list-section">
+        <div className="recruitment-list-heading">
+          <span>Upcoming queue</span>
+          <b>{upcoming.length}</b>
+        </div>
+        {upcoming.length > 0 ? <div className="recruitment-queue-grid">{renderQueues(upcoming)}</div> : <p className="recruitment-list-empty">No upcoming recruitment banners are scheduled.</p>}
+      </section>
     </div>
   )
 }
@@ -359,21 +391,17 @@ function RecruitmentDossier({
   onClose,
   motionPhase,
   dossierRef,
-  folderRef,
-  portraitRef,
 }: {
   recruitment: RecruitmentCalendarRecruitment
   dateKey: string
   onClose: () => void
   motionPhase: MotionPhase
   dossierRef: React.RefObject<HTMLElement>
-  folderRef: React.RefObject<HTMLElement>
-  portraitRef: React.RefObject<HTMLDivElement>
 }) {
   const { student } = recruitment
   const accent = studentAccent(student)
   const style = { '--dossier-accent': accent } as CSSProperties
-  const modalTransitionState = motionPhase === 'press' || motionPhase === 'opening-start'
+  const modalTransitionState = motionPhase === 'opening-start'
     ? 'from-bottom'
     : motionPhase === 'opening-move'
       ? 'rising'
@@ -401,10 +429,10 @@ function RecruitmentDossier({
         className={`recruitment-dossier recruitment-dossier-motion-${motionPhase}`}
         style={style}
       >
-        <div className="dossier-file-tab">SCHALÉ // RECRUITMENT</div>
+        <div className="dossier-file-tab">SCHALE // RECRUITMENT</div>
         <div className="dossier-punch-holes" aria-hidden="true" />
-        <header ref={folderRef} className="dossier-hero">
-          <div ref={portraitRef} className="dossier-portrait-card">
+        <header className="dossier-hero">
+          <div className="dossier-portrait-card">
             <span className="dossier-paperclip" aria-hidden="true"><Paperclip size={24} /></span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={stickerImage(student, recruitment.bannerPath)} alt={`${student.name} portrait`} />
@@ -467,7 +495,7 @@ function RecruitmentDossier({
         <DocumentSection title="Archived recruitment broadcast" icon={<Radio size={15} />} accent={accent} className="mt-5">
           <div className="recruitment-terminal">
             <div className="recruitment-terminal-bar">
-              <span><i aria-hidden="true" /> SCHALÉ MEDIA ARCHIVE</span>
+              <span><i aria-hidden="true" /> SCHALE MEDIA ARCHIVE</span>
               <span>REC · RECRUITMENT-{String(student.id).padStart(5, '0')}</span>
             </div>
             <video
@@ -497,62 +525,22 @@ function RecruitmentDossier({
   )
 }
 
-function SharedRecruitmentFile({ motion }: { motion: FileMotion }) {
-  if (!motion.portraitRect || !motion.folderRect || typeof document === 'undefined') return null
-
-  const { recruitment } = motion
-  const accent = studentAccent(recruitment.student)
-  const toSourceFolder = transformFrom(motion.folderRect, motion.sourceRect)
-  const toSourcePortrait = transformFrom(motion.portraitRect, motion.sourceRect)
-  const opening = motion.phase === 'opening-start' || motion.phase === 'opening-move'
-  const start = motion.phase === 'opening-start' || motion.phase === 'closing-move'
-
-  const folderStyle = {
-    left: motion.folderRect.left,
-    top: motion.folderRect.top,
-    width: motion.folderRect.width,
-    height: motion.folderRect.height,
-    '--shared-folder-transform': start ? toSourceFolder : 'translate(0, 0) scale(1, 1)',
-    '--pickup-accent': accent,
-  } as CSSProperties
-  const portraitStyle = {
-    left: motion.portraitRect.left,
-    top: motion.portraitRect.top,
-    width: motion.portraitRect.width,
-    height: motion.portraitRect.height,
-    '--shared-portrait-transform': start ? toSourcePortrait : 'translate(0, 0) scale(1, 1)',
-  } as CSSProperties
-
-  return createPortal(
-    <div className={`shared-recruitment-transition ${opening ? 'shared-recruitment-transition-opening' : 'shared-recruitment-transition-closing'}`} aria-hidden="true">
-      <div className="shared-recruitment-folder" style={folderStyle}>
-        <span className="shared-recruitment-folder-tab">SCHALÉ FILE</span>
-        <span className="shared-recruitment-folder-sheet shared-recruitment-folder-sheet-one" />
-        <span className="shared-recruitment-folder-sheet shared-recruitment-folder-sheet-two" />
-      </div>
-      <div className="shared-recruitment-portrait" style={portraitStyle}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={stickerImage(recruitment.student, recruitment.bannerPath)} alt="" />
-      </div>
-    </div>,
-    document.body
-  )
-}
-
 export function RecruitmentCalendar({ schedules, birthdayStudents = [] }: Props) {
   const todayKey = dateKeyFromDate()
   const todayMonth = monthStart(new Date())
-  const initialMonth = monthFromDateKey(schedules[0]?.dateKey || '') || todayMonth
-  const [visibleMonth, setVisibleMonth] = useState(initialMonth)
+  const [visibleMonth, setVisibleMonth] = useState(todayMonth)
   const [selected, setSelected] = useState<Selection | null>(null)
   const [motion, setMotion] = useState<FileMotion | null>(null)
   const [picker, setPicker] = useState<{ dateKey: string; recruitments: RecruitmentCalendarRecruitment[] } | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [fullscreenScale, setFullscreenScale] = useState(1)
   const [mode, setMode] = useState<CalendarMode>('recruitment')
+  const [recruitmentView, setRecruitmentView] = useState<RecruitmentView>('calendar')
   const [hasModeChanged, setHasModeChanged] = useState(false)
   const timersRef = useRef<number[]>([])
   const dossierRef = useRef<HTMLElement>(null)
-  const folderRef = useRef<HTMLElement>(null)
-  const portraitRef = useRef<HTMLDivElement>(null)
+  const fullscreenCanvasRef = useRef<HTMLDivElement>(null)
+  const plannerBoardRef = useRef<HTMLElement>(null)
   const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth])
   const schedulesByDate = useMemo(() => groupSchedulesByDate(schedules), [schedules])
   const birthdaysByDate = useMemo(() => {
@@ -571,6 +559,7 @@ export function RecruitmentCalendar({ schedules, birthdayStudents = [] }: Props)
   const monthHasRecruitments = calendarDays.some((day) => day.isCurrentMonth && schedulesByDate.has(day.dateKey))
   const monthHasBirthdays = calendarDays.some((day) => day.isCurrentMonth && birthdaysByDate.has(day.dateKey))
   const isBirthdayMode = mode === 'birthday'
+  const showingRecruitmentList = !isBirthdayMode && recruitmentView === 'list'
 
   function clearMotionTimers() {
     timersRef.current.forEach((timer) => window.clearTimeout(timer))
@@ -587,31 +576,10 @@ export function RecruitmentCalendar({ schedules, birthdayStudents = [] }: Props)
   useEffect(() => clearMotionTimers, [])
 
   useEffect(() => {
-    if (!motion || !selected || motion.phase !== 'press') return
-
-    let attempts = 0
-    const measureTargets = () => {
-      const folder = folderRef.current
-      const portrait = portraitRef.current
-      if ((!folder || !portrait) && attempts < 5) {
-        attempts += 1
-        timersRef.current.push(window.setTimeout(measureTargets, 32))
-        return
-      }
-      if (!folder || !portrait) {
-        setMotion((current) => current ? { ...current, phase: 'ready' } : null)
-        return
-      }
-
-      const folderRect = rectFor(folder)
-      const portraitRect = rectFor(portrait)
-      setMotion((current) => current ? { ...current, folderRect, portraitRect, phase: 'opening-start' } : null)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setMotion((current) => current ? { ...current, phase: 'opening-move' } : null))
-      })
-    }
-
-    timersRef.current.push(window.setTimeout(measureTargets, 100))
+    if (!motion || !selected || motion.phase !== 'opening-start') return
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setMotion((current) => current ? { ...current, phase: 'opening-move' } : null))
+    })
   }, [motion, selected])
 
   useEffect(() => {
@@ -629,20 +597,57 @@ export function RecruitmentCalendar({ schedules, birthdayStudents = [] }: Props)
     }, 420))
   }, [motion])
 
+  useLayoutEffect(() => {
+    if (!fullscreen) return
+
+    let frame = 0
+    let interval = 0
+    let observer: ResizeObserver | null = null
+    let fitBoard = () => undefined
+
+    const connectFitter = () => {
+      const canvas = fullscreenCanvasRef.current
+      const board = plannerBoardRef.current
+      if (!canvas || !board) {
+        frame = window.requestAnimationFrame(connectFitter)
+        return
+      }
+
+      fitBoard = () => {
+        const nextScale = Math.min(1, (canvas.clientHeight / board.scrollHeight) * 0.995)
+        setFullscreenScale((current) => Math.abs(current - nextScale) < 0.002 ? current : nextScale)
+      }
+
+      fitBoard()
+      observer = new ResizeObserver(fitBoard)
+      observer.observe(canvas)
+      observer.observe(board)
+      window.addEventListener('resize', fitBoard)
+      interval = window.setInterval(fitBoard, 250)
+    }
+
+    connectFitter()
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearInterval(interval)
+      observer?.disconnect()
+      window.removeEventListener('resize', fitBoard)
+    }
+  }, [calendarDays.length, fullscreen, mode, visibleMonth])
+
   function selectRecruitment(recruitment: RecruitmentCalendarRecruitment, dateKey: string, source: HTMLButtonElement) {
     if (motion && motion.phase !== 'ready') return
-    clearMotionTimers()
     setPicker(null)
     const nextSelection = { recruitment, dateKey }
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reducedMotion) {
       setSelected(nextSelection)
-      setMotion({ ...nextSelection, source, sourceRect: rectFor(source), phase: 'ready' })
+      setMotion({ ...nextSelection, source, phase: 'ready' })
       return
     }
 
     setSelected(nextSelection)
-    setMotion({ ...nextSelection, source, sourceRect: rectFor(source), phase: 'press' })
+    setMotion({ ...nextSelection, source, phase: 'opening-start' })
   }
 
   function closeRecruitment() {
@@ -652,10 +657,7 @@ export function RecruitmentCalendar({ schedules, birthdayStudents = [] }: Props)
     }
     if (motion.phase !== 'ready') return
 
-    const folder = folderRef.current
-    const portrait = portraitRef.current
-    const sourceRect = motion.source.isConnected ? rectFor(motion.source) : null
-    if (!folder || !portrait || !sourceRect || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setSelected(null)
       setMotion(null)
       if (motion.source.isConnected) motion.source.focus({ preventScroll: true })
@@ -663,23 +665,14 @@ export function RecruitmentCalendar({ schedules, birthdayStudents = [] }: Props)
     }
 
     clearMotionTimers()
-    setMotion({
-      ...motion,
-      sourceRect,
-      folderRect: rectFor(folder),
-      portraitRect: rectFor(portrait),
-      phase: 'closing-start',
-    })
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setMotion((current) => current ? { ...current, phase: 'closing-move' } : null))
-    })
+    setMotion({ ...motion, phase: 'closing-move' })
   }
 
   return (
     <section className={`recruitment-calendar-view view-transition pt-7 ${hasModeChanged ? `calendar-mode-${mode}` : ''} ${isBirthdayMode ? 'birthday-calendar-view' : ''}`}>
       <header className="recruitment-planner-intro">
         <div className="recruitment-planner-title">
-          <span className="planner-title-stamp">{isBirthdayMode ? <CakeSlice size={17} aria-hidden="true" /> : <CalendarDays size={17} aria-hidden="true" />} SCHALÉ NOTICEBOARD</span>
+          <span className="planner-title-stamp">{isBirthdayMode ? <CakeSlice size={17} aria-hidden="true" /> : <CalendarDays size={17} aria-hidden="true" />} SCHALE NOTICEBOARD</span>
           <h1>{isBirthdayMode ? <>Birthday <em>calendar</em></> : <>Recruitment <em>planner</em></>}</h1>
           <p>{isBirthdayMode ? 'A month of Kivotos student birthdays. Portraits mark each student’s special day.' : 'Pinboard schedule for incoming banner records. Can be incorrect if Nexon decide to speed up Global releases.'}</p>
         </div>
@@ -688,73 +681,129 @@ export function RecruitmentCalendar({ schedules, birthdayStudents = [] }: Props)
             <button type="button" className={!isBirthdayMode ? 'planner-mode-active' : ''} onClick={() => changeMode('recruitment')} aria-pressed={!isBirthdayMode}>Recruitment</button>
             <button type="button" className={isBirthdayMode ? 'planner-mode-active' : ''} onClick={() => changeMode('birthday')} aria-pressed={isBirthdayMode}>Birthdays</button>
           </div>
-          <button type="button" onClick={() => setVisibleMonth(todayMonth)} className="planner-today-button">Today</button>
-          <div className="planner-month-controls">
-            <button type="button" onClick={() => setVisibleMonth((month) => shiftMonth(month, -1))} aria-label="Previous month"><ChevronLeft size={18} /></button>
-            <button type="button" onClick={() => setVisibleMonth((month) => shiftMonth(month, 1))} aria-label="Next month"><ChevronRight size={18} /></button>
-          </div>
+          {!isBirthdayMode && (
+            <div className="planner-view-toggle" role="group" aria-label="Recruitment view">
+              <button type="button" className={recruitmentView === 'calendar' ? 'planner-view-active' : ''} onClick={() => setRecruitmentView('calendar')} aria-pressed={recruitmentView === 'calendar'}><LayoutGrid size={14} aria-hidden="true" /> Calendar</button>
+              <button type="button" className={recruitmentView === 'list' ? 'planner-view-active' : ''} onClick={() => setRecruitmentView('list')} aria-pressed={recruitmentView === 'list'}><List size={14} aria-hidden="true" /> List</button>
+            </div>
+          )}
+          {!showingRecruitmentList && (
+            <>
+              <button type="button" onClick={() => setVisibleMonth(todayMonth)} className="planner-today-button">Today</button>
+              <button type="button" onClick={() => setFullscreen(true)} className="planner-fullscreen-button"><Maximize2 size={14} aria-hidden="true" /> View fullscreen</button>
+              <div className="planner-month-controls">
+                <button type="button" onClick={() => setVisibleMonth((month) => shiftMonth(month, -1))} aria-label="Previous month"><ChevronLeft size={18} /></button>
+                <button type="button" onClick={() => setVisibleMonth((month) => shiftMonth(month, 1))} aria-label="Next month"><ChevronRight size={18} /></button>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
-      <section className={`recruitment-planner ${isBirthdayMode ? 'birthday-planner' : ''}`} aria-label={`${isBirthdayMode ? 'Birthday calendar' : 'Recruitment planner'} for ${visibleMonthLabel}`}>
-        <div className="planner-binder-holes" aria-hidden="true" />
-        <div className="planner-top-strip">
-          <span>{isBirthdayMode ? `BLUE ARCHIVE CALENDAR // ${visibleMonth.getFullYear()}` : `RECRUITMENT INTAKE // ${visibleMonth.getFullYear()}`}</span>
-          <span>{isBirthdayMode ? <><CakeSlice size={13} aria-hidden="true" /> Birthday dates are marked</> : <><Ticket size={13} aria-hidden="true" /> Banner dates are marked</>}</span>
-        </div>
-        <div className="planner-month-heading">
-          {isBirthdayMode && <span className="planner-month-number" aria-hidden="true">{visibleMonth.getMonth() + 1}</span>}
-          <span className="planner-month-kicker">{isBirthdayMode ? 'Kivotos birthday calendar' : 'Kivotos student schedule'}</span>
-          <h2>{visibleMonthLabel}</h2>
-          <span className="planner-doodle" aria-hidden="true">✦</span>
-          <span className="planner-paperclip" aria-hidden="true"><Paperclip size={30} /></span>
-        </div>
-        <div className="planner-weekdays">
-          {weekdayLabels.map((label, index) => (
-            <div key={label} className={index === 0 || index === 6 ? 'planner-weekend' : ''}>{label}</div>
-          ))}
-        </div>
-        <div className="planner-days">
-          {calendarDays.map((day, index) => {
-            const scheduled = (schedulesByDate.get(day.dateKey) || []).flatMap((schedule) => schedule.recruitments)
-            const birthdayStudentsForDay = birthdaysByDate.get(day.dateKey) || []
-            const isToday = day.dateKey === todayKey
-            const isWeekend = index % 7 === 0 || index % 7 === 6
+      {showingRecruitmentList ? (
+        <RecruitmentQueueList
+          schedules={schedules}
+          todayKey={todayKey}
+          onSelect={(recruitment, dateKey, source) => selectRecruitment(recruitment, dateKey, source)}
+        />
+      ) : (() => {
+        const plannerBoard = (
+          <section
+            ref={plannerBoardRef}
+            className={`recruitment-planner ${isBirthdayMode ? 'birthday-planner' : ''}`}
+            aria-label={`${isBirthdayMode ? 'Birthday calendar' : 'Recruitment planner'} for ${visibleMonthLabel}`}
+          >
+            <div className="planner-binder-holes" aria-hidden="true" />
+            <div className="planner-top-strip">
+              <span>{isBirthdayMode ? `BLUE ARCHIVE CALENDAR // ${visibleMonth.getFullYear()}` : `RECRUITMENT INTAKE // ${visibleMonth.getFullYear()}`}</span>
+              <span>{isBirthdayMode ? <><CakeSlice size={13} aria-hidden="true" /> Birthday dates are marked</> : <><Ticket size={13} aria-hidden="true" /> Banner dates are marked</>}</span>
+            </div>
+            <div className="planner-month-heading">
+              {isBirthdayMode && <span className="planner-month-number" aria-hidden="true">{visibleMonth.getMonth() + 1}</span>}
+              <span className="planner-month-kicker">{isBirthdayMode ? 'Kivotos birthday calendar' : 'Kivotos student schedule'}</span>
+              <h2>{visibleMonthLabel}</h2>
+              <span className="planner-doodle" aria-hidden="true">✦</span>
+              <span className="planner-paperclip" aria-hidden="true"><Paperclip size={30} /></span>
+            </div>
+            <div className="planner-weekdays">
+              {weekdayLabels.map((label, index) => (
+                <div key={label} className={index === 0 || index === 6 ? 'planner-weekend' : ''}>{label}</div>
+              ))}
+            </div>
+            <div className="planner-days">
+              {calendarDays.map((day, index) => {
+                const scheduled = (schedulesByDate.get(day.dateKey) || []).flatMap((schedule) => schedule.recruitments)
+                const birthdayStudentsForDay = birthdaysByDate.get(day.dateKey) || []
+                const isToday = day.dateKey === todayKey
+                const isWeekend = index % 7 === 0 || index % 7 === 6
 
-            return (
-              <div
-                key={day.dateKey}
-                className={`planner-day ${day.isCurrentMonth ? '' : 'planner-day-outside'} ${isWeekend ? 'planner-day-weekend' : ''} ${isToday ? 'planner-day-today' : ''} ${!isBirthdayMode && scheduled.length ? 'planner-day-recruitment' : ''} ${isBirthdayMode && birthdayStudentsForDay.length ? 'planner-day-birthday' : ''}`}
-              >
-                <div className="planner-day-number">
-                  <span>{day.day}</span>
-                  {isToday && <b>Today</b>}
+                return (
+                  <div
+                    key={day.dateKey}
+                    className={`planner-day ${day.isCurrentMonth ? '' : 'planner-day-outside'} ${isWeekend ? 'planner-day-weekend' : ''} ${isToday ? 'planner-day-today' : ''} ${!isBirthdayMode && scheduled.length ? 'planner-day-recruitment' : ''} ${isBirthdayMode && birthdayStudentsForDay.length ? 'planner-day-birthday' : ''}`}
+                  >
+                    <div className="planner-day-number">
+                      <span>{day.day}</span>
+                      {isToday && <b>Today</b>}
+                    </div>
+                    {!isBirthdayMode && scheduled.length > 0 && (
+                      <>
+                        <span className="sr-only">{scheduled.length} recruitment{scheduled.length === 1 ? '' : 's'} scheduled</span>
+                        <StickerStack
+                          recruitments={scheduled}
+                          dateKey={day.dateKey}
+                          onSelect={(recruitment, source) => selectRecruitment(recruitment, day.dateKey, source)}
+                          onViewMore={() => setPicker({ dateKey: day.dateKey, recruitments: scheduled })}
+                        />
+                      </>
+                    )}
+                    {isBirthdayMode && birthdayStudentsForDay.length > 0 && <BirthdayStickerStack students={birthdayStudentsForDay} />}
+                    {((!isBirthdayMode && !scheduled.length) || (isBirthdayMode && !birthdayStudentsForDay.length)) && day.isCurrentMonth && <span className="planner-empty-mark" aria-hidden="true">·</span>}
+                  </div>
+                )
+              })}
+            </div>
+            {((!isBirthdayMode && !monthHasRecruitments) || (isBirthdayMode && !monthHasBirthdays)) && (
+              <div className="planner-empty-note"><Sparkles size={15} aria-hidden="true" /> {isBirthdayMode ? 'No student birthdays are listed for this month yet.' : 'No banner notices pinned to this month yet.'}</div>
+            )}
+          </section>
+        )
+
+        return fullscreen ? (
+          <StModal
+            title={`${isBirthdayMode ? 'Birthday calendar' : 'Recruitment planner'} · ${visibleMonthLabel}`}
+            headerActions={(
+              <div className="calendar-fullscreen-toolbar">
+                <div className="planner-mode-toggle" role="group" aria-label="Fullscreen calendar type">
+                  <button type="button" className={!isBirthdayMode ? 'planner-mode-active' : ''} onClick={() => changeMode('recruitment')} aria-pressed={!isBirthdayMode}>Recruitment</button>
+                  <button type="button" className={isBirthdayMode ? 'planner-mode-active' : ''} onClick={() => changeMode('birthday')} aria-pressed={isBirthdayMode}>Birthdays</button>
                 </div>
-                {!isBirthdayMode && scheduled.length > 0 && (
-                  <>
-                    <RecruitmentDateMarker count={scheduled.length} />
-                    <StickerStack
-                      recruitments={scheduled}
-                      dateKey={day.dateKey}
-                      onSelect={(recruitment, source) => selectRecruitment(recruitment, day.dateKey, source)}
-                      onViewMore={() => setPicker({ dateKey: day.dateKey, recruitments: scheduled })}
-                      activeRecruitmentId={motion?.recruitment.id}
-                      motionPhase={motion?.phase}
-                    />
-                  </>
-                )}
-                {isBirthdayMode && birthdayStudentsForDay.length > 0 && <BirthdayStickerStack students={birthdayStudentsForDay} />}
-                {((!isBirthdayMode && !scheduled.length) || (isBirthdayMode && !birthdayStudentsForDay.length)) && day.isCurrentMonth && <span className="planner-empty-mark" aria-hidden="true">·</span>}
+                <button type="button" onClick={() => setVisibleMonth(todayMonth)} className="planner-today-button">Today</button>
+                <div className="planner-month-controls">
+                  <button type="button" onClick={() => setVisibleMonth((month) => shiftMonth(month, -1))} aria-label="Previous month in fullscreen"><ChevronLeft size={18} /></button>
+                  <button type="button" onClick={() => setVisibleMonth((month) => shiftMonth(month, 1))} aria-label="Next month in fullscreen"><ChevronRight size={18} /></button>
+                </div>
               </div>
-            )
-          })}
-        </div>
-        {((!isBirthdayMode && !monthHasRecruitments) || (isBirthdayMode && !monthHasBirthdays)) && (
-          <div className="planner-empty-note"><Sparkles size={15} aria-hidden="true" /> {isBirthdayMode ? 'No student birthdays are listed for this month yet.' : 'No banner notices pinned to this month yet.'}</div>
-        )}
-      </section>
+            )}
+            onClose={() => setFullscreen(false)}
+            fullScreen
+            viewportFullScreen
+            variant="planner"
+          >
+            <div className="calendar-fullscreen">
+              <div ref={fullscreenCanvasRef} className="calendar-fullscreen-canvas">
+                <div
+                  className="calendar-fullscreen-board"
+                  style={{ width: `${100 / fullscreenScale}%`, transform: `translateX(-50%) scale(${fullscreenScale})` }}
+                >
+                  {plannerBoard}
+                </div>
+              </div>
+            </div>
+          </StModal>
+        ) : plannerBoard
+      })()}
 
-      {motion && motion.phase !== 'press' && motion.phase !== 'ready' && <SharedRecruitmentFile motion={motion} />}
       {picker && (
         <RecruitmentPicker
           dateKey={picker.dateKey}
@@ -770,8 +819,6 @@ export function RecruitmentCalendar({ schedules, birthdayStudents = [] }: Props)
           onClose={closeRecruitment}
           motionPhase={motion.phase}
           dossierRef={dossierRef}
-          folderRef={folderRef}
-          portraitRef={portraitRef}
         />
       )}
     </section>

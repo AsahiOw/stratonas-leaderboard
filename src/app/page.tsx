@@ -26,7 +26,7 @@ export default async function Home() {
   const [raids, futureRecruitment, recruitmentCalendar, birthdayStudents, upcomingBirthdayStudents, calendarBirthdayStudents] = await Promise.all([
     getPublicRaids(),
     getPublicFutureRecruitment(recruitmentTodayKey),
-    getPublicRecruitmentCalendar(recruitmentTodayKey),
+    getPublicRecruitmentCalendar(),
     getPublicBirthdayStudents(birthdayDay.key),
     getPublicUpcomingBirthdayStudents(birthdayDay.key, undefined, 60),
     getPublicUpcomingBirthdayStudents(birthdayDay.key, undefined, 366),
