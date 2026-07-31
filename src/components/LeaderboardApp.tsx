@@ -14,7 +14,6 @@ import { HomeIntro } from '@/components/HomeIntro'
 import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
 import { RecruitmentCalendar, type RecruitmentCalendarSchedule } from '@/components/RecruitmentCalendar'
 import { OtherFeatures } from '@/components/OtherFeatures'
-import { loginAssetSources, loginAudioSources } from '@/lib/login-sprites'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
@@ -132,20 +131,6 @@ export function LeaderboardApp({
 
     setShowIntro(nextIntroOpen)
     if (storedIntroOpen === null) window.localStorage.setItem(INTRO_OPEN_KEY, 'true')
-  }, [])
-
-  useEffect(() => {
-    loginAssetSources.forEach((source) => {
-      const image = new Image()
-      image.src = source
-    })
-
-    loginAudioSources.forEach((source) => {
-      const audio = new Audio()
-      audio.preload = 'auto'
-      audio.src = source
-      audio.load()
-    })
   }, [])
 
   useEffect(() => {
@@ -302,9 +287,20 @@ export function LeaderboardApp({
           <div key={`leaderboard-${serverFilter}`} className="view-transition">
             <HomeIntro open={showIntro} onClose={() => setIntroOpen(false)} />
             <div
-              className="relative overflow-hidden rounded-2xl border border-border mt-5 mb-5 min-h-[180px] sm:min-h-[220px] flex items-end justify-center text-center bg-cover bg-center"
-              style={{ backgroundImage: 'url(/assets/images/banner.gif)' }}
+              className="relative mt-5 mb-5 flex min-h-[180px] items-end justify-center overflow-hidden rounded-2xl border border-border text-center sm:min-h-[220px]"
             >
+              <video
+                className="absolute inset-0 h-full w-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                poster="/assets/images/banner-poster.webp"
+                aria-hidden="true"
+              >
+                <source src="/assets/images/banner.mp4" type="video/mp4" />
+              </video>
               <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.18),rgba(13,13,19,0.82))]" />
               <div className="relative px-4 pb-3 sm:pb-4">
                 <h1 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-[-0.03em] leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.75)]">

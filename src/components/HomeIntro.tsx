@@ -19,9 +19,11 @@ export function HomeIntro({ open, onClose }: HomeIntroProps) {
       <div className="overflow-hidden">
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_45px_rgba(0,0,0,0.18)]">
           <div className="relative min-h-[112px] border-b border-border bg-bg">
-            <div
-              className="absolute inset-0 bg-cover bg-center opacity-55"
-              style={{ backgroundImage: 'url(/assets/images/banner.gif)' }}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/images/banner-poster.webp"
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover opacity-55"
             />
             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(13,13,19,0.95),rgba(13,13,19,0.74)_52%,rgba(13,13,19,0.88))]" />
             <div className="relative flex min-h-[112px] items-center gap-4 px-4 py-4 sm:px-5">
