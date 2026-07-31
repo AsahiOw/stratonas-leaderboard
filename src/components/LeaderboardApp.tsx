@@ -1,26 +1,39 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Navbar } from '@/components/Navbar'
 import { RaidBlock } from '@/components/RaidBlock'
 import { StatsPage } from '@/components/StatsPage'
 import { CommunityPage } from '@/components/CommunityPage'
 import { AdminPanel } from '@/components/AdminPanel'
+import { PlanaRaidBrowser } from '@/components/PlanaRaidBrowser'
 import { PlayerProfile } from '@/components/PlayerProfile'
 import { BirthdaySection } from '@/components/BirthdaySection'
 import { HomeIntro } from '@/components/HomeIntro'
 import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
 import { RecruitmentCalendar, type RecruitmentCalendarSchedule } from '@/components/RecruitmentCalendar'
+import { OtherFeatures } from '@/components/OtherFeatures'
 import { loginAssetSources, loginAudioSources } from '@/lib/login-sprites'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
-type Tab = 'leaderboard' | 'previous' | 'calendar' | 'stats' | 'community' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type ReturnLocation = { tab: Tab; scrollY: number }
 const INTRO_OPEN_KEY = 'stratonas:intro-open'
 const LEGACY_INTRO_DISMISSED_KEY = 'stratonas:intro-dismissed'
+
+function tabFromPath(pathname: string): Tab {
+  if (pathname.startsWith('/raiddata')) return 'raid'
+  if (pathname === '/calendar') return 'calendar'
+  if (pathname === '/community') return 'community'
+  if (pathname === '/other') return 'other'
+  if (pathname === '/history') return 'previous'
+  if (pathname === '/statistic') return 'stats'
+  if (pathname === '/admin') return 'admin'
+  return 'leaderboard'
+}
 
 interface RaidData {
   id: string
@@ -70,10 +83,15 @@ export function LeaderboardApp({
   initialUpcomingBirthdayData = null,
 }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
+  const raidDataPath = pathname.match(/^\/raiddata(?:\/(.+))?$/)
+  const initialRaidId = raidDataPath?.[1] ? decodeURIComponent(raidDataPath[1]) : undefined
+  const isRaidDetail = Boolean(initialRaidId)
+  const initialTab = tabFromPath(pathname)
   const { data: session, status } = useSession()
   const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
 
-  const [tab, setTab] = useState<Tab>('leaderboard')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [serverFilter, setServerFilter] = useState<ServerFilter>('all')
   const [showIntro, setShowIntro] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
@@ -83,10 +101,13 @@ export function LeaderboardApp({
   const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
     leaderboard: true,
     previous: false,
+    raid: Boolean(raidDataPath),
     calendar: false,
     stats: false,
     community: false,
+    other: false,
     admin: false,
+    [initialTab]: true,
   })
 
   const loadRaidEntries = useCallback((raidIds: string[]) => {
@@ -134,7 +155,7 @@ export function LeaderboardApp({
 
       window.sessionStorage.removeItem('stratonas:return-location')
       const saved = JSON.parse(raw) as Partial<ReturnLocation>
-      const tabs: Tab[] = ['leaderboard', 'previous', 'calendar', 'stats', 'community', 'admin']
+      const tabs: Tab[] = ['leaderboard', 'previous', 'raid', 'calendar', 'stats', 'community', 'other', 'admin']
       if (!saved.tab || !tabs.includes(saved.tab) || saved.tab === 'admin') return
 
       setTab(saved.tab)
@@ -164,10 +185,34 @@ export function LeaderboardApp({
     setVisitedTabs((prev) => prev[tab] ? prev : { ...prev, [tab]: true })
   }, [tab])
 
+  useEffect(() => {
+    function handleHistoryNavigation() {
+      setTab(tabFromPath(window.location.pathname))
+    }
+
+    window.addEventListener('popstate', handleHistoryNavigation)
+    return () => window.removeEventListener('popstate', handleHistoryNavigation)
+  }, [])
+
+  function handleTabChange(nextTab: Tab) {
+    setTab(nextTab)
+    const routeByTab: Partial<Record<Tab, string>> = {
+      previous: '/history',
+      raid: '/raiddata',
+      calendar: '/calendar',
+      stats: '/statistic',
+      community: '/community',
+      other: '/other',
+      admin: '/admin',
+    }
+    const nextPath = routeByTab[nextTab] || '/'
+    if (window.location.pathname !== nextPath) window.history.pushState(null, '', nextPath)
+  }
+
   function handleLoginClick() {
     if (isAdmin) {
       signOut({ redirect: false })
-      if (tab === 'admin') setTab('leaderboard')
+      if (tab === 'admin') handleTabChange('leaderboard')
     } else {
       router.push('/login')
     }
@@ -216,7 +261,7 @@ export function LeaderboardApp({
 
   function handleIntroToggle() {
     if (tab !== 'leaderboard') {
-      setTab('leaderboard')
+      handleTabChange('leaderboard')
       setIntroOpen(true)
       scrollToTop()
       return
@@ -230,24 +275,26 @@ export function LeaderboardApp({
     })
   }
 
-  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'admin' || tab === 'community' || tab === 'calendar' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'admin' || tab === 'community' || tab === 'calendar' || tab === 'other' ? 'max-w-[1100px]' : 'max-w-[940px]'
   const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
     <div className="min-h-screen bg-bg">
-      <Navbar
-        tab={tab}
-        setTab={setTab}
-        loggedIn={isAdmin}
-        onLoginClick={handleLoginClick}
-        serverFilter={serverFilter}
-        setServerFilter={setServerFilter}
-        previousRaidCount={previousCount}
-        introOpen={tab === 'leaderboard' && showIntro}
-        onIntroToggle={handleIntroToggle}
-        adminFullWidth={adminFullWidth}
-        onToggleAdminFullWidth={() => setAdminFullWidth((fullWidth) => !fullWidth)}
-      />
+      {!isRaidDetail && (
+        <Navbar
+          tab={tab}
+          setTab={handleTabChange}
+          loggedIn={isAdmin}
+          onLoginClick={handleLoginClick}
+          serverFilter={serverFilter}
+          setServerFilter={setServerFilter}
+          previousRaidCount={previousCount}
+          introOpen={tab === 'leaderboard' && showIntro}
+          onIntroToggle={handleIntroToggle}
+          adminFullWidth={adminFullWidth}
+          onToggleAdminFullWidth={() => setAdminFullWidth((fullWidth) => !fullWidth)}
+        />
+      )}
 
       <div className={`mx-auto w-full ${containerMax} ${containerPad}`}>
         {/* LEADERBOARD */}
@@ -316,6 +363,13 @@ export function LeaderboardApp({
           </div>
         )}
 
+        {/* PLANA RAID BROWSER */}
+        {visitedTabs.raid && (
+          <div className={tab === 'raid' ? 'view-transition' : 'hidden'}>
+            <PlanaRaidBrowser initialRaidId={initialRaidId} />
+          </div>
+        )}
+
         {/* RECRUITMENT CALENDAR */}
         {visitedTabs.calendar && (
           <div className={tab === 'calendar' ? 'view-transition' : 'hidden'}>
@@ -338,6 +392,13 @@ export function LeaderboardApp({
         {visitedTabs.community && (
           <div className={`pt-7 ${tab === 'community' ? 'view-transition' : 'hidden'}`}>
             <CommunityPage onPlayerClick={handlePlayerClick} />
+          </div>
+        )}
+
+        {/* OTHER FEATURES */}
+        {visitedTabs.other && (
+          <div className={tab === 'other' ? '' : 'hidden'}>
+            <OtherFeatures onSelect={handleTabChange} />
           </div>
         )}
 

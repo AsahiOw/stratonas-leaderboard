@@ -13,6 +13,7 @@ const ALLOWED_HOSTS = [
   'static.wikitide.net',
   'bluearchive.wiki',
   'copyparty.lazyc97.top',
+  'www.plana-stats.com',
 ]
 
 function resolveDriveUrl(url: string): string {

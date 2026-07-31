@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  serverExternalPackages: ['@duckdb/node-api'],
   allowedDevOrigins: ['192.168.1.*'],
   experimental: {
     proxyClientMaxBodySize: '250mb',

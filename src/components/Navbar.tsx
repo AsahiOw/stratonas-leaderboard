@@ -8,7 +8,7 @@ import { requestKeiGreeting } from '@/lib/kei-volume'
 
 type MetaPanel = 'settings' | 'credit' | null
 
-type Tab = 'leaderboard' | 'previous' | 'calendar' | 'stats' | 'community' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type Indicator = { left: number; width: number }
 
@@ -49,9 +49,8 @@ export function Navbar({
   const tabs = [
     { id: 'leaderboard' as Tab, label: 'Leaderboard' },
     { id: 'previous' as Tab, label: 'History' },
-    { id: 'calendar' as Tab, label: 'Calendar' },
     { id: 'stats' as Tab, label: 'Statistic' },
-    { id: 'community' as Tab, label: 'Community' },
+    { id: 'other' as Tab, label: 'Other' },
     ...(loggedIn ? [{ id: 'admin' as Tab, label: 'Admin' }] : []),
   ]
 
