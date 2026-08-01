@@ -906,7 +906,10 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
     <div className="view-transition pb-10 pt-7">
       <button
         type="button"
-        onClick={() => window.history.pushState(null, '', '/')}
+        onClick={() => {
+          setSelectedRaid(null)
+          router.push('/raiddata')
+        }}
         className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-bold text-muted2 transition hover:border-border2 hover:text-text"
       >
         <ArrowLeft size={14} aria-hidden />

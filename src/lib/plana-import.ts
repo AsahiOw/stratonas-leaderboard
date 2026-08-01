@@ -6,6 +6,7 @@ import { pipeline } from 'stream/promises'
 import { randomUUID } from 'crypto'
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
+import { precomputePlanaRaidArtifacts } from '@/lib/plana-public'
 import {
   parsePlanaManifest,
   selectPlanaImportCandidates,
@@ -323,10 +324,30 @@ async function importDataset(entry: PlanaManifestEntry, manifestSchemaVersion: n
       parquetEtag: parquet.etag,
       dbBytes: database.bytes,
       parquetBytes: parquet.bytes,
-      status: 'ready',
+      status: 'preprocessing',
       error: null,
       downloadedAt: new Date(),
     },
+  })
+
+  await updateState({
+    stage: 'Preparing raid responses',
+    message: `Preparing cached responses for ${datasetLabel(entry)}.`,
+  })
+  await precomputePlanaRaidArtifacts({
+    region: entry.region,
+    raidType: entry.raidType,
+    raidDate: entry.raidDate,
+  })
+  await prisma.planaDataset.update({
+    where: {
+      region_raidType_raidDate: {
+        region: entry.region,
+        raidType: entry.raidType,
+        raidDate: entry.raidDate,
+      },
+    },
+    data: { status: 'ready' },
   })
 }
 

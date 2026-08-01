@@ -3,6 +3,7 @@ import 'server-only'
 import fs from 'node:fs'
 import path from 'node:path'
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api'
+import { getOrCreatePlanaArtifact } from '@/lib/plana-artifacts'
 import { prisma } from '@/lib/prisma'
 
 const PLANA_DATA_ROOT = path.join(process.cwd(), 'Development_data', 'plana-stats')
@@ -143,7 +144,17 @@ type DatasetRow = {
   startAt: string | null
   endAt: string | null
   dbLocalPath: string | null
+  dbEtag: string | null
+  dbBytes: bigint | null
   status: string
+}
+
+function rankingArtifactKey(page: number, pageSize: number) {
+  return `rankings/page-${page}-size-${pageSize}`
+}
+
+function usageArtifactKey(page: number, pageSize: number, armor: string) {
+  return `usage/${armor || 'all'}/page-${page}-size-${pageSize}`
 }
 
 type StudentRow = {
@@ -510,7 +521,7 @@ function grandFormationFilter(armors: string[], formations: PlanaFormationFilter
 function totalRankingSql(where: string, pageSize: number, offset: number) {
   return `
     WITH ranking_page AS (
-      SELECT CAST(c.crunid AS VARCHAR) AS crunid, c.point AS score, c.rank
+      SELECT c.crunid, c.point AS score, c.rank
       FROM complete_runs c
       WHERE ${where}
       ORDER BY c.rank
@@ -532,7 +543,7 @@ function totalRankingSql(where: string, pageSize: number, offset: number) {
       TRY_CAST(students.mulligan AS UTINYINT) AS skill_order
     FROM ranking_page page
     LEFT JOIN difficulty_stats stats ON page.rank BETWEEN stats.start_rank AND stats.end_rank
-    LEFT JOIN runs ON CAST(runs.crunid AS VARCHAR) = page.crunid
+    LEFT JOIN runs ON runs.crunid = page.crunid
     LEFT JOIN students USING (runid)
     ORDER BY page.rank, runs.runid, students.slot
   `
@@ -558,13 +569,13 @@ function grandRankingSql(armors: string[], where: string, pageSize: number, offs
       students.assist,
       TRY_CAST(students.mulligan AS UTINYINT) AS skill_order
     FROM ranking_page page
-    LEFT JOIN ${safeIdentifier(`runs_${armor}`)} runs ON CAST(runs.crunid AS VARCHAR) = page.crunid
+    LEFT JOIN ${safeIdentifier(`runs_${armor}`)} runs ON runs.crunid = page.crunid
     LEFT JOIN ${safeIdentifier(`students_${armor}`)} students USING (runid)
   `)
 
   return `
     WITH ranking_page AS (
-      SELECT CAST(c.crunid AS VARCHAR) AS crunid, c.point AS score, c.rank, ${pointColumns}
+      SELECT c.crunid, c.point AS score, c.rank, ${pointColumns}
       FROM complete_runs c
       WHERE ${where}
       ORDER BY c.rank
@@ -635,7 +646,7 @@ function groupRankings(rows: RankingRow[], students: Map<number, PlanaStudentOpt
   return Array.from(rankings.values()).sort((a, b) => a.rank - b.rank)
 }
 
-export async function getPlanaRankings(input: {
+type PlanaRankingsInput = {
   region: string
   raidType: string
   raidDate: string
@@ -645,8 +656,26 @@ export async function getPlanaRankings(input: {
   formationFilters?: PlanaFormationFilter[]
   minRank?: number
   maxRank?: number
-}): Promise<PlanaRankingsPage> {
+}
+
+export async function getPlanaRankings(input: PlanaRankingsInput): Promise<PlanaRankingsPage> {
   const dataset = await readyDataset(input.region, input.raidType, input.raidDate)
+  const page = Math.max(1, Math.floor(input.page || 1))
+  const pageSize = Math.min(25, Math.max(5, Math.floor(input.pageSize || 10)))
+  const cacheable = !(input.studentFilters?.length || input.formationFilters?.length)
+    && (input.minRank === undefined || input.minRank <= 1)
+    && input.maxRank === undefined
+  if (!cacheable) return computePlanaRankings(dataset, input)
+
+  return getOrCreatePlanaArtifact(dataset, rankingArtifactKey(page, pageSize), () => (
+    computePlanaRankings(dataset, input)
+  ))
+}
+
+async function computePlanaRankings(
+  dataset: DatasetRow,
+  input: PlanaRankingsInput,
+): Promise<PlanaRankingsPage> {
   const raidType = dataset.raidType as PlanaRaidType
   const armors = stringArray(dataset.armors)
   const page = Math.max(1, Math.floor(input.page || 1))
@@ -719,9 +748,9 @@ function rankingQueryFilters(
 }
 
 function filteredTotalUsageSql(where: string, pageSize: number, offset: number) {
-  const teams = `
+  return `
     WITH filtered_clears AS (
-      SELECT CAST(c.crunid AS VARCHAR) AS crunid
+      SELECT c.crunid
       FROM complete_runs c
       WHERE ${where}
     ),
@@ -729,19 +758,28 @@ function filteredTotalUsageSql(where: string, pageSize: number, offset: number) 
       SELECT list(students.sid ORDER BY students.slot) AS student_ids
       FROM runs
       JOIN students USING (runid)
-      JOIN filtered_clears ON CAST(runs.crunid AS VARCHAR) = filtered_clears.crunid
+      JOIN filtered_clears ON runs.crunid = filtered_clears.crunid
       GROUP BY runs.runid
-    )
-  `
-  return {
-    count: `${teams} SELECT COUNT(*) AS total FROM (SELECT student_ids FROM teams GROUP BY student_ids)`,
-    page: `${teams}
+    ),
+    grouped_teams AS (
       SELECT NULL::VARCHAR AS armor, student_ids, COUNT(*) AS uses
       FROM teams
       GROUP BY student_ids
+    ),
+    paged_teams AS (
+      SELECT *
+      FROM grouped_teams
       ORDER BY uses DESC, student_ids
-      LIMIT ${pageSize} OFFSET ${offset}`,
-  }
+      LIMIT ${pageSize} OFFSET ${offset}
+    ),
+    totals AS (
+      SELECT COUNT(*) AS total FROM grouped_teams
+    )
+    SELECT paged_teams.armor, paged_teams.student_ids, paged_teams.uses, totals.total
+    FROM totals
+    LEFT JOIN paged_teams ON TRUE
+    ORDER BY paged_teams.uses DESC, paged_teams.student_ids
+  `
 }
 
 function filteredGrandUsageSql(
@@ -758,31 +796,38 @@ function filteredGrandUsageSql(
       list(students.sid ORDER BY students.slot) AS student_ids
     FROM ${safeIdentifier(`students_${armor}`)} students
     JOIN ${safeIdentifier(`runs_${armor}`)} runs USING (runid)
-    JOIN filtered_clears ON CAST(runs.crunid AS VARCHAR) = filtered_clears.crunid
+    JOIN filtered_clears ON runs.crunid = filtered_clears.crunid
     GROUP BY runs.runid
   `)
-  const teams = `
+  return `
     WITH filtered_clears AS (
-      SELECT CAST(c.crunid AS VARCHAR) AS crunid
+      SELECT c.crunid
       FROM complete_runs c
       WHERE ${where}
     ),
-    teams AS (${unions.join(' UNION ALL ')})
-  `
-  return {
-    count: `${teams} SELECT COUNT(*) AS total FROM (
-      SELECT armor, student_ids FROM teams GROUP BY armor, student_ids
-    )`,
-    page: `${teams}
+    teams AS (${unions.join(' UNION ALL ')}),
+    grouped_teams AS (
       SELECT armor, student_ids, COUNT(*) AS uses
       FROM teams
       GROUP BY armor, student_ids
+    ),
+    paged_teams AS (
+      SELECT *
+      FROM grouped_teams
       ORDER BY uses DESC, armor, student_ids
-      LIMIT ${pageSize} OFFSET ${offset}`,
-  }
+      LIMIT ${pageSize} OFFSET ${offset}
+    ),
+    totals AS (
+      SELECT COUNT(*) AS total FROM grouped_teams
+    )
+    SELECT paged_teams.armor, paged_teams.student_ids, paged_teams.uses, totals.total
+    FROM totals
+    LEFT JOIN paged_teams ON TRUE
+    ORDER BY paged_teams.uses DESC, paged_teams.armor, paged_teams.student_ids
+  `
 }
 
-export async function getPlanaUsedTeams(input: {
+type PlanaUsedTeamsInput = {
   region: string
   raidType: string
   raidDate: string
@@ -793,8 +838,29 @@ export async function getPlanaUsedTeams(input: {
   minRank?: number
   maxRank?: number
   armor?: string
-}): Promise<PlanaUsedTeamsPage> {
+}
+
+export async function getPlanaUsedTeams(input: PlanaUsedTeamsInput): Promise<PlanaUsedTeamsPage> {
   const dataset = await readyDataset(input.region, input.raidType, input.raidDate)
+  const raidType = dataset.raidType as PlanaRaidType
+  const armors = stringArray(dataset.armors)
+  const armor = raidType === 'Grand Assault' && armors.includes(input.armor || '') ? input.armor || '' : ''
+  const page = Math.max(1, Math.floor(input.page || 1))
+  const pageSize = Math.min(25, Math.max(5, Math.floor(input.pageSize || 10)))
+  const cacheable = !(input.studentFilters?.length || input.formationFilters?.length)
+    && (input.minRank === undefined || input.minRank <= 1)
+    && input.maxRank === undefined
+  if (!cacheable) return computePlanaUsedTeams(dataset, input)
+
+  return getOrCreatePlanaArtifact(dataset, usageArtifactKey(page, pageSize, armor), () => (
+    computePlanaUsedTeams(dataset, input)
+  ))
+}
+
+async function computePlanaUsedTeams(
+  dataset: DatasetRow,
+  input: PlanaUsedTeamsInput,
+): Promise<PlanaUsedTeamsPage> {
   const raidType = dataset.raidType as PlanaRaidType
   const armors = stringArray(dataset.armors)
   const armor = raidType === 'Grand Assault' && armors.includes(input.armor || '') ? input.armor || '' : ''
@@ -807,11 +873,18 @@ export async function getPlanaUsedTeams(input: {
     : filteredGrandUsageSql(armors, armor, where, pageSize, offset)
   const file = localDatabasePath(dataset.dbLocalPath)
   const queried = await withDuckDb(file, async (connection) => {
-    const countReader = await connection.runAndReadAll(sql.count, values)
-    const pageReader = await connection.runAndReadAll(sql.page, values)
+    const reader = await connection.runAndReadAll(sql, values)
+    const rows = rowObjects<{
+      armor: string | null
+      student_ids: number[] | null
+      uses: number | null
+      total: number
+    }>(reader)
     return {
-      total: numberValue(rowObjects<{ total: number }>(countReader)[0]?.total),
-      rows: rowObjects<{ armor: string | null; student_ids: number[]; uses: number }>(pageReader),
+      total: numberValue(rows[0]?.total),
+      rows: rows.filter((row): row is typeof row & { student_ids: number[]; uses: number } => (
+        Array.isArray(row.student_ids) && row.uses !== null
+      )),
     }
   })
   const students = await studentMap(queried.rows.flatMap((row) => row.student_ids))
@@ -864,12 +937,18 @@ function grandUsageSql(armors: string[]) {
   `
 }
 
-export async function getPlanaRaidMeta(input: {
+type PlanaRaidInput = {
   region: string
   raidType: string
   raidDate: string
-}): Promise<PlanaRaidMeta> {
+}
+
+export async function getPlanaRaidMeta(input: PlanaRaidInput): Promise<PlanaRaidMeta> {
   const dataset = await readyDataset(input.region, input.raidType, input.raidDate)
+  return getOrCreatePlanaArtifact(dataset, 'meta', () => computePlanaRaidMeta(dataset))
+}
+
+async function computePlanaRaidMeta(dataset: DatasetRow): Promise<PlanaRaidMeta> {
   const raidType = dataset.raidType as PlanaRaidType
   const armors = stringArray(dataset.armors)
   const file = localDatabasePath(dataset.dbLocalPath)
@@ -975,5 +1054,34 @@ export async function getPlanaRaidMeta(input: {
       uses: numberValue(row.uses),
       students: row.student_ids.map((id) => students.get(id)!).filter(Boolean),
     })),
+  }
+}
+
+export async function precomputePlanaRaidArtifacts(input: PlanaRaidInput) {
+  const dataset = await prisma.planaDataset.findUnique({
+    where: {
+      region_raidType_raidDate: {
+        region: input.region,
+        raidType: input.raidType,
+        raidDate: input.raidDate,
+      },
+    },
+  })
+  if (!dataset || !['preprocessing', 'ready'].includes(dataset.status)) {
+    throw new Error('Plana raid data is not available for preprocessing.')
+  }
+  const armors = dataset.raidType === 'Grand Assault' ? stringArray(dataset.armors) : []
+
+  await getOrCreatePlanaArtifact(dataset, 'meta', () => computePlanaRaidMeta(dataset))
+  await getOrCreatePlanaArtifact(dataset, rankingArtifactKey(1, 10), () => (
+    computePlanaRankings(dataset, { ...input, page: 1, pageSize: 10 })
+  ))
+  await getOrCreatePlanaArtifact(dataset, usageArtifactKey(1, 10, ''), () => (
+    computePlanaUsedTeams(dataset, { ...input, page: 1, pageSize: 10 })
+  ))
+  for (const armor of armors) {
+    await getOrCreatePlanaArtifact(dataset, usageArtifactKey(1, 10, armor), () => (
+      computePlanaUsedTeams(dataset, { ...input, armor, page: 1, pageSize: 10 })
+    ))
   }
 }
