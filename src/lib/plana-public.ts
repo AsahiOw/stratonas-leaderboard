@@ -40,6 +40,7 @@ export interface PlanaRaidCatalogItem {
 export interface PlanaStudentOption {
   id: number
   name: string
+  pathName: string | null
   image: string
   builds?: string[]
 }
@@ -323,7 +324,7 @@ async function studentMap(ids: number[]) {
   const students = uniqueIds.length
     ? await prisma.student.findMany({
       where: { id: { in: uniqueIds } },
-      select: { id: true, name: true, image: true },
+      select: { id: true, name: true, pathName: true, image: true },
     })
     : []
 
@@ -333,6 +334,7 @@ async function studentMap(ids: number[]) {
       return [id, {
         id,
         name: student?.name || `Student ${id}`,
+        pathName: student?.pathName || null,
         image: student?.image || `https://schaledb.com/images/student/collection/${id}.webp`,
       }]
     }),
@@ -631,6 +633,7 @@ function groupRankings(rows: RankingRow[], students: Map<number, PlanaStudentOpt
     const student = students.get(row.sid) || {
       id: row.sid,
       name: `Student ${row.sid}`,
+      pathName: null,
       image: `https://schaledb.com/images/student/collection/${row.sid}.webp`,
     }
     team.students.push({

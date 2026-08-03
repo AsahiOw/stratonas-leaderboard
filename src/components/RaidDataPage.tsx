@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Navbar } from '@/components/Navbar'
 import { PlanaRaidBrowser } from '@/components/PlanaRaidBrowser'
 
-type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 
 const routeByTab: Record<Tab, string> = {
@@ -17,6 +17,7 @@ const routeByTab: Record<Tab, string> = {
   stats: '/statistic',
   community: '/community',
   other: '/other',
+  'custom-card': '/custom-card',
   admin: '/admin',
 }
 
@@ -29,7 +30,7 @@ export function RaidDataPage({
 }) {
   const router = useRouter()
   const { data: session, status } = useSession()
-  const [serverFilter, setServerFilter] = useState<ServerFilter>('all')
+  const [serverFilter, setServerFilter] = useState<ServerFilter>('global')
   const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
 
   function handleTabChange(tab: Tab) {

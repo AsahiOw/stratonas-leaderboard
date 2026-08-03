@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { invalidatePublicData } from '@/lib/cache'
+import { invalidatePlanaArtifacts } from '@/lib/plana-artifacts'
 import { prisma } from '@/lib/prisma'
 import {
   normalizeOptionalStudentText,
@@ -19,6 +20,7 @@ const BATCH_SIZE = 50
 type SchaleStudent = {
   Id?: unknown
   Name?: unknown
+  PathName?: unknown
   FamilyName?: unknown
   PersonalName?: unknown
   School?: unknown
@@ -210,6 +212,7 @@ async function runStudentImport() {
         return {
           id,
           name,
+          pathName: normalizeOptionalStudentText(student.PathName),
           image: studentImageUrl(id),
           portrait: studentPortraitUrl(id),
           memorial: memorials?.get(normalizeMemorialStudentName(name)) || null,
@@ -251,6 +254,7 @@ async function runStudentImport() {
           create: student,
           update: {
             name: student.name,
+            pathName: student.pathName,
             image: student.image,
             portrait: student.portrait,
             ...(memorials ? { memorial: student.memorial } : {}),
@@ -292,6 +296,8 @@ async function runStudentImport() {
         AND p."favouriteStudent" IS NOT NULL
         AND lower(p."favouriteStudent") = lower(s."name")
     `
+
+    await invalidatePlanaArtifacts()
 
     await prisma.studentImportState.update({
       where: { id: STUDENT_IMPORT_ID },

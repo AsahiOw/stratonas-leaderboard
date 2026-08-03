@@ -14,16 +14,18 @@ import { HomeIntro } from '@/components/HomeIntro'
 import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
 import { RecruitmentCalendar, type RecruitmentCalendarSchedule } from '@/components/RecruitmentCalendar'
 import { OtherFeatures } from '@/components/OtherFeatures'
+import { RaidCardCustomizer } from '@/components/RaidCardDownloadModal'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
-type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type ReturnLocation = { tab: Tab; scrollY: number }
 const INTRO_OPEN_KEY = 'stratonas:intro-open'
 const LEGACY_INTRO_DISMISSED_KEY = 'stratonas:intro-dismissed'
 
 function tabFromPath(pathname: string): Tab {
+  if (pathname === '/custom-card') return 'custom-card'
   if (pathname.startsWith('/raiddata')) return 'raid'
   if (pathname === '/calendar') return 'calendar'
   if (pathname === '/community') return 'community'
@@ -91,7 +93,7 @@ export function LeaderboardApp({
   const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
 
   const [tab, setTab] = useState<Tab>(initialTab)
-  const [serverFilter, setServerFilter] = useState<ServerFilter>('all')
+  const [serverFilter, setServerFilter] = useState<ServerFilter>('global')
   const [showIntro, setShowIntro] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
   const [adminFullWidth, setAdminFullWidth] = useState(false)
@@ -105,6 +107,7 @@ export function LeaderboardApp({
     stats: false,
     community: false,
     other: false,
+    'custom-card': false,
     admin: false,
     [initialTab]: true,
   })
@@ -140,7 +143,7 @@ export function LeaderboardApp({
 
       window.sessionStorage.removeItem('stratonas:return-location')
       const saved = JSON.parse(raw) as Partial<ReturnLocation>
-      const tabs: Tab[] = ['leaderboard', 'previous', 'raid', 'calendar', 'stats', 'community', 'other', 'admin']
+      const tabs: Tab[] = ['leaderboard', 'previous', 'raid', 'calendar', 'stats', 'community', 'other', 'custom-card', 'admin']
       if (!saved.tab || !tabs.includes(saved.tab) || saved.tab === 'admin') return
 
       setTab(saved.tab)
@@ -188,6 +191,7 @@ export function LeaderboardApp({
       stats: '/statistic',
       community: '/community',
       other: '/other',
+      'custom-card': '/custom-card',
       admin: '/admin',
     }
     const nextPath = routeByTab[nextTab] || '/'
@@ -260,7 +264,7 @@ export function LeaderboardApp({
     })
   }
 
-  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'admin' || tab === 'community' || tab === 'calendar' || tab === 'other' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'custom-card' ? 'max-w-[1400px]' : tab === 'admin' || tab === 'community' || tab === 'calendar' || tab === 'other' ? 'max-w-[1100px]' : 'max-w-[940px]'
   const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
@@ -395,6 +399,18 @@ export function LeaderboardApp({
         {visitedTabs.other && (
           <div className={tab === 'other' ? '' : 'hidden'}>
             <OtherFeatures onSelect={handleTabChange} />
+          </div>
+        )}
+
+        {/* CUSTOM CARD */}
+        {visitedTabs['custom-card'] && (
+          <div className={tab === 'custom-card' ? 'view-transition pt-7' : 'hidden'}>
+            <div className="mb-6">
+              <div className="mb-1.5 text-[11px] font-bold tracking-[0.14em] text-muted">◈ CARD STUDIO</div>
+              <h1 className="text-2xl font-bold tracking-[-0.02em] sm:text-3xl">Stratónas Custom Card</h1>
+              <p className="mt-1.5 text-[13px] text-muted2">Create and download your own Stratónas ranking card.</p>
+            </div>
+            <RaidCardCustomizer />
           </div>
         )}
 

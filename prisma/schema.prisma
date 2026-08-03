@@ -60,6 +60,7 @@ model Club {
 model Student {
   id              Int      @id
   name            String
+  pathName        String?
   image           String
   portrait        String?
   memorial        String?

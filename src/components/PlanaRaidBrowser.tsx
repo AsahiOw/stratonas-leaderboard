@@ -57,6 +57,7 @@ let cachedRaidCatalog: PlanaRaid[] | null = null
 interface StudentOption {
   id: number
   name: string
+  pathName: string | null
   image: string
   builds?: string[]
 }
@@ -236,19 +237,46 @@ function raidQuery(raid: PlanaRaid, values: Record<string, string> = {}) {
   return `/api/plana/raid?${params}`
 }
 
+function StudentLink({
+  student,
+  className,
+  children,
+}: {
+  student: StudentOption
+  className: string
+  children: React.ReactNode
+}) {
+  if (!student.pathName) return <div className={className}>{children}</div>
+
+  return (
+    <a
+      href={`https://schaledb.com/student/${encodeURIComponent(student.pathName)}`}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`View ${student.name} on SchaleDB`}
+      className={className}
+    >
+      {children}
+    </a>
+  )
+}
+
 function StudentTile({ student, orderedSkills }: { student: StudentBuild; orderedSkills: boolean }) {
   const stars = buildStars(student.build)
   const isStartingStudent = student.skillOrder > 0 && (!orderedSkills || student.skillOrder <= 3)
   const isLaterStudent = orderedSkills && student.skillOrder > 3
 
   return (
-    <div className="min-w-0">
+    <StudentLink
+      student={student}
+      className="group min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+    >
       <div className={`relative aspect-[1/1.08] overflow-hidden rounded-lg border-2 bg-[#e8f1fb] ${isStartingStudent
         ? 'border-amber-300 shadow-[0_0_0_1px_rgba(252,211,77,0.5),0_0_16px_rgba(252,211,77,0.14)]'
         : isLaterStudent
           ? 'border-cyan-300 shadow-[0_0_0_1px_rgba(103,232,249,0.45),0_0_16px_rgba(103,232,249,0.12)]'
           : 'border-white/20'
-        }`}>
+        } transition group-hover:-translate-y-0.5 group-hover:border-accent`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageSrc(student.image)}
@@ -281,10 +309,10 @@ function StudentTile({ student, orderedSkills }: { student: StudentBuild; ordere
           </span>
         )}
       </div>
-      <div className="mt-1 truncate text-center text-[10px] font-semibold text-muted2" title={student.name}>
+      <div className="mt-1 truncate text-center text-[10px] font-semibold text-muted2 transition-colors group-hover:text-accent" title={student.name}>
         {student.name}
       </div>
-    </div>
+    </StudentLink>
   )
 }
 
@@ -617,7 +645,7 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
     setMetaLoading(true)
     setMeta(null)
     setDetailError(null)
-    fetch(raidQuery(selectedRaid, { view: 'meta' }), { signal: controller.signal })
+    fetch(raidQuery(selectedRaid, { view: 'meta' }), { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json()
         if (!response.ok) throw new Error(body?.error || 'Could not load raid summary.')
@@ -653,7 +681,7 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
 
     setRankingsLoading(true)
     setDetailError(null)
-    fetch(raidQuery(selectedRaid, values), { signal: controller.signal })
+    fetch(raidQuery(selectedRaid, values), { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json()
         if (!response.ok) throw new Error(body?.error || 'Could not load raid rankings.')
@@ -689,7 +717,7 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
 
     setUsedTeamsLoading(true)
     setDetailError(null)
-    fetch(raidQuery(selectedRaid, values), { signal: controller.signal })
+    fetch(raidQuery(selectedRaid, values), { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json()
         if (!response.ok) throw new Error(body?.error || 'Could not load formation usage.')
@@ -1911,15 +1939,19 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                   </div>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                     {team.students.map((student, studentIndex) => (
-                      <div key={`${student.id}:${studentIndex}`} className="min-w-0">
-                        <div className="aspect-square overflow-hidden rounded-lg border border-border2 bg-[#e8f1fb]">
+                      <StudentLink
+                        key={`${student.id}:${studentIndex}`}
+                        student={student}
+                        className="group min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+                      >
+                        <div className="aspect-square overflow-hidden rounded-lg border border-border2 bg-[#e8f1fb] transition group-hover:-translate-y-0.5 group-hover:border-accent">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={imageSrc(student.image)} alt={student.name} className="h-full w-full object-cover object-top" loading="lazy" />
                         </div>
-                        <div className="mt-1 truncate text-center text-[10px] font-semibold text-muted2" title={student.name}>
+                        <div className="mt-1 truncate text-center text-[10px] font-semibold text-muted2 transition-colors group-hover:text-accent" title={student.name}>
                           {student.name}
                         </div>
-                      </div>
+                      </StudentLink>
                     ))}
                     {team.students.length === 0 && (
                       <div className="col-span-full py-4 text-center text-xs text-muted">No student data available.</div>

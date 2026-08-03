@@ -2,7 +2,7 @@
 
 import { ArrowUpRight } from 'lucide-react'
 
-type FeatureTab = 'community' | 'calendar' | 'raid'
+type FeatureTab = 'community' | 'calendar' | 'raid' | 'custom-card'
 
 interface Props {
   onSelect: (tab: FeatureTab) => void
@@ -24,7 +24,7 @@ const features: {
       tab: 'calendar',
       title: 'Calendar',
       description: 'View upcoming recruitments and student birthdays.',
-      image: '/assets/others/calendar.png',
+      image: '/assets/others/calendar.jpg',
     },
     {
       tab: 'raid',
@@ -32,6 +32,12 @@ const features: {
       description: 'Browse history raids and team compositions.',
       image: '/assets/others/raid-data.jpg',
     },
+    {
+      tab: 'custom-card',
+      title: 'Stratónas Custom Card',
+      description: 'Create your own custom card Stratónas ranking style.',
+      image: '/assets/others/custom-card.jpg',
+    }
   ]
 
 export function OtherFeatures({ onSelect }: Props) {

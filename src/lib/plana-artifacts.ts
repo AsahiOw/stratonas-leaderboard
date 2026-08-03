@@ -4,9 +4,13 @@ import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-const ARTIFACT_VERSION = 'v1'
+const ARTIFACT_VERSION = 'v2'
 const ARTIFACT_ROOT = path.join(process.cwd(), 'Development_data', 'plana-stats', 'artifacts')
 const artifactWrites = new Map<string, Promise<unknown>>()
+
+export async function invalidatePlanaArtifacts() {
+  await fs.rm(ARTIFACT_ROOT, { recursive: true, force: true })
+}
 
 export type PlanaArtifactDataset = {
   region: string

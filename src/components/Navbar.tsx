@@ -8,7 +8,7 @@ import { requestKeiGreeting } from '@/lib/kei-volume'
 
 type MetaPanel = 'settings' | 'credit' | null
 
-type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type Indicator = { left: number; width: number }
 
@@ -76,9 +76,9 @@ export function Navbar({
   useEffect(() => {
     function updateIndicator() {
       if (!showNavIndicator) {
-        const activeTab = navRefs.current[tab]
-        if (activeTab) {
-          setNavIndicator({ left: activeTab.offsetLeft, width: activeTab.offsetWidth })
+        const activeTabNode = navRefs.current[tab]
+        if (activeTabNode) {
+          setNavIndicator({ left: activeTabNode.offsetLeft, width: activeTabNode.offsetWidth })
         }
       }
 
