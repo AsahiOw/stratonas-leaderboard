@@ -52,6 +52,8 @@ interface PlanaRaid {
   } | null
 }
 
+let cachedRaidCatalog: PlanaRaid[] | null = null
+
 interface StudentOption {
   id: number
   name: string
@@ -517,8 +519,8 @@ function Pagination({
 
 export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) {
   const router = useRouter()
-  const [raids, setRaids] = useState<PlanaRaid[]>([])
-  const [catalogLoading, setCatalogLoading] = useState(true)
+  const [raids, setRaids] = useState<PlanaRaid[]>(() => cachedRaidCatalog || [])
+  const [catalogLoading, setCatalogLoading] = useState(() => !cachedRaidCatalog)
   const [catalogError, setCatalogError] = useState<string | null>(null)
   const [selectedRaid, setSelectedRaid] = useState<PlanaRaid | null>(null)
   const [region, setRegion] = useState('all')
@@ -585,6 +587,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
   }, [activeFormationSlot])
 
   useEffect(() => {
+    if (cachedRaidCatalog) return
+
     const controller = new AbortController()
     fetch('/api/plana/raids', { signal: controller.signal })
       .then(async (response) => {
@@ -592,7 +596,10 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
         if (!response.ok) throw new Error(body?.error || 'Could not load Plana raids.')
         return body as PlanaRaid[]
       })
-      .then(setRaids)
+      .then((nextRaids) => {
+        cachedRaidCatalog = nextRaids
+        setRaids(nextRaids)
+      })
       .catch((error) => {
         if (error instanceof Error && error.name !== 'AbortError') setCatalogError(error.message)
       })
@@ -907,7 +914,6 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
       <button
         type="button"
         onClick={() => {
-          setSelectedRaid(null)
           router.push('/raiddata')
         }}
         className="mb-4 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-bold text-muted2 transition hover:border-border2 hover:text-text"
