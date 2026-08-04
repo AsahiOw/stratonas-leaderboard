@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getKeiVolume, isKeiGreetingEnabled, KEI_GREETING_ENABLED_EVENT, KEI_GREETING_REQUEST_EVENT } from '@/lib/kei-volume'
+import { consumeKeiGreetingSuppression, getKeiVolume, isKeiGreetingEnabled, KEI_GREETING_ENABLED_EVENT, KEI_GREETING_REQUEST_EVENT } from '@/lib/kei-volume'
 
 // Kei video expressions (1:1, white background):
 //  1 - turns around, shy + surprised
@@ -196,6 +196,11 @@ export function GreetingToast() {
 
   useEffect(() => {
     if (!greetingEnabled) return
+
+    if (consumeKeiGreetingSuppression()) {
+      setRender(false)
+      return
+    }
 
     startGreeting()
   }, [greetingEnabled, startGreeting])

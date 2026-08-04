@@ -19,6 +19,8 @@ const FPS = 24
 const CRF = 30
 const PRESET = 'slow'
 const FFMPEG_THREADS = process.env.MEDIA_FFMPEG_THREADS?.trim() || '2'
+const STALE_SYNC_MS = 90_000
+const HEARTBEAT_MS = 10_000
 
 type MediaSyncMode = 'sync' | 'process-existing'
 type MediaSyncTrigger = 'manual' | 'scheduled' | 'cli'
@@ -75,9 +77,21 @@ export function defaultMemorialMediaSyncState() {
 }
 
 export async function getMemorialMediaSyncState() {
+  await recoverInterruptedMemorialMediaSync()
   return (await prisma.memorialMediaSyncState.findUnique({
     where: { id: MEMORIAL_MEDIA_SYNC_ID },
   })) || defaultMemorialMediaSyncState()
+}
+
+export async function recoverInterruptedMemorialMediaSync(now = new Date()) {
+  const staleBefore = new Date(now.getTime() - STALE_SYNC_MS)
+  await prisma.memorialMediaSyncState.updateMany({
+    where: { id: MEMORIAL_MEDIA_SYNC_ID, status: 'running', updatedAt: { lt: staleBefore } },
+    data: {
+      status: 'failed', stage: 'Interrupted', currentItem: null,
+      error: 'The memorial media sync stopped unexpectedly. You can safely run it again.', completedAt: now,
+    },
+  })
 }
 
 async function ensureMemorialMediaSyncState() {
@@ -541,6 +555,11 @@ async function runCommand(
     let stderr = ''
     let stdoutBuffer = ''
     let stderrBuffer = ''
+    const heartbeat = setInterval(() => {
+      void updateState({ updatedAt: new Date() }).catch(() => undefined)
+    }, HEARTBEAT_MS)
+    heartbeat.unref?.()
+    const finish = () => clearInterval(heartbeat)
 
     const emitLines = (chunk: Buffer, stream: 'stdout' | 'stderr') => {
       const text = chunk.toString()
@@ -563,10 +582,12 @@ async function runCommand(
     child.stdout.on('data', (chunk: Buffer) => emitLines(chunk, 'stdout'))
     child.stderr.on('data', (chunk: Buffer) => emitLines(chunk, 'stderr'))
     child.on('error', (error) => {
+      finish()
       if (activeChild === child) activeChild = null
       reject(new Error(`${command} could not be started: ${error.message}`))
     })
     child.on('close', (code) => {
+      finish()
       if (activeChild === child) activeChild = null
       if (code === 0) {
         resolve({ stdout, stderr })
@@ -790,6 +811,7 @@ async function updateState(data: Partial<{
   message: string | null
   error: string | null
   completedAt: Date | null
+  updatedAt: Date
 }>) {
   await prisma.memorialMediaSyncState.update({
     where: { id: MEMORIAL_MEDIA_SYNC_ID },

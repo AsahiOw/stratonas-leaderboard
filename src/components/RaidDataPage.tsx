@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Navbar } from '@/components/Navbar'
 import { PlanaRaidBrowser } from '@/components/PlanaRaidBrowser'
 
-type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'news' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'news' | 'radio' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 
 const routeByTab: Record<Tab, string> = {
@@ -19,6 +19,7 @@ const routeByTab: Record<Tab, string> = {
   other: '/other',
   'custom-card': '/custom-card',
   news: '/news',
+  radio: '/radio',
   admin: '/admin',
 }
 

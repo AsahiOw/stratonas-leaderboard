@@ -47,6 +47,13 @@ interface MemorialMediaSyncState {
   lastScheduledRunAt?: string | null; startedAt?: string | null; completedAt?: string | null
 }
 
+interface RadioSyncState {
+  id: string; status: 'idle' | 'running' | 'completed' | 'failed' | string
+  stage: string; total: number; processed: number; discovered: number; matched: number; newTracks: number
+  downloaded: number; thumbnails: number; skipped: number; failed: number
+  currentItem?: string | null; message?: string | null; error?: string | null
+}
+
 interface MemorialVideoAsset {
   id: string
   youtubeId?: string | null
@@ -343,6 +350,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const [bossImportState, setBossImportState] = useState<ImportState | null>(null)
   const [showBossImportProgress, setShowBossImportProgress] = useState(false)
   const [memorialMediaSyncState, setMemorialMediaSyncState] = useState<MemorialMediaSyncState | null>(null)
+  const [radioSyncState, setRadioSyncState] = useState<RadioSyncState | null>(null)
   const [planaImportStatus, setPlanaImportStatus] = useState<PlanaImportStatus | null>(null)
   const [memorialVideos, setMemorialVideos] = useState<MemorialVideoAsset[]>([])
   const [xlsxForm, setXlsxForm] = useState({
@@ -466,6 +474,9 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       .then(setMemorialMediaSyncState)
       .catch(() => null)
   }, [])
+  const loadRadioSyncStatus = useCallback(() => {
+    fetch('/api/admin/radio/sync/status').then(r => r.json()).then(setRadioSyncState).catch(() => null)
+  }, [])
   const loadPlanaImportStatus = useCallback(() => {
     fetch('/api/admin/plana/sync/status', { cache: 'no-store' })
       .then(async (response) => {
@@ -515,8 +526,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }, [])
 
   useEffect(() => {
-    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadMemorialMediaSyncStatus(); loadPlanaImportStatus(); loadMemorialVideos(); loadXlsxReviewItems(); loadStudentMatchRules()
-  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadMemorialMediaSyncStatus, loadPlanaImportStatus, loadMemorialVideos, loadXlsxReviewItems, loadStudentMatchRules])
+    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadMemorialMediaSyncStatus(); loadRadioSyncStatus(); loadPlanaImportStatus(); loadMemorialVideos(); loadXlsxReviewItems(); loadStudentMatchRules()
+  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadMemorialMediaSyncStatus, loadRadioSyncStatus, loadPlanaImportStatus, loadMemorialVideos, loadXlsxReviewItems, loadStudentMatchRules])
 
   useEffect(() => {
     if (!showImportProgress || importState?.status !== 'running') return
@@ -541,6 +552,12 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     const timer = window.setInterval(loadMemorialMediaSyncStatus, 1000)
     return () => window.clearInterval(timer)
   }, [memorialMediaSyncState?.status, loadMemorialMediaSyncStatus])
+
+  useEffect(() => {
+    if (radioSyncState?.status !== 'running') return
+    const timer = window.setInterval(loadRadioSyncStatus, 1000)
+    return () => window.clearInterval(timer)
+  }, [radioSyncState?.status, loadRadioSyncStatus])
 
   useEffect(() => {
     if (planaImportStatus?.status !== 'running') return
@@ -907,6 +924,19 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     }
     setMemorialMediaSyncState(body)
     showToast('Memorial media sync started.')
+  }
+
+  async function startRadioSync() {
+    const res = await fetch('/api/admin/radio/sync', { method: 'POST' })
+    const body = await res.json().catch(() => null)
+    if (res.status === 409) {
+      if (body?.state) setRadioSyncState(body.state)
+      showToast('Radio sync is already running.')
+      return
+    }
+    if (!res.ok) { showToast(body?.error || 'Could not start Radio sync.'); return }
+    setRadioSyncState(body)
+    showToast('Radio sync started.')
   }
 
   async function startPlanaImport() {
@@ -2694,6 +2724,33 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                       {memorialMediaSyncState.error || memorialMediaSyncState.message}
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="font-bold text-[15px]">Radio OST Media</div>
+                  <div className="mt-1 text-xs text-muted">
+                    Import audio and thumbnails from Blue Archive Global videos titled “| OST [1 Hour Loop]”.
+                  </div>
+                </div>
+                <button type="button" className={`${addBtnClass} disabled:cursor-not-allowed disabled:opacity-60`} disabled={radioSyncState?.status === 'running'} onClick={startRadioSync}>
+                  {radioSyncState?.status === 'running' ? 'Radio Sync Running…' : 'Check Radio Tracks'}
+                </button>
+              </div>
+              {radioSyncState && radioSyncState.status !== 'idle' && (
+                <div className="mt-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div><div className="text-sm font-semibold">{radioSyncState.stage}</div><div className="text-xs text-muted">{radioSyncState.currentItem || radioSyncState.message || 'Ready'}</div></div>
+                    <div className="font-mono text-sm text-muted2">{radioSyncState.total ? `${radioSyncState.processed} / ${radioSyncState.total}` : radioSyncState.status === 'running' ? 'Starting' : 'Complete'}</div>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full border border-border bg-bg"><div className="h-full bg-accent transition-all" style={{ width: `${radioSyncState.total ? Math.min(100, radioSyncState.processed / radioSyncState.total * 100) : radioSyncState.status === 'running' ? 8 : 100}%` }} /></div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                    {([['Matched',radioSyncState.matched],['New',radioSyncState.newTracks],['Audio',radioSyncState.downloaded],['Art',radioSyncState.thumbnails],['Skipped',radioSyncState.skipped],['Failed',radioSyncState.failed]] as [string,number][]).map(([label,value]) => <div key={label} className="rounded-lg border border-border bg-card2 p-2"><div className="text-[10px] font-bold uppercase tracking-wider text-muted">{label}</div><div className="font-mono text-lg font-bold">{value}</div></div>)}
+                  </div>
+                  {(radioSyncState.error || radioSyncState.message) && <div className={`mt-3 rounded-lg border p-3 text-sm ${radioSyncState.status === 'failed' ? 'border-red/25 bg-red/10 text-red' : 'border-border bg-bg text-muted2'}`}>{radioSyncState.error || radioSyncState.message}</div>}
                 </div>
               )}
             </div>

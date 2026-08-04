@@ -3,6 +3,8 @@ import './globals.css'
 import { SessionProvider } from 'next-auth/react'
 import { RouteChrome } from '@/components/RouteChrome'
 import { BackToTopButton } from '@/components/BackToTopButton'
+import { RadioPlayerProvider } from '@/components/radio/RadioPlayerProvider'
+import { RadioMiniPlayer } from '@/components/radio/RadioMiniPlayer'
 
 export const metadata: Metadata = {
   title: 'Stratónas — Guild Leaderboard',
@@ -25,9 +27,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="font-sans bg-bg text-text min-h-screen antialiased" suppressHydrationWarning>
         <SessionProvider>
-          {children}
-          <RouteChrome />
-          <BackToTopButton />
+          <RadioPlayerProvider>
+            {children}
+            <RadioMiniPlayer />
+            <RouteChrome />
+            <BackToTopButton />
+          </RadioPlayerProvider>
         </SessionProvider>
       </body>
     </html>

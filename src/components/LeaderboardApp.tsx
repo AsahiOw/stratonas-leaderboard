@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Navbar } from '@/components/Navbar'
@@ -19,8 +19,9 @@ import { LatestNewsSection } from '@/components/LatestNewsSection'
 import { RaidCardCustomizer } from '@/components/RaidCardDownloadModal'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
+import { RadioPage } from '@/components/radio/RadioPage'
 
-type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'news' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'news' | 'radio' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type ReturnLocation = { tab: Tab; scrollY: number }
 const INTRO_OPEN_KEY = 'stratonas:intro-open'
@@ -33,6 +34,7 @@ function tabFromPath(pathname: string): Tab {
   if (pathname === '/community') return 'community'
   if (pathname === '/other') return 'other'
   if (pathname === '/news') return 'news'
+  if (pathname === '/radio') return 'radio'
   if (pathname === '/history') return 'previous'
   if (pathname === '/statistic') return 'stats'
   if (pathname === '/admin') return 'admin'
@@ -88,6 +90,7 @@ export function LeaderboardApp({
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
+  const previousPathname = useRef(pathname)
   const raidDataPath = pathname.match(/^\/raiddata(?:\/(.+))?$/)
   const initialRaidId = raidDataPath?.[1] ? decodeURIComponent(raidDataPath[1]) : undefined
   const isRaidDetail = Boolean(initialRaidId)
@@ -112,6 +115,7 @@ export function LeaderboardApp({
     other: false,
     'custom-card': false,
     news: false,
+    radio: false,
     admin: false,
     [initialTab]: true,
   })
@@ -147,7 +151,7 @@ export function LeaderboardApp({
 
       window.sessionStorage.removeItem('stratonas:return-location')
       const saved = JSON.parse(raw) as Partial<ReturnLocation>
-      const tabs: Tab[] = ['leaderboard', 'previous', 'raid', 'calendar', 'stats', 'community', 'other', 'custom-card', 'news', 'admin']
+      const tabs: Tab[] = ['leaderboard', 'previous', 'raid', 'calendar', 'stats', 'community', 'other', 'custom-card', 'news', 'radio', 'admin']
       if (!saved.tab || !tabs.includes(saved.tab) || saved.tab === 'admin') return
 
       setTab(saved.tab)
@@ -178,6 +182,12 @@ export function LeaderboardApp({
   }, [tab])
 
   useEffect(() => {
+    if (previousPathname.current === pathname) return
+    previousPathname.current = pathname
+    setTab(tabFromPath(pathname))
+  }, [pathname])
+
+  useEffect(() => {
     function handleHistoryNavigation() {
       setTab(tabFromPath(window.location.pathname))
     }
@@ -197,6 +207,7 @@ export function LeaderboardApp({
       other: '/other',
       'custom-card': '/custom-card',
       news: '/news',
+      radio: '/radio',
       admin: '/admin',
     }
     const nextPath = routeByTab[nextTab] || '/'
@@ -269,12 +280,12 @@ export function LeaderboardApp({
     })
   }
 
-  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'custom-card' ? 'max-w-[1400px]' : tab === 'admin' || tab === 'community' || tab === 'calendar' || tab === 'other' || tab === 'news' ? 'max-w-[1100px]' : 'max-w-[940px]'
-  const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
+  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'radio' ? 'max-w-none' : tab === 'custom-card' ? 'max-w-[1400px]' : tab === 'admin' || tab === 'community' || tab === 'calendar' || tab === 'other' || tab === 'news' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerPad = tab === 'radio' ? '' : tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
     <div className="min-h-screen bg-bg">
-      {!isRaidDetail && (
+      {!isRaidDetail && tab !== 'radio' && (
         <Navbar
           tab={tab}
           setTab={handleTabChange}
@@ -412,6 +423,13 @@ export function LeaderboardApp({
         {visitedTabs.news && (
           <div className={tab === 'news' ? '' : 'hidden'}>
             <NewsPage />
+          </div>
+        )}
+
+        {/* RADIO */}
+        {visitedTabs.radio && (
+          <div className={tab === 'radio' ? '' : 'hidden'}>
+            <RadioPage />
           </div>
         )}
 
