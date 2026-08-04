@@ -347,7 +347,7 @@
 }
 
 @media (max-width: 380px), (max-height: 700px) and (max-width: 767px) {
-  .turntableBay { min-height:130px; }.platterRim { width:min(53%,190px); }.lcd { min-height:91px; }.visualizer { height:15px; }.lowerControls { min-height:58px; }.knob { width:39px; height:39px; }.utilityStrip { display:none; }
+  .turntableBay { min-height:130px; }.platterRim { width:min(53%,190px); }.lcd { min-height:91px; }.visualizer { height:15px; }.lowerControls { min-height:58px; }.knob { width:39px; height:39px; }
 }
 
 @media (max-width: 480px) {
