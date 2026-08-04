@@ -16,6 +16,7 @@ const ALLOWED_HOSTS = [
   'www.plana-stats.com',
   'dszw1qtcnsa5e.cloudfront.net',
   'webusstatic.yo-star.com',
+  'pbs.twimg.com',
 ]
 
 function resolveDriveUrl(url: string): string {
@@ -28,6 +29,7 @@ function resolveDriveUrl(url: string): string {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const raw = searchParams.get('url')
+  const isNewsMedia = searchParams.get('cache') === 'news'
   if (!raw) return NextResponse.json({ error: 'Missing url' }, { status: 400 })
 
   let url: string
@@ -57,10 +59,13 @@ export async function GET(req: Request) {
   }
 
   const buffer = await res.arrayBuffer()
+  const cacheControl = isNewsMedia
+    ? 'public, max-age=2592000, stale-while-revalidate=604800'
+    : 'public, max-age=86400, stale-while-revalidate=3600'
   return new Response(buffer, {
     headers: {
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=86400, stale-while-revalidate=3600',
+      'Cache-Control': cacheControl,
     },
   })
 }

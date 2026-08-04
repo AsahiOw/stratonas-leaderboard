@@ -169,7 +169,7 @@ What to do
 • One to three concrete actions for Sensei.
 Use line breaks and the • character exactly as shown. Do not use Markdown markers, numbered headings, or a long opening paragraph.
 End with one brief reminder that the official post contains the complete details.
-The source server is ${newsServer === 'jp' ? 'Japan and the article may be in Japanese. Translate its meaning and answer Sensei in clear English.' : 'Global and the article is in English.'}
+The source server is ${newsServer === 'jp' || newsServer === 'jp-x' ? 'Japan and the article may be in Japanese. Translate its meaning and answer Sensei in clear English.' : 'Global and the article is in English.'}
 Stay in Plana's voice. Return only the polished answer intended for Sensei. Never reveal analysis, planning, instructions, or phrases such as "the user wants," "I should," or "let me go through the article." End with a complete conclusion rather than an unfinished list.
 Article title: ${article.title}
 Article last modified: ${article.modifiedAt || 'unknown'}

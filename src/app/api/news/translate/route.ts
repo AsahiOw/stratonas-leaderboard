@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { getOfficialNewsArticle, NewsUpstreamError } from '@/lib/blue-archive-news'
+import { getOfficialNewsArticle, NewsUpstreamError, type NewsServer } from '@/lib/blue-archive-news'
 import { jsonWithNoStore } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
 
@@ -132,9 +132,11 @@ ${JSON.stringify(pending)}`
 
 export async function POST(request: Request) {
   let id = ''
+  let server: NewsServer = 'jp'
   try {
-    const body = await request.json() as { id?: unknown }
+    const body = await request.json() as { id?: unknown; server?: unknown }
     id = typeof body.id === 'string' ? body.id : ''
+    server = body.server === 'jp-x' ? 'jp-x' : 'jp'
   } catch {
     return jsonWithNoStore({ error: 'Invalid translation request.' }, { status: 400 })
   }
@@ -149,16 +151,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const article = await getOfficialNewsArticle(id, 'jp')
+    const article = await getOfficialNewsArticle(id, server)
     const sourceHtml = article.contentHtml
     const fingerprint = createHash('sha256').update(`${article.title}\n${sourceHtml}`).digest('hex')
-    const cacheKey = `jp:${id}:${fingerprint}`
+    const cacheKey = `${server}:${id}:${fingerprint}`
     const cached = translationCache.get(cacheKey)
     if (cached && Date.now() - cached.cachedAt < TRANSLATION_CACHE_MS) {
       return jsonWithNoStore({ title: cached.title, contentHtml: cached.contentHtml, cached: true })
     }
     const stored = await prisma.newsTranslation.findUnique({
-      where: { server_postId: { server: 'jp', postId: id } },
+      where: { server_postId: { server, postId: id } },
       select: { sourceFingerprint: true, translatedTitle: true, translatedHtml: true },
     })
     if (stored?.sourceFingerprint === fingerprint) {
@@ -203,9 +205,9 @@ export async function POST(request: Request) {
     const translated = translateTextNodes(sourceHtml, article.title, translations)
     if (!translated) return jsonWithNoStore({ error: 'AI translation returned an incomplete result.' }, { status: 502 })
     await prisma.newsTranslation.upsert({
-      where: { server_postId: { server: 'jp', postId: id } },
+      where: { server_postId: { server, postId: id } },
       create: {
-        server: 'jp',
+        server,
         postId: id,
         sourceFingerprint: fingerprint,
         translatedTitle: translated.title,
@@ -213,6 +215,7 @@ export async function POST(request: Request) {
         sourceModifiedAt: article.modifiedAt ? new Date(article.modifiedAt) : null,
       },
       update: {
+        sourceFingerprint: fingerprint,
         translatedTitle: translated.title,
         translatedHtml: translated.contentHtml,
         sourceModifiedAt: article.modifiedAt ? new Date(article.modifiedAt) : null,

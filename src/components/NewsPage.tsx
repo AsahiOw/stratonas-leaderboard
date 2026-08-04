@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowUpRight, BadgeCheck, Globe2, Languages, Newspaper, SlidersHorizontal, Sparkles, X } from 'lucide-react'
+import { ArrowUpRight, AtSign, BadgeCheck, Globe2, Languages, Newspaper, Play, SlidersHorizontal, Sparkles, X } from 'lucide-react'
 import type { NewsPageResult, NewsPost, NewsServer, OfficialNewsArticle } from '@/lib/blue-archive-news'
 import { requestPlanaNewsSummary } from '@/lib/plana-events'
 
-const NEWS_SESSION_CACHE_PREFIX = 'stratonas:news:v1:'
+const NEWS_SESSION_CACHE_PREFIX = 'stratonas:news:v12:'
 const NEWS_CLIENT_FRESH_MS = 5 * 60 * 1000
 
 type CachedNewsPage = {
@@ -24,6 +24,7 @@ function readSessionPage(server: NewsServer, category: string, page: number): Ca
     if (!raw) return null
     const cached = JSON.parse(raw) as CachedNewsPage
     if (!cached || typeof cached.cachedAt !== 'number' || !Array.isArray(cached.data?.posts)) return null
+    if (server.endsWith('-x') && cached.data.posts.length === 0) return null
     return cached
   } catch {
     return null
@@ -31,6 +32,7 @@ function readSessionPage(server: NewsServer, category: string, page: number): Ca
 }
 
 function writeSessionPage(server: NewsServer, category: string, page: number, cached: CachedNewsPage) {
+  if (server.endsWith('-x') && cached.data.posts.length === 0) return
   try {
     window.sessionStorage.setItem(sessionCacheKey(server, category, page), JSON.stringify(cached))
   } catch {
@@ -39,13 +41,21 @@ function writeSessionPage(server: NewsServer, category: string, page: number, ca
 }
 
 function imageSource(url: string | null): string | null {
-  return url ? `/api/image-proxy?url=${encodeURIComponent(url)}` : null
+  return url ? `/api/image-proxy?url=${encodeURIComponent(url)}&cache=news` : null
+}
+
+function videoSource(url: string): string {
+  return `/api/x-video-proxy?url=${encodeURIComponent(url)}`
 }
 
 function formatPublishedAt(value: string): string {
   return new Intl.DateTimeFormat('en', {
     year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
   }).format(new Date(value))
+}
+
+function regionLabel(server: NewsServer): string {
+  return server === 'global' || server === 'global-x' ? 'Blue Archive Global' : 'Blue Archive Japan'
 }
 
 function NewsSkeleton() {
@@ -76,14 +86,14 @@ function OfficialAvatar({ post }: { post: NewsPost }) {
 }
 
 function PostMedia({ post, onOpen }: { post: NewsPost; onOpen: () => void }) {
-  const sourceUrls = post.mediaUrls.length > 0
-    ? post.mediaUrls
-    : post.thumbnailUrl ? [post.thumbnailUrl] : []
-  if (sourceUrls.length === 0) return null
+  const sourceMedia = post.media?.length ? post.media : (post.mediaUrls.length > 0
+    ? post.mediaUrls.map((url) => ({ url, type: 'photo' as const }))
+    : post.thumbnailUrl ? [{ url: post.thumbnailUrl, type: 'photo' as const }] : [])
+  if (sourceMedia.length === 0) return null
 
-  const visibleUrls = sourceUrls.slice(0, 5)
-  const extraCount = sourceUrls.length - visibleUrls.length
-  const count = visibleUrls.length
+  const visibleMedia = sourceMedia.slice(0, 5)
+  const extraCount = sourceMedia.length - visibleMedia.length
+  const count = visibleMedia.length
   const gridClass = count === 1
     ? 'grid-cols-1'
     : count === 2
@@ -94,30 +104,51 @@ function PostMedia({ post, onOpen }: { post: NewsPost; onOpen: () => void }) {
 
   return (
     <div className={`grid h-[300px] gap-0.5 overflow-hidden border-y border-border bg-bg sm:h-[430px] ${gridClass}`}>
-      {visibleUrls.map((url, index) => {
+      {visibleMedia.map((media, index) => {
         const largeFirst = count === 3 || count === 5
         const tileClass = largeFirst && index === 0
           ? count === 5 ? 'col-span-2 row-span-2' : 'row-span-2'
           : ''
         return (
+          media.type === 'video' && media.videoUrl ? (
+            <div key={media.url} className={`relative min-h-0 overflow-hidden bg-black ${tileClass}`}>
+              <video src={videoSource(media.videoUrl)} poster={imageSource(media.url) || undefined} autoPlay muted loop playsInline controls preload="metadata" className="h-full w-full object-cover" aria-label={`Looping video for ${post.title}`} />
+            </div>
+          ) : (
           <button
             type="button"
-            key={url}
-            onClick={onOpen}
+            key={media.url}
+            onClick={() => media.type === 'video' && media.targetUrl ? window.open(media.targetUrl, '_blank', 'noopener,noreferrer') : onOpen()}
             className={`group relative min-h-0 overflow-hidden bg-black/20 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${tileClass}`}
             aria-label={`Open full post for ${post.title}, image ${index + 1}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageSource(url) || undefined} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
-            {index === visibleUrls.length - 1 && extraCount > 0 && (
+            <img src={imageSource(media.url) || undefined} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
+            {media.type === 'video' && <span className="absolute inset-0 flex items-center justify-center"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/65 text-white"><Play size={22} className="ml-0.5 fill-current" /></span></span>}
+            {index === visibleMedia.length - 1 && extraCount > 0 && (
               <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-3xl font-bold text-white backdrop-blur-[1px] sm:text-4xl">
                 +{extraCount}
               </span>
             )}
           </button>
+          )
         )
       })}
     </div>
+  )
+}
+
+function LinkPreview({ post }: { post: NewsPost }) {
+  const preview = post.linkPreview
+  if (!preview) return null
+  return (
+    <a href={preview.url} target="_blank" rel="noopener noreferrer" className="mt-3 block overflow-hidden rounded-xl border border-border bg-bg/60 transition-colors hover:border-accent/50">
+      {preview.imageUrl && <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageSource(preview.imageUrl) || undefined} alt="" className="aspect-[1.91/1] w-full border-b border-border object-cover" />
+      </>}
+      <span className="block px-3 py-2.5"><span className="block text-sm font-semibold text-text">{preview.title}</span><span className="mt-0.5 block text-xs text-muted2">{preview.subtitle}</span></span>
+    </a>
   )
 }
 
@@ -161,7 +192,7 @@ function NewsPostModal({
           <OfficialAvatar post={post} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 text-sm font-bold"><span>{post.authorName}</span><BadgeCheck size={16} className="fill-accent text-bg" aria-label="Official account" /></div>
-            <div className="mt-0.5 text-xs text-muted2">{post.server === 'global' ? 'Blue Archive Global' : 'Blue Archive Japan'} · {formatPublishedAt(post.publishedAt)}</div>
+            <div className="mt-0.5 text-xs text-muted2">{regionLabel(post.server)} · {post.source === 'x' ? 'X · ' : ''}{formatPublishedAt(post.publishedAt)}</div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close full post" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card2 text-muted2 transition-colors hover:bg-border hover:text-text focus:outline-none focus:ring-2 focus:ring-accent/50">
             <X size={21} aria-hidden />
@@ -171,7 +202,9 @@ function NewsPostModal({
         <div className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="px-4 py-5 sm:px-6">
             <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-accent">{post.category}</span>
-            <h2 id="news-post-modal-title" className="mt-3 text-xl font-bold leading-snug text-text sm:text-2xl">{showingTranslation && translatedTitle ? translatedTitle : post.title}</h2>
+            {post.source === 'x'
+              ? <h2 id="news-post-modal-title" className="sr-only">Official X post by {post.authorName}</h2>
+              : <h2 id="news-post-modal-title" className="mt-3 text-xl font-bold leading-snug text-text sm:text-2xl">{showingTranslation && translatedTitle ? translatedTitle : post.title}</h2>}
           </div>
 
           {loading ? (
@@ -211,14 +244,14 @@ function NewsPostModal({
             <button type="button" onClick={() => requestPlanaNewsSummary({ threadId: post.id, title: post.title, server: post.server })} className="inline-flex items-center gap-1.5 rounded-full bg-[#fc96ab]/10 px-3 py-2 text-xs font-bold text-[#fc96ab] transition-colors hover:bg-[#fc96ab] hover:text-white">
               <Sparkles size={14} aria-hidden /> Summarize with Plana
             </button>
-            {post.server === 'jp' && article && (
+            {(post.server === 'jp' || post.server === 'jp-x') && article && (
               <button type="button" disabled={translating} onClick={translatedHtml ? onToggleTranslation : onTranslate} className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-2 text-xs font-bold text-accent transition-colors hover:bg-accent hover:text-white disabled:cursor-wait disabled:opacity-60">
                 <Languages size={14} className={translating ? 'animate-pulse' : ''} aria-hidden /> {translating ? `Translating…${translationProgress ? ` ${translationProgress}%` : ''}` : showingTranslation ? 'View original' : 'Translate to English'}
               </button>
             )}
             {translationError && <button type="button" onClick={onTranslate} className="text-xs font-bold text-red hover:underline">Translation failed · Retry</button>}
           </div>
-          <a href={post.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-2 text-xs font-bold text-accent transition-colors hover:bg-accent hover:text-white">Official post <ArrowUpRight size={14} aria-hidden /></a>
+          <a href={post.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-2 text-xs font-bold text-accent transition-colors hover:bg-accent hover:text-white">{post.source === 'x' ? 'Open on X' : 'Official post'} <ArrowUpRight size={14} aria-hidden /></a>
         </footer>
       </div>
     </div>
@@ -300,7 +333,7 @@ export function NewsPage() {
       for (let step = 0; step < 30; step += 1) {
         let response: Response | null = null
         for (let attempt = 0; attempt < 3; attempt += 1) {
-          response = await fetch('/api/news/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: post.id }) })
+          response = await fetch('/api/news/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: post.id, server: post.server }) })
           if (response.ok) break
           if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)))
         }
@@ -365,7 +398,8 @@ export function NewsPage() {
   const loadPage = useCallback(async (nextPage: number, nextCategory: string, nextServer: NewsServer, append: boolean) => {
     const requestId = ++requestIdRef.current
     const cacheKey = `${nextServer}:${nextCategory}:${nextPage}`
-    const cached = pageCacheRef.current.get(cacheKey) || readSessionPage(nextServer, nextCategory, nextPage)
+    const cachedPage = pageCacheRef.current.get(cacheKey) || readSessionPage(nextServer, nextCategory, nextPage)
+    const cached = nextServer.endsWith('-x') && cachedPage?.data.posts.length === 0 ? null : cachedPage
 
     if (cached) {
       pageCacheRef.current.set(cacheKey, cached)
@@ -383,13 +417,15 @@ export function NewsPage() {
     setError(null)
     try {
       const params = new URLSearchParams({ page: String(nextPage), category: nextCategory, server: nextServer })
-      const response = await fetch(`/api/news?${params}`)
+      const response = await fetch(`/api/news?${params}`, nextServer.endsWith('-x') ? { cache: 'no-store' } : undefined)
       const data = await response.json() as NewsPageResult & { error?: string }
       if (!response.ok) throw new Error(data.error || 'Official news is temporarily unavailable.')
       if (requestId !== requestIdRef.current) return
       const nextCached = { data, cachedAt: Date.now() }
-      pageCacheRef.current.set(cacheKey, nextCached)
-      writeSessionPage(nextServer, nextCategory, nextPage, nextCached)
+      if (!nextServer.endsWith('-x') || data.posts.length > 0) {
+        pageCacheRef.current.set(cacheKey, nextCached)
+        writeSessionPage(nextServer, nextCategory, nextPage, nextCached)
+      }
       applyPage(data, append)
     } catch (reason) {
       if (requestId === requestIdRef.current) setError(reason instanceof Error ? reason.message : 'Official news is temporarily unavailable.')
@@ -433,7 +469,7 @@ export function NewsPage() {
       <div className="mx-auto mb-4 max-w-[720px]">
         <div className="mb-1.5 text-[11px] font-bold tracking-[0.14em] text-muted">◈ SCHALE NETWORK</div>
         <h1 className="text-2xl font-bold tracking-[-0.03em] sm:text-3xl">Official Blue Archive Feed</h1>
-        <p className="mt-1.5 text-[13px] text-muted2">{server === 'global' ? 'Fresh from the Global Nexon Community.' : 'Fresh from the official Japanese Blue Archive site.'}</p>
+        <p className="mt-1.5 text-[13px] text-muted2">{{ global: 'Fresh from the Global Nexon Community.', jp: 'Fresh from the official Japanese Blue Archive site.', 'global-x': 'Official posts from @EN_BlueArchive on X.', 'jp-x': 'Official posts from @Blue_ArchiveJP on X.' }[server]}</p>
       </div>
 
       <div className="mx-auto mb-6 max-w-[720px] overflow-hidden rounded-2xl border border-border bg-card/90 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm">
@@ -442,9 +478,9 @@ export function NewsPage() {
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.1em] text-muted2"><Globe2 size={15} aria-hidden /> News region</div>
             <span className="rounded-full bg-green/10 px-2.5 py-1 text-[10px] font-bold text-green">Official sources</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 rounded-xl bg-bg/70 p-1.5" aria-label="News server">
-            {([['global', 'Global', 'Nexon Community'], ['jp', 'Japan', 'Yostar JP']] as const).map(([value, label, source]) => {
-              const Icon = value === 'global' ? Globe2 : Languages
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-bg/70 p-1.5 sm:grid-cols-4" aria-label="News server">
+            {([['global', 'Global', 'Nexon Community'], ['jp', 'Japan', 'Yostar JP'], ['global-x', 'Global X', '@EN_BlueArchive'], ['jp-x', 'Japan X', '@Blue_ArchiveJP']] as const).map(([value, label, source]) => {
+              const Icon = value.endsWith('-x') ? AtSign : value === 'global' ? Globe2 : Languages
               const active = server === value
               return (
                 <button key={value} type="button" onClick={() => selectServer(value)} aria-pressed={active}
@@ -478,7 +514,7 @@ export function NewsPage() {
           <button type="button" onClick={() => void loadPage(1, category, server, false)} className="mt-5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white">Try again</button>
         </div>
       ) : posts.length === 0 ? (
-        <div className="mx-auto max-w-[720px] rounded-2xl border border-border bg-card px-5 py-14 text-center text-sm text-muted2">No official posts are available in this category.</div>
+        <div className="mx-auto max-w-[720px] rounded-2xl border border-border bg-card px-5 py-14 text-center text-sm text-muted2">{server.endsWith('-x') ? 'X posts are being collected. Check back shortly.' : 'No official posts are available in this category.'}</div>
       ) : (
         <>
           <div className="mx-auto max-w-[720px] space-y-4">
@@ -490,12 +526,16 @@ export function NewsPage() {
                       <OfficialAvatar post={post} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold"><span>{post.authorName}</span><BadgeCheck size={16} className="fill-accent text-bg" aria-label="Official account" /></div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted2"><span>{post.server === 'global' ? 'Blue Archive Global' : 'Blue Archive Japan'}</span><span aria-hidden>·</span><time dateTime={post.publishedAt}>{formatPublishedAt(post.publishedAt)}</time><span aria-hidden>·</span><Globe2 size={12} aria-label="Public post" /></div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted2"><span>{regionLabel(post.server)}</span>{post.source === 'x' && <><span aria-hidden>·</span><span>{post.server === 'global-x' ? '@EN_BlueArchive' : '@Blue_ArchiveJP'}</span></>}<span aria-hidden>·</span><time dateTime={post.publishedAt}>{formatPublishedAt(post.publishedAt)}</time><span aria-hidden>·</span><Globe2 size={12} aria-label="Public post" /></div>
                       </div>
                       <span className="shrink-0 rounded-full bg-accent/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-accent">{post.category}</span>
                     </div>
-                    <h2 className="mt-4 text-[17px] font-bold leading-snug tracking-[-0.01em] text-text sm:text-lg">{post.title}</h2>
-                    {post.summary && <p className="mt-2 text-sm leading-relaxed text-muted2">{post.summary}</p>}
+                    {post.source === 'x' ? <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-text">{post.summary}</p> : <><h2 className="mt-4 text-[17px] font-bold leading-snug tracking-[-0.01em] text-text sm:text-lg">{post.title}</h2>{post.summary && <p className="mt-2 text-sm leading-relaxed text-muted2">{post.summary}</p>}</>}
+                    <LinkPreview post={post} />
+                    {post.quotedPost && <a href={post.quotedPost.url} target="_blank" rel="noopener noreferrer" className="mt-3 block overflow-hidden rounded-xl border border-border bg-bg/50 text-sm hover:border-accent/40"><span className="block p-3"><span className="font-bold">{post.quotedPost.authorName}</span><span className="mt-1 block whitespace-pre-wrap text-muted2">{post.quotedPost.text}</span></span>{post.quotedPost.media[0] && <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imageSource(post.quotedPost.media[0].url) || undefined} alt="" className="max-h-64 w-full border-t border-border object-cover" />
+                    </>}</a>}
                   </div>
                   <PostMedia post={post} onOpen={() => openPost(post)} />
                   <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
@@ -505,7 +545,7 @@ export function NewsPage() {
                         <Sparkles size={13} aria-hidden /> Summarize
                       </button>
                       <a href={post.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent transition-colors hover:bg-accent hover:text-white">
-                        Read post <ArrowUpRight size={13} aria-hidden />
+                        {post.source === 'x' ? 'Open on X' : 'Read post'} <ArrowUpRight size={13} aria-hidden />
                       </a>
                     </div>
                   </div>

@@ -12,7 +12,7 @@ type CachedLatest = { post: NewsPost; cachedAt: number }
 type CachedFullFeed = { data: NewsPageResult; cachedAt: number }
 
 function imageSource(url: string | null): string | null {
-  return url ? `/api/image-proxy?url=${encodeURIComponent(url)}` : null
+  return url ? `/api/image-proxy?url=${encodeURIComponent(url)}&cache=news` : null
 }
 
 function readCachedLatest(): CachedLatest | null {

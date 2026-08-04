@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { SessionProvider } from 'next-auth/react'
 import { RouteChrome } from '@/components/RouteChrome'
+import { BackToTopButton } from '@/components/BackToTopButton'
 
 export const metadata: Metadata = {
   title: 'Stratónas — Guild Leaderboard',
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SessionProvider>
           {children}
           <RouteChrome />
+          <BackToTopButton />
         </SessionProvider>
       </body>
     </html>

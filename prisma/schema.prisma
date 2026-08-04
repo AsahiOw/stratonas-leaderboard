@@ -311,6 +311,33 @@ model NewsTranslation {
   @@unique([server, postId])
 }
 
+model XNewsPost {
+  id          String   @id @default(cuid())
+  account     String
+  postId      String
+  text        String   @db.Text
+  url         String
+  publishedAt DateTime
+  media       Json
+  quotedPost  Json?
+  linkPreview Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([account, postId])
+  @@index([account, publishedAt])
+}
+
+model XNewsSyncState {
+  account       String    @id
+  lastSuccessAt DateTime?
+  lastAttemptAt DateTime?
+  lastPostId    String?
+  error         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
 model RaidType {
   id    String @id @default(cuid())
   name  String @unique
