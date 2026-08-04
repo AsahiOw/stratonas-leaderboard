@@ -297,6 +297,20 @@ model MemorialVideoAsset {
   @@index([title])
 }
 
+model NewsTranslation {
+  id                String   @id @default(cuid())
+  server            String
+  postId            String
+  sourceFingerprint String
+  translatedTitle   String
+  translatedHtml    String   @db.Text
+  sourceModifiedAt  DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([server, postId])
+}
+
 model RaidType {
   id    String @id @default(cuid())
   name  String @unique

@@ -14,6 +14,8 @@ const ALLOWED_HOSTS = [
   'bluearchive.wiki',
   'copyparty.lazyc97.top',
   'www.plana-stats.com',
+  'dszw1qtcnsa5e.cloudfront.net',
+  'webusstatic.yo-star.com',
 ]
 
 function resolveDriveUrl(url: string): string {

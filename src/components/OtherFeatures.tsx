@@ -2,7 +2,7 @@
 
 import { ArrowUpRight } from 'lucide-react'
 
-type FeatureTab = 'community' | 'calendar' | 'raid' | 'custom-card'
+type FeatureTab = 'community' | 'calendar' | 'raid' | 'custom-card' | 'news'
 
 interface Props {
   onSelect: (tab: FeatureTab) => void
@@ -37,6 +37,12 @@ const features: {
       title: 'Stratónas Custom Card',
       description: 'Create your own custom card Stratónas ranking style.',
       image: '/assets/others/custom-card.jpg',
+    },
+    {
+      tab: 'news',
+      title: 'News',
+      description: 'Read the latest official Blue Archive announcements, updates, and events.',
+      image: '/assets/others/news.jpg',
     }
   ]
 

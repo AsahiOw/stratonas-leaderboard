@@ -8,7 +8,7 @@ import { requestKeiGreeting } from '@/lib/kei-volume'
 
 type MetaPanel = 'settings' | 'credit' | null
 
-type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'news' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type Indicator = { left: number; width: number }
 

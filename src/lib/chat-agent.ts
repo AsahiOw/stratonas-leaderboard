@@ -293,6 +293,7 @@ export interface RunChatAgentOptions {
   model: string
   callModel: ChatCompletionCaller
   loaders?: ChatToolLoaders
+  trustedContext?: string
 }
 
 export interface RunChatAgentResult {
@@ -363,6 +364,7 @@ Plana voice and behavior:
 - Use dry, understated humor only when appropriate.
 - Do not use emojis, meme slang, exaggerated anime speech, or roleplay stage directions.
 - Write the text value as plain text only. Do not use Markdown, headings, lists, code fences, links, or formatting markers.
+- For official news summaries only, short plain-text section labels, line breaks, and the • bullet character are allowed for readability.
 - Never let character flavor weaken safety, accuracy, or usefulness.
 
 Return final visible answers as JSON only:
@@ -1421,13 +1423,23 @@ function readMessageContent(value: unknown) {
 function readAssistantMessage(data: unknown) {
   const choice = isRecord(data) && Array.isArray(data.choices) ? data.choices[0] : null
   const message = isRecord(choice) && isRecord(choice.message) ? choice.message : null
-  if (!message) return { content: '', toolCalls: [] as ToolCall[], model: isRecord(data) && typeof data.model === 'string' ? data.model : '' }
+  if (!message) return { content: '', toolCalls: [] as ToolCall[], model: isRecord(data) && typeof data.model === 'string' ? data.model : '', finishReason: '' }
 
   return {
     content: readMessageContent(message.content),
     toolCalls: Array.isArray(message.tool_calls) ? message.tool_calls.filter(isRecord) as ToolCall[] : [],
     model: isRecord(data) && typeof data.model === 'string' ? data.model : '',
+    finishReason: isRecord(choice) && typeof choice.finish_reason === 'string' ? choice.finish_reason : '',
   }
+}
+
+function exposesInternalReasoning(content: string) {
+  const opening = plainText(content).slice(0, 500)
+  return /^(?:the user (?:wants|asks|is asking)|i (?:should|need to|will)|let me (?:go through|analy[sz]e|summarize|review)|we need to)/i.test(opening)
+}
+
+function newsSummaryIsTooLong(content: string) {
+  return plainText(content).split(/\s+/).filter(Boolean).length > 340
 }
 
 function normalizePlanaExpression(value: unknown): PlanaExpression {
@@ -1577,18 +1589,28 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'system', content: PLANA_KNOWLEDGE_PROMPT },
     { role: 'system', content: memorySystemMessage(memory) },
+    ...(options.trustedContext ? [{ role: 'system' as const, content: options.trustedContext }] : []),
     ...(preloadedContext ? [{ role: 'system' as const, content: preloadedContext }] : []),
     ...options.messages.map((message): AgentMessage => ({ role: message.role, content: message.content })),
   ]
   let responseModel = options.model
+  const summaryMaxTokens = options.trustedContext ? 1000 : 800
+  const callAgentModel = async (body: ChatCompletionRequest) => {
+    try {
+      return await callOrThrow(options.callModel, body)
+    } catch (error) {
+      if (!options.trustedContext || !(error instanceof ChatAgentModelError) || ![502, 503, 504].includes(error.status)) throw error
+      return callOrThrow(options.callModel, body)
+    }
+  }
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-    const data = await callOrThrow(options.callModel, {
+    const data = await callAgentModel({
       model: options.model,
       messages,
-      tools: CHAT_TOOLS,
-      tool_choice: 'auto',
-      max_tokens: 800,
+      tools: options.trustedContext ? undefined : CHAT_TOOLS,
+      tool_choice: options.trustedContext ? undefined : 'auto',
+      max_tokens: summaryMaxTokens,
       temperature: 0.35,
       stream: false,
     })
@@ -1597,7 +1619,27 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
 
     if (assistant.toolCalls.length === 0) {
       if (!assistant.content) throw new ChatAgentModelError(502, 'The chat model returned an empty response.')
-      const result = parsePlanaResponse(assistant.content, latest)
+      let finalAssistant = assistant
+      if (options.trustedContext && (assistant.finishReason === 'length' || exposesInternalReasoning(assistant.content) || newsSummaryIsTooLong(assistant.content))) {
+        messages.push({ role: 'assistant', content: assistant.content })
+        messages.push({
+          role: 'system',
+          content: 'Discard the previous draft. It exposed internal planning, ended incomplete, or was too long. Reply again as Plana with only one complete, polished JSON answer for Sensei. Follow the requested Overview / Key details / What to do structure and remain under 300 words.',
+        })
+        const retryData = await callAgentModel({
+          model: options.model,
+          messages,
+          max_tokens: summaryMaxTokens,
+          temperature: 0.2,
+          stream: false,
+        })
+        finalAssistant = readAssistantMessage(retryData)
+        if (finalAssistant.model) responseModel = finalAssistant.model
+        if (!finalAssistant.content || finalAssistant.finishReason === 'length' || exposesInternalReasoning(finalAssistant.content) || newsSummaryIsTooLong(finalAssistant.content)) {
+          throw new ChatAgentModelError(502, 'The chat model could not produce a complete in-character summary.')
+        }
+      }
+      const result = parsePlanaResponse(finalAssistant.content, latest)
       rememberConversationTurn(memory, latest, result.message)
       return { ...result, model: responseModel, memory }
     }
@@ -1625,7 +1667,7 @@ export async function runChatAgent(options: RunChatAgentOptions): Promise<RunCha
     role: 'system',
     content: 'Tool round limit reached. Answer now using only the tool results already provided. Return the final visible answer as the required JSON object.',
   })
-  const data = await callOrThrow(options.callModel, {
+  const data = await callAgentModel({
     model: options.model,
     messages,
     max_tokens: 800,

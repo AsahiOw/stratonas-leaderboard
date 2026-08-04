@@ -14,11 +14,13 @@ import { HomeIntro } from '@/components/HomeIntro'
 import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
 import { RecruitmentCalendar, type RecruitmentCalendarSchedule } from '@/components/RecruitmentCalendar'
 import { OtherFeatures } from '@/components/OtherFeatures'
+import { NewsPage } from '@/components/NewsPage'
+import { LatestNewsSection } from '@/components/LatestNewsSection'
 import { RaidCardCustomizer } from '@/components/RaidCardDownloadModal'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
 
-type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'news' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type ReturnLocation = { tab: Tab; scrollY: number }
 const INTRO_OPEN_KEY = 'stratonas:intro-open'
@@ -30,6 +32,7 @@ function tabFromPath(pathname: string): Tab {
   if (pathname === '/calendar') return 'calendar'
   if (pathname === '/community') return 'community'
   if (pathname === '/other') return 'other'
+  if (pathname === '/news') return 'news'
   if (pathname === '/history') return 'previous'
   if (pathname === '/statistic') return 'stats'
   if (pathname === '/admin') return 'admin'
@@ -108,6 +111,7 @@ export function LeaderboardApp({
     community: false,
     other: false,
     'custom-card': false,
+    news: false,
     admin: false,
     [initialTab]: true,
   })
@@ -143,7 +147,7 @@ export function LeaderboardApp({
 
       window.sessionStorage.removeItem('stratonas:return-location')
       const saved = JSON.parse(raw) as Partial<ReturnLocation>
-      const tabs: Tab[] = ['leaderboard', 'previous', 'raid', 'calendar', 'stats', 'community', 'other', 'custom-card', 'admin']
+      const tabs: Tab[] = ['leaderboard', 'previous', 'raid', 'calendar', 'stats', 'community', 'other', 'custom-card', 'news', 'admin']
       if (!saved.tab || !tabs.includes(saved.tab) || saved.tab === 'admin') return
 
       setTab(saved.tab)
@@ -192,6 +196,7 @@ export function LeaderboardApp({
       community: '/community',
       other: '/other',
       'custom-card': '/custom-card',
+      news: '/news',
       admin: '/admin',
     }
     const nextPath = routeByTab[nextTab] || '/'
@@ -264,7 +269,7 @@ export function LeaderboardApp({
     })
   }
 
-  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'custom-card' ? 'max-w-[1400px]' : tab === 'admin' || tab === 'community' || tab === 'calendar' || tab === 'other' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'custom-card' ? 'max-w-[1400px]' : tab === 'admin' || tab === 'community' || tab === 'calendar' || tab === 'other' || tab === 'news' ? 'max-w-[1100px]' : 'max-w-[940px]'
   const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
@@ -316,6 +321,7 @@ export function LeaderboardApp({
                 </p>
               </div>
             </div>
+            <LatestNewsSection onOpenNews={() => handleTabChange('news')} />
             <FutureRecruitmentSection schedule={futureRecruitment} />
             {latestRaids.length === 0 ? (
               <div className="text-center text-muted py-16 text-sm">No completed raid results for this server filter.</div>
@@ -399,6 +405,13 @@ export function LeaderboardApp({
         {visitedTabs.other && (
           <div className={tab === 'other' ? '' : 'hidden'}>
             <OtherFeatures onSelect={handleTabChange} />
+          </div>
+        )}
+
+        {/* OFFICIAL NEWS */}
+        {visitedTabs.news && (
+          <div className={tab === 'news' ? '' : 'hidden'}>
+            <NewsPage />
           </div>
         )}
 
