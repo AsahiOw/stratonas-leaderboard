@@ -18,7 +18,13 @@ type Props = {
 
 export function PhysicalPlayer({ player, selectedTrack, shuffling, onShuffle, onExit, onBackground }: Props) {
   const knobRotation = -135 + player.volume * 270
+  const volumePresets = [0, 0.25, 0.5, 0.75, 1]
   const cycleLoop = () => player.setLoopMode(nextLoop(player.loopMode))
+  const cycleVolumePreset = () => {
+    const nextVolume = volumePresets.find((volume) => volume > player.volume + 0.01) ?? 0
+    player.setVolume(nextVolume)
+    player.setMuted(nextVolume === 0)
+  }
   const currentTrack = player.currentTrack
   const playMechanismSfx = player.playMechanismSfx
   const [displayedTrack, setDisplayedTrack] = useState<RadioTrack | null>(player.currentTrack)
@@ -100,7 +106,7 @@ export function PhysicalPlayer({ player, selectedTrack, shuffling, onShuffle, on
           <div className={styles.lowerControls}>
             <div className={styles.volumeModule}>
               <div className={styles.printLabel}>OUTPUT LEVEL</div>
-              <button type="button" onClick={() => player.setMuted(!player.muted)} className={styles.knob} style={{ '--knob-angle': `${knobRotation}deg` } as React.CSSProperties} aria-label={player.muted ? 'Unmute' : 'Mute'}>
+              <button type="button" onClick={cycleVolumePreset} className={styles.knob} style={{ '--knob-angle': `${knobRotation}deg` } as React.CSSProperties} aria-label={`Volume ${Math.round(player.volume * 100)}%. Tap to select the next volume level.`}>
                 <span>{player.muted ? <VolumeX size={17} /> : <Volume2 size={17} />}</span>
               </button>
               <input aria-label="Volume" type="range" min={0} max={1} step={0.01} value={player.volume} onChange={(event) => player.setVolume(Number(event.target.value))} className={styles.hiddenVolume} />
@@ -111,6 +117,7 @@ export function PhysicalPlayer({ player, selectedTrack, shuffling, onShuffle, on
               <span className={styles.printLabel}>PITCH LOCK / SPEED</span>
               <div className={styles.rateSwitches}>{[0.75, 1, 1.25, 1.5].map((rate) => <button type="button" key={rate} onClick={() => player.setPlaybackRate(rate)} className={player.playbackRate === rate ? styles.rateActive : ''}>{rate}×</button>)}</div>
             </div>
+
           </div>
 
           <div className={styles.utilityStrip}>

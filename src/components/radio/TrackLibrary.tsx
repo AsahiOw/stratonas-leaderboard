@@ -115,7 +115,7 @@ export function TrackLibrary(props: Props) {
               >
                 <span className={styles.slotHeader}><i /> SLOT {String(trackIndex + 1).padStart(2, '0')}</span>
                 <span className={styles.slotMouth} />
-                <span className={styles.magazineDisc}><RadioArtwork src={track.thumbnailUrl} alt="" sizes="110px" /><i /></span>
+                <span className={styles.magazineDisc}><RadioArtwork src={track.thumbnailUrl} alt="" sizes="110px" eager /><i /></span>
                 <span className={styles.slotLabel}>{track.displayTitle}</span>
               </button>
             ) : (

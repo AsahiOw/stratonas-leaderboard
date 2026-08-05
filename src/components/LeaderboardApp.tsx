@@ -429,7 +429,7 @@ export function LeaderboardApp({
         {/* RADIO */}
         {visitedTabs.radio && (
           <div className={tab === 'radio' ? '' : 'hidden'}>
-            <RadioPage />
+            <RadioPage onReturnToOther={() => handleTabChange('other')} />
           </div>
         )}
 

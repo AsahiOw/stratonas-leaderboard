@@ -28,6 +28,7 @@ export interface RadioPlayerValue extends PersistedState {
   setLoopMode: (value: LoopMode) => void; setBackgroundMode: (value: boolean) => void
   setSfxEnabled: (value: boolean) => void; setSfxVolume: (value: number) => void; playSwitchSfx: () => void
   playMechanismSfx: (kind: 'eject' | 'insert') => void
+  readFrequencyData: () => Uint8Array<ArrayBuffer> | null
 }
 
 const STORAGE_KEY = 'stratonas:radio-player'
@@ -47,6 +48,9 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   const failedRef = useRef(new Set<string>())
   const suppressAudioErrorRef = useRef(false)
   const sfxTimeRef = useRef(0)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const frequencyDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
   const [tracks, setTracks] = useState<RadioTrack[]>([])
   const [state, setState] = useState<PersistedState>(defaults)
   const [ready, setReady] = useState(false)
@@ -118,6 +122,18 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
     const audio = new Audio()
     audio.preload = 'metadata'
     audioRef.current = audio
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (AudioContextClass) {
+      const context = new AudioContextClass()
+      const analyser = context.createAnalyser()
+      analyser.fftSize = 256
+      analyser.smoothingTimeConstant = 0.62
+      context.createMediaElementSource(audio).connect(analyser)
+      analyser.connect(context.destination)
+      audioContextRef.current = context
+      analyserRef.current = analyser
+      frequencyDataRef.current = new Uint8Array(analyser.frequencyBinCount)
+    }
     const onTime = () => update({ currentTime: audio.currentTime })
     const onDuration = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0)
     const onPlay = () => { setPlaying(true); setLoading(false); setError(null) }
@@ -138,7 +154,11 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
     audio.addEventListener('play', onPlay); audio.addEventListener('pause', onPause)
     audio.addEventListener('waiting', onWaiting); audio.addEventListener('canplay', onCanPlay)
     audio.addEventListener('ended', onEnded); audio.addEventListener('error', onError)
-    return () => { audio.pause(); audio.src = ''; audioRef.current = null }
+    return () => {
+      audio.pause(); audio.src = ''; audioRef.current = null
+      analyserRef.current = null; frequencyDataRef.current = null
+      void audioContextRef.current?.close(); audioContextRef.current = null
+    }
   }, [goTo, update])
 
   useEffect(() => {
@@ -159,6 +179,7 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (audioRef.current) { audioRef.current.playbackRate = state.playbackRate; audioRef.current.preservesPitch = true } }, [state.playbackRate])
 
   const playTrack = useCallback((id: string) => {
+    void audioContextRef.current?.resume()
     suppressAudioErrorRef.current = false
     setState((value) => {
       const without = value.queue.filter((trackId) => trackId !== id)
@@ -180,8 +201,19 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   const togglePlay = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
-    if (audio.paused) void audio.play().catch(() => setError('Playback was blocked. Try pressing Play again.'))
+    if (audio.paused) {
+      void audioContextRef.current?.resume()
+      void audio.play().catch(() => setError('Playback was blocked. Try pressing Play again.'))
+    }
     else audio.pause()
+  }, [])
+
+  const readFrequencyData = useCallback(() => {
+    const analyser = analyserRef.current
+    const data = frequencyDataRef.current
+    if (!analyser || !data) return null
+    analyser.getByteFrequencyData(data)
+    return data
   }, [])
 
   const previous = useCallback(() => {
@@ -259,6 +291,7 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
     setPlaybackRate: (playbackRate) => update({ playbackRate }), setLoopMode: (loopMode) => update({ loopMode }),
     setBackgroundMode: (backgroundMode) => update({ backgroundMode }), setSfxEnabled: (sfxEnabled) => update({ sfxEnabled }),
     setSfxVolume: (sfxVolume) => update({ sfxVolume }), playSwitchSfx, playMechanismSfx,
+    readFrequencyData,
   }
   return <RadioPlayerContext.Provider value={value}>{children}</RadioPlayerContext.Provider>
 }

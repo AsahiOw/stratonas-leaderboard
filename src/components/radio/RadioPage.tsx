@@ -2,7 +2,6 @@
 
 import { Disc3, ListMusic, RadioTower } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { suppressNextKeiGreeting } from '@/lib/kei-volume'
 import { PhysicalPlayer } from './PhysicalPlayer'
 import { RadioArtwork } from './RadioArtwork'
@@ -12,8 +11,7 @@ import styles from './RadioPage.module.css'
 
 type MobilePanel = 'player' | 'media' | 'queue'
 
-export function RadioPage() {
-  const router = useRouter()
+export function RadioPage({ onReturnToOther }: { onReturnToOther: () => void }) {
   const player = useRadioPlayer()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [queueSearch, setQueueSearch] = useState('')
@@ -92,13 +90,13 @@ export function RadioPage() {
     if (exiting) {
       window.setTimeout(() => {
         suppressNextKeiGreeting()
-        router.push('/other')
+        onReturnToOther()
       }, 450)
       return
     }
     if (!player.currentTrack) {
       suppressNextKeiGreeting()
-      router.push('/other')
+      onReturnToOther()
       return
     }
     setExiting(true)
@@ -110,12 +108,12 @@ export function RadioPage() {
   function enterBackgroundMode() {
     player.setBackgroundMode(true)
     suppressNextKeiGreeting()
-    router.push('/other')
+    onReturnToOther()
   }
 
   function returnToOther() {
     suppressNextKeiGreeting()
-    router.push('/other')
+    onReturnToOther()
   }
 
   if (player.catalogLoading) return <RadioMachineState mode="loading" onExit={returnToOther} />
