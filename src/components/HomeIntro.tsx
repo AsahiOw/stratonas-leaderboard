@@ -39,7 +39,7 @@ export function HomeIntro({ open, onClose }: HomeIntroProps) {
               </button>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/assets/icons/icon.gif"
+                src="/assets/icons/icon.webp"
                 alt=""
                 className="hidden h-14 w-14 shrink-0 rounded-full border border-accent/30 object-cover shadow-[0_0_24px_rgba(79,142,247,0.18)] sm:block"
               />

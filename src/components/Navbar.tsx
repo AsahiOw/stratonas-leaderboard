@@ -302,7 +302,7 @@ export function Navbar({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/assets/icons/icon.gif"
+              src="/assets/icons/icon.webp"
               alt=""
               className="w-8 h-8 rounded-full object-cover border border-border"
             />

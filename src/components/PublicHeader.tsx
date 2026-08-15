@@ -16,7 +16,7 @@ export function PublicHeader({ actions }: PublicHeaderProps) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/assets/icons/icon.gif"
+            src="/assets/icons/icon.webp"
             alt=""
             className="h-8 w-8 rounded-full border border-border object-cover"
           />

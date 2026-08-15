@@ -8,8 +8,8 @@ const nextConfig = {
   },
   outputFileTracingExcludes: {
     '*': [
-      './Development_data/**/*',
-      './Production_data/**/*',
+      'Development_data/**/*',
+      'Production_data/**/*',
     ],
   },
   async headers() {
