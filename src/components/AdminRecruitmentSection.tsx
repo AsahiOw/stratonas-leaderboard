@@ -675,6 +675,7 @@ export function AdminRecruitmentSection({ students }: Props) {
                   </div>
                   {bannerMode === 'file' ? (
                     <input
+                      key="recruitment-banner-file"
                       className={inputClass}
                       type="file"
                       accept="image/*"
@@ -686,6 +687,7 @@ export function AdminRecruitmentSection({ students }: Props) {
                     />
                   ) : (
                     <input
+                      key="recruitment-banner-url"
                       className={inputClass}
                       type="text"
                       value={recruitmentForm.bannerPath || ''}
@@ -716,6 +718,7 @@ export function AdminRecruitmentSection({ students }: Props) {
                   </div>
                   {animationMode === 'file' ? (
                     <input
+                      key="recruitment-animation-file"
                       className={inputClass}
                       type="file"
                       accept="video/*"
@@ -727,6 +730,7 @@ export function AdminRecruitmentSection({ students }: Props) {
                     />
                   ) : (
                     <input
+                      key="recruitment-animation-url"
                       className={inputClass}
                       type="text"
                       value={recruitmentForm.animationPath || ''}

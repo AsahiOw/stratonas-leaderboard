@@ -1,15 +1,9 @@
 import { mkdir, rm, writeFile } from 'fs/promises'
 import path from 'path'
+import { validateImage } from '@/lib/image-upload'
 
 const CUSTOM_STUDENT_ASSET_PREFIX = '/assets/custom-student/'
 export const CUSTOM_STUDENT_ASSET_DIR = path.join(process.cwd(), 'public', 'assets', 'custom-student')
-
-function extensionFor(file: File) {
-  const typeExt = file.type.split('/')[1]
-  const nameExt = path.extname(file.name).slice(1)
-  const ext = (typeExt || nameExt || 'png').toLowerCase()
-  return ext === 'jpeg' ? 'jpg' : ext
-}
 
 function customStudentMediaPath(studentId: number, value: string | null | undefined) {
   if (!value?.startsWith(`${CUSTOM_STUDENT_ASSET_PREFIX}${studentId}/`)) return null
@@ -25,11 +19,13 @@ export async function saveCustomStudentMedia(file: File, studentId: number, kind
     throw new Error('Student media must be an image file.')
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const extension = await validateImage(buffer)
   const studentDir = path.join(CUSTOM_STUDENT_ASSET_DIR, String(studentId))
   await mkdir(studentDir, { recursive: true })
 
-  const filename = `${kind}-${Date.now()}.${extensionFor(file)}`
-  await writeFile(path.join(studentDir, filename), Buffer.from(await file.arrayBuffer()))
+  const filename = `${kind}-${Date.now()}.${extension}`
+  await writeFile(path.join(studentDir, filename), buffer)
   return `${CUSTOM_STUDENT_ASSET_PREFIX}${studentId}/${filename}`
 }
 

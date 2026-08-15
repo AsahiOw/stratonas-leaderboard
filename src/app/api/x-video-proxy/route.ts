@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
+import { safeFetch } from '@/lib/safe-fetch'
 
 export const dynamic = 'force-dynamic'
+const X_VIDEO_HOSTS = new Set(['video.twimg.com'])
 
 function safeVideoUrl(value: string | null): URL | null {
   if (!value) return null
@@ -14,16 +16,15 @@ export async function GET(request: Request) {
   const url = safeVideoUrl(new URL(request.url).searchParams.get('url'))
   if (!url) return NextResponse.json({ error: 'Invalid X video URL.' }, { status: 400 })
 
-  const controller = new AbortController()
-  const connectionTimeout = setTimeout(() => controller.abort(), 20_000)
   try {
     const range = request.headers.get('range')
-    const upstream = await fetch(url, {
+    if (range && !/^bytes=\d*-\d*$/.test(range)) {
+      return NextResponse.json({ error: 'Invalid range.' }, { status: 416 })
+    }
+    const upstream = await safeFetch(url, {
+      allowedHosts: X_VIDEO_HOSTS,
       headers: range ? { Range: range } : undefined,
-      cache: 'no-store',
-      signal: controller.signal,
     })
-    clearTimeout(connectionTimeout)
     const contentType = upstream.headers.get('content-type') || ''
     if ((!upstream.ok && upstream.status !== 206) || !contentType.startsWith('video/')) {
       return NextResponse.json({ error: 'X video is unavailable.' }, { status: 502 })
@@ -37,9 +38,8 @@ export async function GET(request: Request) {
       const value = upstream.headers.get(name)
       if (value) headers.set(name, value)
     }
-    return new Response(upstream.body, { status: upstream.status, headers })
+    return new Response(upstream.body as ReadableStream, { status: upstream.status, headers })
   } catch {
-    clearTimeout(connectionTimeout)
     return NextResponse.json({ error: 'X video is unavailable.' }, { status: 502 })
   }
 }

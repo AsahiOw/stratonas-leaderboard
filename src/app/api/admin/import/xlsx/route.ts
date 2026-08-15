@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-guard'
+import { readValidatedFormData } from '@/lib/request-form'
 import { invalidatePublicData } from '@/lib/cache'
 import { importRaidXlsx } from '@/lib/xlsx-raid-import'
 import { completeXlsxImportProgress, failXlsxImportProgress, resetXlsxImportProgress } from '@/lib/xlsx-import-progress'
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
   if (guard) return guard
 
   try {
-    const form = await req.formData()
+    const form = await readValidatedFormData(req)
     const file = form.get('file')
     const server = stringField(form.get('server'))
     const startDate = stringField(form.get('startDate'))

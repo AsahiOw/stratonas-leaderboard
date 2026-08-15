@@ -1,4 +1,6 @@
-import { readFile } from 'fs/promises'
+import { stat } from 'fs/promises'
+import { createReadStream } from 'fs'
+import { Readable } from 'stream'
 import path from 'path'
 import { NextResponse } from 'next/server'
 import { GACHA_ASSET_DIRS, type RecruitmentAssetKind } from '@/lib/recruitment-media'
@@ -34,10 +36,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ kind: s
   if (!contentType) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   try {
-    const buffer = await readFile(path.join(GACHA_ASSET_DIRS[kind], file))
-    return new NextResponse(buffer, {
+    const filePath = path.join(GACHA_ASSET_DIRS[kind], file)
+    const stats = await stat(filePath)
+    if (!stats.isFile()) throw new Error('Not a file')
+    const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream
+    return new NextResponse(stream, {
       headers: {
         'Cache-Control': 'public, max-age=604800, stale-while-revalidate=2592000',
+        'Content-Length': String(stats.size),
         'Content-Type': contentType,
       },
     })

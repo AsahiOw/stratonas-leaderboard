@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { readValidatedFormData } from '@/lib/request-form'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
 import { deleteRecruitmentAsset, resolveRecruitmentAsset, type ResolvedRecruitmentAsset } from '@/lib/recruitment-media'
 
@@ -59,7 +60,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const current = await prisma.recruitment.findUnique({ where: { id } })
     if (!current) return NextResponse.json({ error: 'Recruitment not found.' }, { status: 404 })
 
-    const form = await req.formData()
+    const form = await readValidatedFormData(req)
     const studentId = normalizeStudentId(form.get('studentId'))
     if (!studentId) return NextResponse.json({ error: 'Student is required.' }, { status: 400 })
 
