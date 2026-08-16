@@ -1,26 +1,46 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { flushSync } from 'react-dom'
 import { useSession, signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Navbar } from '@/components/Navbar'
 import { RaidBlock } from '@/components/RaidBlock'
 import { StatsPage } from '@/components/StatsPage'
 import { CommunityPage } from '@/components/CommunityPage'
 import { AdminPanel } from '@/components/AdminPanel'
+import { PlanaRaidBrowser } from '@/components/PlanaRaidBrowser'
 import { PlayerProfile } from '@/components/PlayerProfile'
 import { BirthdaySection } from '@/components/BirthdaySection'
 import { HomeIntro } from '@/components/HomeIntro'
 import { FutureRecruitmentSection, type FutureRecruitmentSchedule } from '@/components/FutureRecruitmentSection'
 import { RecruitmentCalendar, type RecruitmentCalendarSchedule } from '@/components/RecruitmentCalendar'
-import { loginAssetSources, loginAudioSources } from '@/lib/login-sprites'
+import { OtherFeatures } from '@/components/OtherFeatures'
+import { NewsPage } from '@/components/NewsPage'
+import { LatestNewsSection } from '@/components/LatestNewsSection'
+import { RaidCardCustomizer } from '@/components/RaidCardDownloadModal'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 import type { TableEntry } from '@/components/LeaderboardTable'
+import { RadioPage } from '@/components/radio/RadioPage'
 
-type Tab = 'leaderboard' | 'previous' | 'calendar' | 'stats' | 'community' | 'admin'
+type Tab = 'leaderboard' | 'previous' | 'raid' | 'calendar' | 'stats' | 'community' | 'other' | 'custom-card' | 'news' | 'radio' | 'admin'
 type ServerFilter = 'all' | 'global' | 'jp'
 type ReturnLocation = { tab: Tab; scrollY: number }
 const INTRO_OPEN_KEY = 'stratonas:intro-open'
 const LEGACY_INTRO_DISMISSED_KEY = 'stratonas:intro-dismissed'
+
+function tabFromPath(pathname: string): Tab {
+  if (pathname === '/custom-card') return 'custom-card'
+  if (pathname.startsWith('/raiddata')) return 'raid'
+  if (pathname === '/calendar') return 'calendar'
+  if (pathname === '/community') return 'community'
+  if (pathname === '/other') return 'other'
+  if (pathname === '/news') return 'news'
+  if (pathname === '/radio') return 'radio'
+  if (pathname === '/history') return 'previous'
+  if (pathname === '/statistic') return 'stats'
+  if (pathname === '/admin') return 'admin'
+  return 'leaderboard'
+}
 
 interface RaidData {
   id: string
@@ -70,11 +90,17 @@ export function LeaderboardApp({
   initialUpcomingBirthdayData = null,
 }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
+  const previousPathname = useRef(pathname)
+  const raidDataPath = pathname.match(/^\/raiddata(?:\/(.+))?$/)
+  const initialRaidId = raidDataPath?.[1] ? decodeURIComponent(raidDataPath[1]) : undefined
+  const isRaidDetail = Boolean(initialRaidId)
+  const initialTab = tabFromPath(pathname)
   const { data: session, status } = useSession()
   const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
 
-  const [tab, setTab] = useState<Tab>('leaderboard')
-  const [serverFilter, setServerFilter] = useState<ServerFilter>('all')
+  const [tab, setTab] = useState<Tab>(initialTab)
+  const [serverFilter, setServerFilter] = useState<ServerFilter>('global')
   const [showIntro, setShowIntro] = useState(false)
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null)
   const [adminFullWidth, setAdminFullWidth] = useState(false)
@@ -83,10 +109,16 @@ export function LeaderboardApp({
   const [visitedTabs, setVisitedTabs] = useState<Record<Tab, boolean>>({
     leaderboard: true,
     previous: false,
+    raid: Boolean(raidDataPath),
     calendar: false,
     stats: false,
     community: false,
+    other: false,
+    'custom-card': false,
+    news: false,
+    radio: false,
     admin: false,
+    [initialTab]: true,
   })
 
   const loadRaidEntries = useCallback((raidIds: string[]) => {
@@ -114,27 +146,13 @@ export function LeaderboardApp({
   }, [])
 
   useEffect(() => {
-    loginAssetSources.forEach((source) => {
-      const image = new Image()
-      image.src = source
-    })
-
-    loginAudioSources.forEach((source) => {
-      const audio = new Audio()
-      audio.preload = 'auto'
-      audio.src = source
-      audio.load()
-    })
-  }, [])
-
-  useEffect(() => {
     try {
       const raw = window.sessionStorage.getItem('stratonas:return-location')
       if (!raw) return
 
       window.sessionStorage.removeItem('stratonas:return-location')
       const saved = JSON.parse(raw) as Partial<ReturnLocation>
-      const tabs: Tab[] = ['leaderboard', 'previous', 'calendar', 'stats', 'community', 'admin']
+      const tabs: Tab[] = ['leaderboard', 'previous', 'raid', 'calendar', 'stats', 'community', 'other', 'custom-card', 'news', 'radio', 'admin']
       if (!saved.tab || !tabs.includes(saved.tab) || saved.tab === 'admin') return
 
       setTab(saved.tab)
@@ -164,10 +182,51 @@ export function LeaderboardApp({
     setVisitedTabs((prev) => prev[tab] ? prev : { ...prev, [tab]: true })
   }, [tab])
 
+  useEffect(() => {
+    if (previousPathname.current === pathname) return
+    previousPathname.current = pathname
+    setTab(tabFromPath(pathname))
+  }, [pathname])
+
+  useEffect(() => {
+    function handleHistoryNavigation() {
+      setTab(tabFromPath(window.location.pathname))
+    }
+
+    window.addEventListener('popstate', handleHistoryNavigation)
+    return () => window.removeEventListener('popstate', handleHistoryNavigation)
+  }, [])
+
+  function handleTabChange(nextTab: Tab) {
+    const routeByTab: Partial<Record<Tab, string>> = {
+      previous: '/history',
+      raid: '/raiddata',
+      calendar: '/calendar',
+      stats: '/statistic',
+      community: '/community',
+      other: '/other',
+      'custom-card': '/custom-card',
+      news: '/news',
+      radio: '/radio',
+      admin: '/admin',
+    }
+    const nextPath = routeByTab[nextTab] || '/'
+    const updateTab = () => {
+      flushSync(() => setTab(nextTab))
+      if (window.location.pathname !== nextPath) window.history.pushState(null, '', nextPath)
+    }
+
+    if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.startViewTransition(updateTab)
+    } else {
+      updateTab()
+    }
+  }
+
   function handleLoginClick() {
     if (isAdmin) {
       signOut({ redirect: false })
-      if (tab === 'admin') setTab('leaderboard')
+      if (tab === 'admin') handleTabChange('leaderboard')
     } else {
       router.push('/login')
     }
@@ -216,7 +275,7 @@ export function LeaderboardApp({
 
   function handleIntroToggle() {
     if (tab !== 'leaderboard') {
-      setTab('leaderboard')
+      handleTabChange('leaderboard')
       setIntroOpen(true)
       scrollToTop()
       return
@@ -230,24 +289,26 @@ export function LeaderboardApp({
     })
   }
 
-  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'admin' || tab === 'community' || tab === 'calendar' ? 'max-w-[1100px]' : 'max-w-[940px]'
-  const containerPad = tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
+  const containerMax = tab === 'admin' && adminFullWidth ? 'max-w-none' : tab === 'radio' ? 'max-w-none' : tab === 'custom-card' ? 'max-w-[1400px]' : tab === 'admin' || tab === 'community' || tab === 'calendar' || tab === 'other' || tab === 'news' ? 'max-w-[1100px]' : 'max-w-[940px]'
+  const containerPad = tab === 'radio' ? '' : tab === 'admin' ? 'pt-6 pb-16 px-4 sm:px-5' : 'pb-16 px-4 sm:px-5'
 
   return (
     <div className="min-h-screen bg-bg">
-      <Navbar
-        tab={tab}
-        setTab={setTab}
-        loggedIn={isAdmin}
-        onLoginClick={handleLoginClick}
-        serverFilter={serverFilter}
-        setServerFilter={setServerFilter}
-        previousRaidCount={previousCount}
-        introOpen={tab === 'leaderboard' && showIntro}
-        onIntroToggle={handleIntroToggle}
-        adminFullWidth={adminFullWidth}
-        onToggleAdminFullWidth={() => setAdminFullWidth((fullWidth) => !fullWidth)}
-      />
+      {!isRaidDetail && tab !== 'radio' && (
+        <Navbar
+          tab={tab}
+          setTab={handleTabChange}
+          loggedIn={isAdmin}
+          onLoginClick={handleLoginClick}
+          serverFilter={serverFilter}
+          setServerFilter={setServerFilter}
+          previousRaidCount={previousCount}
+          introOpen={tab === 'leaderboard' && showIntro}
+          onIntroToggle={handleIntroToggle}
+          adminFullWidth={adminFullWidth}
+          onToggleAdminFullWidth={() => setAdminFullWidth((fullWidth) => !fullWidth)}
+        />
+      )}
 
       <div className={`mx-auto w-full ${containerMax} ${containerPad}`}>
         {/* LEADERBOARD */}
@@ -255,9 +316,20 @@ export function LeaderboardApp({
           <div key={`leaderboard-${serverFilter}`} className="view-transition">
             <HomeIntro open={showIntro} onClose={() => setIntroOpen(false)} />
             <div
-              className="relative overflow-hidden rounded-2xl border border-border mt-5 mb-5 min-h-[180px] sm:min-h-[220px] flex items-end justify-center text-center bg-cover bg-center"
-              style={{ backgroundImage: 'url(/assets/images/banner.gif)' }}
+              className="relative mt-5 mb-5 flex min-h-[180px] items-end justify-center overflow-hidden rounded-2xl border border-border text-center sm:min-h-[220px]"
             >
+              <video
+                className="absolute inset-0 h-full w-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                poster="/assets/images/banner-poster.webp"
+                aria-hidden="true"
+              >
+                <source src="/assets/images/banner.mp4" type="video/mp4" />
+              </video>
               <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.18),rgba(13,13,19,0.82))]" />
               <div className="relative px-4 pb-3 sm:pb-4">
                 <h1 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-[-0.03em] leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.75)]">
@@ -269,6 +341,7 @@ export function LeaderboardApp({
                 </p>
               </div>
             </div>
+            <LatestNewsSection onOpenNews={() => handleTabChange('news')} />
             <FutureRecruitmentSection schedule={futureRecruitment} />
             {latestRaids.length === 0 ? (
               <div className="text-center text-muted py-16 text-sm">No completed raid results for this server filter.</div>
@@ -316,6 +389,13 @@ export function LeaderboardApp({
           </div>
         )}
 
+        {/* PLANA RAID BROWSER */}
+        {visitedTabs.raid && (
+          <div className={tab === 'raid' ? 'view-transition' : 'hidden'}>
+            <PlanaRaidBrowser initialRaidId={initialRaidId} />
+          </div>
+        )}
+
         {/* RECRUITMENT CALENDAR */}
         {visitedTabs.calendar && (
           <div className={tab === 'calendar' ? 'view-transition' : 'hidden'}>
@@ -338,6 +418,39 @@ export function LeaderboardApp({
         {visitedTabs.community && (
           <div className={`pt-7 ${tab === 'community' ? 'view-transition' : 'hidden'}`}>
             <CommunityPage onPlayerClick={handlePlayerClick} />
+          </div>
+        )}
+
+        {/* OTHER FEATURES */}
+        {visitedTabs.other && (
+          <div className={tab === 'other' ? '' : 'hidden'}>
+            <OtherFeatures onSelect={handleTabChange} />
+          </div>
+        )}
+
+        {/* OFFICIAL NEWS */}
+        {visitedTabs.news && (
+          <div className={tab === 'news' ? '' : 'hidden'}>
+            <NewsPage />
+          </div>
+        )}
+
+        {/* RADIO */}
+        {visitedTabs.radio && (
+          <div className={tab === 'radio' ? '' : 'hidden'}>
+            <RadioPage onReturnToOther={() => handleTabChange('other')} />
+          </div>
+        )}
+
+        {/* CUSTOM CARD */}
+        {visitedTabs['custom-card'] && (
+          <div className={tab === 'custom-card' ? 'view-transition pt-7' : 'hidden'}>
+            <div className="mb-6">
+              <div className="mb-1.5 text-[11px] font-bold tracking-[0.14em] text-muted">◈ CARD STUDIO</div>
+              <h1 className="text-2xl font-bold tracking-[-0.02em] sm:text-3xl">Stratónas Custom Card</h1>
+              <p className="mt-1.5 text-[13px] text-muted2">Create and download your own Stratónas ranking card.</p>
+            </div>
+            <RaidCardCustomizer />
           </div>
         )}
 

@@ -25,12 +25,12 @@ function requiredValue(name: string, envName: string): string {
 }
 
 async function main() {
-  const email = requiredValue('email', 'ADMIN_EMAIL').toLowerCase()
+  const email = requiredValue('email', 'ADMIN_EMAIL').normalize('NFKC').toLowerCase()
   const password = requiredValue('password', 'ADMIN_PASSWORD')
   const name = readArg('name') || process.env.ADMIN_NAME?.trim() || 'Admin'
 
-  if (password.length < 8) {
-    throw new Error('ADMIN_PASSWORD must be at least 8 characters.')
+  if (password.length < 8 || password.length > 256) {
+    throw new Error('ADMIN_PASSWORD must be between 8 and 256 characters.')
   }
 
   const passwordHash = await bcrypt.hash(password, 12)

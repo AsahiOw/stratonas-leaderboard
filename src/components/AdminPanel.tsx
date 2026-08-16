@@ -1,5 +1,5 @@
 'use client'
-import { Clapperboard, ClipboardList, FileUp, GraduationCap, LayoutDashboard, School, Settings, Skull, Swords, Ticket, UsersRound, type LucideIcon } from 'lucide-react'
+import { Clapperboard, ClipboardList, Database, FileUp, GraduationCap, LayoutDashboard, School, Settings, Skull, Swords, Ticket, UsersRound, type LucideIcon } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StModal } from '@/components/ui/StModal'
@@ -47,6 +47,13 @@ interface MemorialMediaSyncState {
   lastScheduledRunAt?: string | null; startedAt?: string | null; completedAt?: string | null
 }
 
+interface RadioSyncState {
+  id: string; status: 'idle' | 'running' | 'completed' | 'failed' | string
+  stage: string; total: number; processed: number; discovered: number; matched: number; newTracks: number
+  downloaded: number; thumbnails: number; skipped: number; failed: number
+  currentItem?: string | null; message?: string | null; error?: string | null
+}
+
 interface MemorialVideoAsset {
   id: string
   youtubeId?: string | null
@@ -61,6 +68,48 @@ interface MemorialVideoAsset {
   posterGeneratedAt?: string | null
   error?: string | null
   updatedAt: string
+}
+
+interface PlanaImportStatus {
+  id: string
+  status: 'idle' | 'running' | 'completed' | 'failed' | string
+  stage: string
+  mode: 'new' | 'backfill' | string
+  total: number
+  processed: number
+  downloaded: number
+  skipped: number
+  failed: number
+  currentDataset?: string | null
+  message?: string | null
+  error?: string | null
+  manifestSchemaVersion?: number | null
+  startedAt?: string | null
+  completedAt?: string | null
+  lastSuccessfulSyncAt?: string | null
+  emergingTotalRaidId?: string | null
+  emergingGrandRaidId?: string | null
+  datasets: { total: number; ready: number; failed: number }
+  emergingCandidates: Array<{
+    id: string
+    region: string
+    raidType: string
+    raidDate: string
+    season: string
+    label: string
+    terrain: string
+  }>
+  recent: Array<{
+    id: string
+    region: string
+    raidType: string
+    raidDate: string
+    season: string
+    label: string
+    status: string
+    error?: string | null
+    downloadedAt?: string | null
+  }>
 }
 
 interface RaidBoss {
@@ -167,7 +216,7 @@ interface XlsxImportProgress {
   error?: string | null
 }
 
-type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'videos' | 'raids' | 'bosses' | 'entries' | 'import' | 'recruitment' | 'settings'
+type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'videos' | 'raids' | 'bosses' | 'entries' | 'plana' | 'import' | 'recruitment' | 'settings'
 type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'videos' | 'raids' | 'bosses' | 'entries'
 type DeleteConfirmation = {
   title: string
@@ -186,6 +235,7 @@ const navItems: { id: Section; label: string; icon: LucideIcon }[] = [
   { id: 'raids', label: 'Raids', icon: Swords },
   { id: 'bosses', label: 'Bosses', icon: Skull },
   { id: 'entries', label: 'Entries', icon: ClipboardList },
+  { id: 'plana', label: 'Plana Stats Raid', icon: Database },
   { id: 'import', label: 'Import', icon: FileUp },
   { id: 'recruitment', label: 'Recruitment', icon: Ticket },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -196,6 +246,12 @@ const RAID_SERVERS = ['Global', 'JP']
 
 function serverOptionLabel(name: string) {
   return name.toLowerCase() === 'japan' || name.toLowerCase() === 'jp' ? 'JP' : name
+}
+
+function formatPlanaDate(value: string) {
+  return /^\d{8}$/.test(value)
+    ? `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`
+    : value
 }
 
 function normalizeHexColor(value: string) {
@@ -294,6 +350,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const [bossImportState, setBossImportState] = useState<ImportState | null>(null)
   const [showBossImportProgress, setShowBossImportProgress] = useState(false)
   const [memorialMediaSyncState, setMemorialMediaSyncState] = useState<MemorialMediaSyncState | null>(null)
+  const [radioSyncState, setRadioSyncState] = useState<RadioSyncState | null>(null)
+  const [planaImportStatus, setPlanaImportStatus] = useState<PlanaImportStatus | null>(null)
   const [memorialVideos, setMemorialVideos] = useState<MemorialVideoAsset[]>([])
   const [xlsxForm, setXlsxForm] = useState({
     server: '',
@@ -416,6 +474,18 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       .then(setMemorialMediaSyncState)
       .catch(() => null)
   }, [])
+  const loadRadioSyncStatus = useCallback(() => {
+    fetch('/api/admin/radio/sync/status').then(r => r.json()).then(setRadioSyncState).catch(() => null)
+  }, [])
+  const loadPlanaImportStatus = useCallback(() => {
+    fetch('/api/admin/plana/sync/status', { cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json()
+        if (!response.ok) throw new Error(body?.error || 'Could not load Plana import status.')
+        setPlanaImportStatus(body)
+      })
+      .catch(() => null)
+  }, [])
   const loadMemorialVideos = useCallback(() => {
     fetch('/api/admin/memorial-videos', { cache: 'no-store' })
       .then(r => r.json())
@@ -456,8 +526,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   }, [])
 
   useEffect(() => {
-    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadMemorialMediaSyncStatus(); loadMemorialVideos(); loadXlsxReviewItems(); loadStudentMatchRules()
-  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadMemorialMediaSyncStatus, loadMemorialVideos, loadXlsxReviewItems, loadStudentMatchRules])
+    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadMemorialMediaSyncStatus(); loadRadioSyncStatus(); loadPlanaImportStatus(); loadMemorialVideos(); loadXlsxReviewItems(); loadStudentMatchRules()
+  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadMemorialMediaSyncStatus, loadRadioSyncStatus, loadPlanaImportStatus, loadMemorialVideos, loadXlsxReviewItems, loadStudentMatchRules])
 
   useEffect(() => {
     if (!showImportProgress || importState?.status !== 'running') return
@@ -482,6 +552,18 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     const timer = window.setInterval(loadMemorialMediaSyncStatus, 1000)
     return () => window.clearInterval(timer)
   }, [memorialMediaSyncState?.status, loadMemorialMediaSyncStatus])
+
+  useEffect(() => {
+    if (radioSyncState?.status !== 'running') return
+    const timer = window.setInterval(loadRadioSyncStatus, 1000)
+    return () => window.clearInterval(timer)
+  }, [radioSyncState?.status, loadRadioSyncStatus])
+
+  useEffect(() => {
+    if (planaImportStatus?.status !== 'running') return
+    const timer = window.setInterval(loadPlanaImportStatus, 1000)
+    return () => window.clearInterval(timer)
+  }, [planaImportStatus?.status, loadPlanaImportStatus])
 
   useEffect(() => {
     if (importState?.status !== 'completed') return
@@ -842,6 +924,65 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     }
     setMemorialMediaSyncState(body)
     showToast('Memorial media sync started.')
+  }
+
+  async function startRadioSync() {
+    const res = await fetch('/api/admin/radio/sync', { method: 'POST' })
+    const body = await res.json().catch(() => null)
+    if (res.status === 409) {
+      if (body?.state) setRadioSyncState(body.state)
+      showToast('Radio sync is already running.')
+      return
+    }
+    if (!res.ok) { showToast(body?.error || 'Could not start Radio sync.'); return }
+    setRadioSyncState(body)
+    showToast('Radio sync started.')
+  }
+
+  async function startPlanaImport() {
+    const res = await fetch('/api/admin/plana/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'new' }),
+    })
+    const body = await res.json().catch(() => null)
+    if (res.status === 409) {
+      if (body?.state) setPlanaImportStatus(body.state)
+      showToast('Plana import is already running.')
+      return
+    }
+    if (!res.ok) {
+      showToast(body?.error || 'Could not start Plana import.')
+      return
+    }
+    setPlanaImportStatus(body)
+    showToast('Plana import started.')
+  }
+
+  async function updatePlanaEmergingOverrides(totalRaidId: string | null, grandRaidId: string | null) {
+    const res = await fetch('/api/admin/plana/emerging', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ totalRaidId, grandRaidId }),
+    })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) {
+      showToast(body?.error || 'Could not update emerging raid overrides.')
+      return
+    }
+    setPlanaImportStatus(body)
+    showToast('Emerging raid overrides updated.')
+  }
+
+  async function resetPlanaEmergingOverrides() {
+    const res = await fetch('/api/admin/plana/emerging', { method: 'DELETE' })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) {
+      showToast(body?.error || 'Could not reset emerging raid overrides.')
+      return
+    }
+    setPlanaImportStatus(body)
+    showToast('Emerging raid overrides reset to automatic prediction.')
   }
 
   // ── Raid Boss form ─────────────────────────────────────────────────────────
@@ -1323,6 +1464,15 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const latestRaidCount = raids.filter(r => r.isActive).length
   const currentNav = navItems.find((n) => n.id === sec)
   const CurrentNavIcon = currentNav?.icon
+  const planaProgressPercent = planaImportStatus?.status === 'running'
+    ? planaImportStatus.total > 0
+      ? Math.max(8, Math.min(100, Math.round((planaImportStatus.processed / planaImportStatus.total) * 100)))
+      : 8
+    : planaImportStatus?.status === 'completed'
+      ? 100
+      : planaImportStatus?.total
+        ? Math.min(100, Math.round((planaImportStatus.processed / planaImportStatus.total) * 100))
+        : 0
   const clubHexInvalid = clubColorDraft.hex.trim().length > 0 && !normalizeHexColor(clubColorDraft.hex)
   const clubRgbInvalid = clubColorDraft.rgb.trim().length > 0 && !parseRgbColor(clubColorDraft.rgb)
   const bossColorInvalid = {
@@ -2217,6 +2367,239 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
           </div>
         )}
 
+        {/* PLANA STATS RAID */}
+        {sec === 'plana' && (
+          <div>
+            <div className="mb-5">
+              <div className="font-bold text-lg">Plana Stats Raid</div>
+              <div className="text-[13px] text-muted mt-1">
+                Import the complete anonymous raid archive from Plana Stats. Later updates download only new or changed datasets; existing history is kept.
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl px-4 py-4 sm:px-5 sm:py-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-bold text-[15px]">Raid Data Import</div>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                      planaImportStatus?.status === 'running'
+                        ? 'border-accent/40 bg-accent/10 text-accent'
+                        : planaImportStatus?.status === 'failed'
+                          ? 'border-red/30 bg-red/10 text-red'
+                          : planaImportStatus?.status === 'completed'
+                            ? 'border-green/30 bg-green/10 text-green'
+                            : 'border-border bg-bg text-muted'
+                    }`}>
+                      {planaImportStatus?.status || 'idle'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted mt-1">
+                    Downloads formation databases and full score files for every newly available season.
+                  </div>
+                  {planaImportStatus?.lastSuccessfulSyncAt && (
+                    <div className="text-[11px] text-muted2 mt-2">
+                      Last successful update: {fmtDate(planaImportStatus.lastSuccessfulSyncAt)}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className={`${addBtnClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+                  disabled={planaImportStatus?.status === 'running'}
+                  onClick={startPlanaImport}
+                >
+                  {planaImportStatus?.status === 'running'
+                    ? 'Import in Progress...'
+                    : planaImportStatus?.datasets.total
+                      ? 'Check for Updates'
+                      : 'Import All Raid Data'}
+                </button>
+              </div>
+
+              {planaImportStatus && planaImportStatus.status !== 'idle' && (
+                <div className="mt-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-text">{planaImportStatus.stage || 'Waiting'}</div>
+                      <div className="text-xs text-muted mt-0.5">
+                        {planaImportStatus.currentDataset || planaImportStatus.message || 'Ready'}
+                      </div>
+                    </div>
+                    <div className="font-mono text-sm text-muted2">
+                      {planaImportStatus.total > 0
+                        ? `${planaImportStatus.processed} / ${planaImportStatus.total} datasets`
+                        : planaImportStatus.status === 'running' ? 'Checking source' : 'Up to date'}
+                    </div>
+                  </div>
+
+                  <div
+                    className="h-3 rounded-full bg-bg border border-border overflow-hidden mt-3"
+                    role="progressbar"
+                    aria-label="Plana import progress"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={planaProgressPercent}
+                  >
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        planaImportStatus.status === 'failed' ? 'bg-red' : 'bg-accent'
+                      }`}
+                      style={{ width: `${planaProgressPercent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-2 text-[11px] text-muted">
+                    <span>{planaImportStatus.message || 'Ready'}</span>
+                    <span>{planaProgressPercent}%</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 mt-4 sm:grid-cols-5">
+                    {[
+                      ['Ready', planaImportStatus.datasets.ready],
+                      ['Downloaded', planaImportStatus.downloaded],
+                      ['Processed', planaImportStatus.processed],
+                      ['Not needed', planaImportStatus.skipped],
+                      ['Failed', planaImportStatus.failed],
+                    ].map(([label, value]) => (
+                      <div key={label} className="bg-card2 border border-border rounded-lg p-2.5">
+                        <div className="text-[10px] text-muted tracking-[0.08em] font-semibold uppercase">{label}</div>
+                        <div className="font-mono text-lg text-text font-bold">{Number(value).toLocaleString('en-US')}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {planaImportStatus.error && (
+                    <div className="mt-3 bg-red/10 border border-red/25 rounded-lg p-3 text-sm text-red">
+                      {planaImportStatus.error}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5 sm:py-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="font-bold text-[15px]">Next Global Raid Overrides</div>
+                  <div className="mt-1 max-w-2xl text-xs text-muted">
+                    Select confirmed roadmap raids when Global differs from JP. Empty fields use the automatic JP-order prediction. Overrides reset when new Plana data is downloaded.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={resetPlanaEmergingOverrides}
+                  className={`${showLessBtnClass} disabled:cursor-not-allowed disabled:opacity-50`}
+                  disabled={!planaImportStatus?.emergingTotalRaidId && !planaImportStatus?.emergingGrandRaidId}
+                >
+                  Reset to Prediction
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label>
+                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    Next Total Assault
+                  </span>
+                  <select
+                    className={inputClass}
+                    value={planaImportStatus?.emergingTotalRaidId || ''}
+                    onChange={(event) => updatePlanaEmergingOverrides(
+                      event.target.value || null,
+                      planaImportStatus?.emergingGrandRaidId || null,
+                    )}
+                  >
+                    <option value="">Automatic prediction</option>
+                    {(planaImportStatus?.emergingCandidates || [])
+                      .filter((raid) => raid.raidType === 'Total Assault')
+                      .map((raid) => (
+                        <option key={raid.id} value={raid.id}>
+                          {raid.season} · {raid.label} · {raid.terrain} · {formatPlanaDate(raid.raidDate)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    Next Grand Assault
+                  </span>
+                  <select
+                    className={inputClass}
+                    value={planaImportStatus?.emergingGrandRaidId || ''}
+                    onChange={(event) => updatePlanaEmergingOverrides(
+                      planaImportStatus?.emergingTotalRaidId || null,
+                      event.target.value || null,
+                    )}
+                  >
+                    <option value="">Automatic prediction</option>
+                    {(planaImportStatus?.emergingCandidates || [])
+                      .filter((raid) => raid.raidType === 'Grand Assault')
+                      .map((raid) => (
+                        <option key={raid.id} value={raid.id}>
+                          {raid.season} · {raid.label} · {raid.terrain} · {formatPlanaDate(raid.raidDate)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <div className="font-bold text-[15px]">Downloaded Datasets</div>
+                  <div className="text-xs text-muted mt-1">
+                    {planaImportStatus?.datasets.total || 0} tracked · {planaImportStatus?.datasets.ready || 0} ready
+                  </div>
+                </div>
+                {planaImportStatus?.manifestSchemaVersion && (
+                  <div className="text-[11px] text-muted2">
+                    Manifest schema v{planaImportStatus.manifestSchemaVersion}
+                  </div>
+                )}
+              </div>
+
+              <div className="overflow-x-auto mt-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.08em] text-muted">
+                      <th className="pb-2 pr-4 font-semibold">Raid</th>
+                      <th className="pb-2 pr-4 font-semibold">Region</th>
+                      <th className="pb-2 pr-4 font-semibold">Season</th>
+                      <th className="pb-2 pr-4 font-semibold">Date</th>
+                      <th className="pb-2 pr-4 font-semibold">Status</th>
+                      <th className="pb-2 font-semibold">Downloaded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(planaImportStatus?.recent || []).map((dataset) => (
+                      <tr key={dataset.id} className="border-b border-border/70 last:border-0">
+                        <td className="py-3 pr-4">
+                          <div className="font-semibold text-text">{dataset.label}</div>
+                          <div className="text-[11px] text-muted">{dataset.raidType}</div>
+                        </td>
+                        <td className="py-3 pr-4 font-mono text-muted2">{dataset.region}</td>
+                        <td className="py-3 pr-4 font-mono text-muted2">{dataset.season}</td>
+                        <td className="py-3 pr-4 font-mono text-muted2">{formatPlanaDate(dataset.raidDate)}</td>
+                        <td className={`py-3 pr-4 font-semibold ${
+                          dataset.status === 'ready' ? 'text-green' : dataset.status === 'failed' ? 'text-red' : 'text-muted2'
+                        }`}>
+                          {dataset.status}
+                        </td>
+                        <td className="py-3 text-muted2">{fmtDate(dataset.downloadedAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!planaImportStatus?.recent.length && (
+                  <div className="text-center text-muted text-sm py-8">
+                    No Plana datasets have been downloaded yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* IMPORT */}
         {sec === 'import' && (
           <div>
@@ -2341,6 +2724,33 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                       {memorialMediaSyncState.error || memorialMediaSyncState.message}
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 bg-card border border-border rounded-xl px-4 py-4 sm:px-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="font-bold text-[15px]">Radio OST Media</div>
+                  <div className="mt-1 text-xs text-muted">
+                    Import audio and thumbnails from Blue Archive Global videos titled “| OST [1 Hour Loop]”.
+                  </div>
+                </div>
+                <button type="button" className={`${addBtnClass} disabled:cursor-not-allowed disabled:opacity-60`} disabled={radioSyncState?.status === 'running'} onClick={startRadioSync}>
+                  {radioSyncState?.status === 'running' ? 'Radio Sync Running…' : 'Check Radio Tracks'}
+                </button>
+              </div>
+              {radioSyncState && radioSyncState.status !== 'idle' && (
+                <div className="mt-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div><div className="text-sm font-semibold">{radioSyncState.stage}</div><div className="text-xs text-muted">{radioSyncState.currentItem || radioSyncState.message || 'Ready'}</div></div>
+                    <div className="font-mono text-sm text-muted2">{radioSyncState.total ? `${radioSyncState.processed} / ${radioSyncState.total}` : radioSyncState.status === 'running' ? 'Starting' : 'Complete'}</div>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full border border-border bg-bg"><div className="h-full bg-accent transition-all" style={{ width: `${radioSyncState.total ? Math.min(100, radioSyncState.processed / radioSyncState.total * 100) : radioSyncState.status === 'running' ? 8 : 100}%` }} /></div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                    {([['Matched',radioSyncState.matched],['New',radioSyncState.newTracks],['Audio',radioSyncState.downloaded],['Art',radioSyncState.thumbnails],['Skipped',radioSyncState.skipped],['Failed',radioSyncState.failed]] as [string,number][]).map(([label,value]) => <div key={label} className="rounded-lg border border-border bg-card2 p-2"><div className="text-[10px] font-bold uppercase tracking-wider text-muted">{label}</div><div className="font-mono text-lg font-bold">{value}</div></div>)}
+                  </div>
+                  {(radioSyncState.error || radioSyncState.message) && <div className={`mt-3 rounded-lg border p-3 text-sm ${radioSyncState.status === 'failed' ? 'border-red/25 bg-red/10 text-red' : 'border-border bg-bg text-muted2'}`}>{radioSyncState.error || radioSyncState.message}</div>}
                 </div>
               )}
             </div>

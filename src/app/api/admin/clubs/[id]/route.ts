@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { deleteClubLogo, saveClubLogo } from '@/lib/club-logo-upload'
+import { readValidatedFormData } from '@/lib/request-form'
 
 export const runtime = 'nodejs'
 
@@ -11,7 +12,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (guard) return guard
   const { id } = await params
 
-  const form = await req.formData()
+  let form: FormData
+  try { form = await readValidatedFormData(req) } catch {
+    return NextResponse.json({ error: 'Malformed form payload.' }, { status: 400 })
+  }
   const logoFile = form.get('logoFile')
   const existingLogo = typeof form.get('logo') === 'string' && String(form.get('logo')).trim() ? String(form.get('logo')).trim() : null
   const name = typeof form.get('name') === 'string' ? String(form.get('name')).trim() : ''

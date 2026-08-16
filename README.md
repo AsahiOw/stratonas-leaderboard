@@ -81,8 +81,8 @@ Keep this host rule in mind:
 If your password contains URL-reserved characters, encode them in `DATABASE_URL`. For example, `@` becomes `%40`:
 
 ```env
-POSTGRES_PASSWORD=StratonasAsahi4104@
-DATABASE_URL=postgresql://stratonasAsahi:StratonasAsahi4104%40@db:5432/stratonas
+POSTGRES_PASSWORD=example-password@
+DATABASE_URL=postgresql://example-user:example-password%40@db:5432/example-db
 ```
 
 ## Prisma 7 Notes

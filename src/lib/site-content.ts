@@ -100,6 +100,7 @@ export const SITE_CONTENT = {
   ] satisfies SiteCreditGroup[],
   credits: [
     { label: 'SchaleDB', detail: 'Game data & assets', href: 'https://schaledb.com/home', group: 'site', initial: 'S' },
+    { label: 'Plana Stats', detail: 'Public raid data source', href: 'https://www.plana-stats.com/', group: 'site', initial: 'P' },
     { label: 'Jaymie', detail: 'L2D Animation', href: 'https://www.youtube.com/@JaymieArclight/videos', group: 'site', initial: 'J' },
     { label: '@MiiverseI', detail: 'Kei animation', href: 'https://x.com/MiiverseI', group: 'kei', initial: 'M' },
     { label: '@myuton0407', detail: 'Kei avatar', href: 'https://x.com/myuton0407', group: 'kei', initial: 'm' },

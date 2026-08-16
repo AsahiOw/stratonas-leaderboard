@@ -29,6 +29,16 @@ interface Props {
   entries: TableEntry[]
 }
 
+const DEFAULT_CUSTOM_CARD_RAID: RaidCardRaid = {
+  raidBoss: { name: 'Raid Boss', description: 'Custom Raid' },
+  season: 1,
+  type: { name: 'Total Assault' },
+  server: { name: 'Global' },
+  terrain: { name: 'Urban' },
+  color: '#4f8ef7',
+  color2: '#7c3aed',
+}
+
 type View = 'menu' | 'selected' | 'custom'
 
 interface ExportCardState {
@@ -211,10 +221,26 @@ export function RaidCardDownloadButton({ raid, entries }: Props) {
   )
 }
 
-function RaidCardDownloadModal({ raid, entries, onClose }: Props & { onClose: () => void }) {
+export function RaidCardCustomizer() {
+  return (
+    <RaidCardDownloadModal
+      raid={DEFAULT_CUSTOM_CARD_RAID}
+      entries={[]}
+      onClose={() => undefined}
+      standalone
+    />
+  )
+}
+
+function RaidCardDownloadModal({
+  raid,
+  entries,
+  onClose,
+  standalone = false,
+}: Props & { onClose: () => void; standalone?: boolean }) {
   const exportRef = useRef<HTMLDivElement | null>(null)
   const customExportCountRef = useRef(0)
-  const [view, setView] = useState<View>('menu')
+  const [view, setView] = useState<View>(standalone ? 'custom' : 'menu')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [exporting, setExporting] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
@@ -529,8 +555,8 @@ function RaidCardDownloadModal({ raid, entries, onClose }: Props & { onClose: ()
     })
   }
 
-  return (
-    <StModal title="Download raid cards" onClose={exporting ? () => undefined : onClose} extraWide>
+  const content = (
+    <>
       <div className="flex flex-col gap-4">
         {progress ? (
           <div className="rounded-lg border border-border bg-card2 px-3 py-2 text-sm text-muted2">
@@ -649,7 +675,7 @@ function RaidCardDownloadModal({ raid, entries, onClose }: Props & { onClose: ()
 
         {view === 'custom' ? (
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,460px)]">
-            <div className="flex max-h-[68vh] flex-col gap-4 overflow-auto pr-1">
+            <div className={`flex flex-col gap-4 pr-1 ${standalone ? '' : 'max-h-[68vh] overflow-auto'}`}>
               {customDataLoading ? (
                 <div className="rounded-lg border border-border bg-card2 px-3 py-2 text-xs text-muted2">
                   Loading database options...
@@ -842,14 +868,16 @@ function RaidCardDownloadModal({ raid, entries, onClose }: Props & { onClose: ()
                 <RaidCard raid={customRaid} entry={customEntry} exportMode watermarkLabel={WATERMARK} />
               </div>
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  disabled={exporting}
-                  onClick={() => setView('menu')}
-                  className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-muted2 transition-colors hover:border-border2 hover:text-text disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Cancel
-                </button>
+                {!standalone ? (
+                  <button
+                    type="button"
+                    disabled={exporting}
+                    onClick={() => setView('menu')}
+                    className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-muted2 transition-colors hover:border-border2 hover:text-text disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   disabled={exporting}
@@ -885,6 +913,14 @@ function RaidCardDownloadModal({ raid, entries, onClose }: Props & { onClose: ()
           </div>
         ) : null}
       </div>
+    </>
+  )
+
+  if (standalone) return content
+
+  return (
+    <StModal title="Download raid cards" onClose={exporting ? () => undefined : onClose} extraWide>
+      {content}
     </StModal>
   )
 }

@@ -672,3 +672,90 @@ test('agent stops tool loops and forces a final answer', async () => {
   assert.equal(result.message, 'Here is the summary from the gathered stats.')
   assert.equal(calls, 5)
 })
+
+test('agent passes trusted official news context to the model as a system message', async () => {
+  const trustedContext = 'Official news article: Maintenance begins at 02:00 UTC.'
+  let receivedContext = false
+
+  const result = await runChatAgent({
+    messages: [{ role: 'user', content: 'Please summarize this news.' }],
+    model: 'test-tool-model',
+    trustedContext,
+    callModel: async (body) => {
+      receivedContext = body.messages.some(
+        (message) => message.role === 'system' && message.content === trustedContext
+      )
+      return {
+        ok: true,
+        status: 200,
+        data: {
+          model: 'test-tool-model',
+          choices: [{ message: { role: 'assistant', content: 'Maintenance starts at 02:00 UTC.' } }],
+        },
+      }
+    },
+    loaders: baseLoaders,
+  })
+
+  assert.equal(receivedContext, true)
+  assert.equal(result.message, 'Maintenance starts at 02:00 UTC.')
+})
+
+test('news summaries retry internal planning or truncated drafts before showing them', async () => {
+  let calls = 0
+  const result = await runChatAgent({
+    messages: [{ role: 'user', content: 'Summarize the patch notes.' }],
+    model: 'test-tool-model',
+    trustedContext: 'Official patch notes reference text.',
+    callModel: async (body) => {
+      calls += 1
+      assert.equal(body.max_tokens, 1000)
+      assert.equal(body.tools, undefined)
+      if (calls === 1) {
+        return {
+          ok: true,
+          status: 200,
+          data: {
+            model: 'test-tool-model',
+            choices: [{ finish_reason: 'length', message: { role: 'assistant', content: 'The user wants a summary. I should review the article...' } }],
+          },
+        }
+      }
+      return {
+        ok: true,
+        status: 200,
+        data: {
+          model: 'test-tool-model',
+          choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '{"text":"Sensei, maintenance begins at 02:00 UTC. Please claim the compensation afterward.","expression":"friendly","expressionIntensity":0.4}' } }],
+        },
+      }
+    },
+    loaders: baseLoaders,
+  })
+
+  assert.equal(calls, 2)
+  assert.equal(result.message, 'Sensei, maintenance begins at 02:00 UTC. Please claim the compensation afterward.')
+  assert.equal(result.expression, 'friendly')
+})
+
+test('news summaries retry one transient model gateway failure', async () => {
+  let calls = 0
+  const result = await runChatAgent({
+    messages: [{ role: 'user', content: 'Summarize this JP news.' }],
+    model: 'test-tool-model',
+    trustedContext: 'Official Japanese news reference.',
+    callModel: async () => {
+      calls += 1
+      if (calls === 1) return { ok: false, status: 502, data: null, detail: 'temporary gateway failure' }
+      return {
+        ok: true,
+        status: 200,
+        data: { model: 'test-tool-model', choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: '{"text":"Sensei, the event begins after maintenance.","expression":"neutral","expressionIntensity":0.3}' } }] },
+      }
+    },
+    loaders: baseLoaders,
+  })
+
+  assert.equal(calls, 2)
+  assert.equal(result.message, 'Sensei, the event begins after maintenance.')
+})

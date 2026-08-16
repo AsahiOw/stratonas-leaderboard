@@ -1,5 +1,7 @@
 import { mkdir, unlink, writeFile } from 'fs/promises'
 import path from 'path'
+import { readLimitedResponse, safeFetch } from '@/lib/safe-fetch'
+import { validateImage } from '@/lib/image-upload'
 
 export type RecruitmentAssetKind = 'banner' | 'animation'
 export type ResolvedRecruitmentAsset = { path: string; created: boolean }
@@ -15,6 +17,8 @@ const GACHA_ASSET_PREFIXES: Record<RecruitmentAssetKind, string> = {
 }
 const IMAGE_EXTENSIONS = new Set(['avif', 'gif', 'jpg', 'jpeg', 'png', 'webp'])
 const VIDEO_EXTENSIONS = new Set(['m4v', 'mov', 'mp4', 'webm'])
+const MAX_BANNER_BYTES = 10 * 1024 * 1024
+const MAX_ANIMATION_BYTES = 250 * 1024 * 1024
 
 function slugify(value: string) {
   return value
@@ -57,6 +61,14 @@ function filenameFor(kind: RecruitmentAssetKind, studentName: string, ext: strin
   return `${slugify(studentName)}-${kind}-${Date.now()}.${ext}`
 }
 
+function validateVideo(buffer: Buffer, ext: string) {
+  const isIsoMedia = buffer.length >= 12 && buffer.toString('ascii', 4, 8) === 'ftyp'
+  const isWebm = buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+  if ((ext === 'webm' && !isWebm) || (ext !== 'webm' && !isIsoMedia)) {
+    throw new Error('Recruitment animation file is invalid or unsupported.')
+  }
+}
+
 function assetUrl(kind: RecruitmentAssetKind, filename: string) {
   return `${GACHA_ASSET_PREFIXES[kind]}${filename}`
 }
@@ -68,7 +80,7 @@ function localPathForAsset(value: string, kind: RecruitmentAssetKind) {
   const filename = value.slice(prefix.length)
   if (!filename || filename.includes('/') || filename.includes('\\')) return null
 
-  const dir = path.resolve(GACHA_ASSET_DIRS[kind])
+  const dir = path.resolve(/*turbopackIgnore: true*/ GACHA_ASSET_DIRS[kind])
   const resolved = path.resolve(dir, filename)
   return resolved.startsWith(`${dir}${path.sep}`) ? resolved : null
 }
@@ -78,13 +90,17 @@ function isExistingGachaAsset(value: string, kind: RecruitmentAssetKind) {
 }
 
 async function saveAssetBuffer(buffer: Buffer, kind: RecruitmentAssetKind, studentName: string, ext: string) {
+  if (kind === 'animation') validateVideo(buffer, ext)
+  const safeExtension = kind === 'banner' ? await validateImage(buffer) : ext
   await mkdir(GACHA_ASSET_DIRS[kind], { recursive: true })
-  const filename = filenameFor(kind, studentName, ext)
+  const filename = filenameFor(kind, studentName, safeExtension)
   await writeFile(path.join(GACHA_ASSET_DIRS[kind], filename), buffer)
   return { path: assetUrl(kind, filename), created: true }
 }
 
 async function saveUploadedAsset(file: File, kind: RecruitmentAssetKind, studentName: string) {
+  const maxBytes = kind === 'banner' ? MAX_BANNER_BYTES : MAX_ANIMATION_BYTES
+  if (file.size > maxBytes) throw new Error('Uploaded media exceeds the size limit.')
   const nameExt = extensionFromName(file.name)
   const typeExt = extensionFromContentType(file.type, kind)
   const ext = allowedExtensions(kind).has(typeExt || '') ? typeExt! : allowedExtensions(kind).has(nameExt) ? nameExt : fallbackExtension(kind)
@@ -107,7 +123,7 @@ async function downloadAsset(url: string, kind: RecruitmentAssetKind, studentNam
     throw new Error('Media URL must start with http:// or https://.')
   }
 
-  const response = await fetch(parsed, { cache: 'no-store' })
+  const response = await safeFetch(parsed, { timeoutMs: 30_000 })
   if (!response.ok) throw new Error(`Media download failed with ${response.status}.`)
 
   const contentType = response.headers.get('content-type') || ''
@@ -119,7 +135,11 @@ async function downloadAsset(url: string, kind: RecruitmentAssetKind, studentNam
     throw new Error(kind === 'banner' ? 'Recruitment banner URL must point to an image.' : 'Recruitment animation URL must point to a video.')
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer())
+  const buffer = await readLimitedResponse(
+    response,
+    kind === 'banner' ? MAX_BANNER_BYTES : MAX_ANIMATION_BYTES,
+    kind === 'banner' ? 30_000 : 120_000,
+  )
   if (buffer.length === 0) throw new Error('Downloaded media file is empty.')
   return saveAssetBuffer(buffer, kind, studentName, ext)
 }

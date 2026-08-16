@@ -60,6 +60,7 @@ model Club {
 model Student {
   id              Int      @id
   name            String
+  pathName        String?
   image           String
   portrait        String?
   memorial        String?
@@ -196,6 +197,64 @@ model RaidBossImportState {
   updatedAt   DateTime  @updatedAt
 }
 
+model PlanaImportState {
+  id                    String    @id @default("plana-stats")
+  status                String    @default("idle")
+  stage                 String    @default("idle")
+  mode                  String    @default("new")
+  total                 Int       @default(0)
+  processed             Int       @default(0)
+  downloaded            Int       @default(0)
+  skipped               Int       @default(0)
+  failed                Int       @default(0)
+  currentDataset        String?
+  message               String?
+  error                 String?
+  manifestSchemaVersion Int?
+  startedAt             DateTime?
+  completedAt           DateTime?
+  lastSuccessfulSyncAt  DateTime?
+  emergingTotalRaidId   String?
+  emergingGrandRaidId   String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model PlanaDataset {
+  id                    String    @id @default(cuid())
+  region                String
+  raidType              String
+  raidDate              String
+  season                String
+  label                 String
+  internalName          String
+  terrain               String
+  source                String
+  maxDifficulty         String?
+  armors                Json?
+  difficulties          Json?
+  startAt               String?
+  endAt                 String?
+  manifestSchemaVersion Int
+  dbRemotePath          String
+  parquetRemotePath     String
+  dbLocalPath           String?
+  parquetLocalPath      String?
+  dbEtag                String?
+  parquetEtag           String?
+  dbBytes               BigInt?
+  parquetBytes          BigInt?
+  status                String    @default("pending")
+  error                 String?
+  downloadedAt          DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([region, raidType, raidDate])
+  @@index([status])
+  @@index([raidDate])
+}
+
 model MemorialMediaSyncState {
   id                 String    @id @default("jaymie-memorial-media")
   status             String    @default("idle")
@@ -236,6 +295,90 @@ model MemorialVideoAsset {
 
   @@index([status])
   @@index([title])
+}
+
+model RadioTrack {
+  id                String    @id @default(cuid())
+  youtubeId         String    @unique
+  title             String
+  displayTitle      String
+  youtubeUrl        String
+  audioFileName     String?
+  thumbnailFileName String?
+  durationSeconds   Int?
+  status            String    @default("discovered")
+  error             String?
+  publishedAt       DateTime?
+  downloadedAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status])
+  @@index([displayTitle])
+  @@index([publishedAt])
+}
+
+model RadioSyncState {
+  id            String    @id @default("bluearchive-global-radio")
+  status        String    @default("idle")
+  stage         String    @default("idle")
+  total         Int       @default(0)
+  processed     Int       @default(0)
+  discovered    Int       @default(0)
+  matched       Int       @default(0)
+  newTracks     Int       @default(0)
+  downloaded    Int       @default(0)
+  thumbnails    Int       @default(0)
+  skipped       Int       @default(0)
+  failed        Int       @default(0)
+  currentItem   String?
+  message       String?
+  error         String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model NewsTranslation {
+  id                String   @id @default(cuid())
+  server            String
+  postId            String
+  sourceFingerprint String
+  translatedTitle   String
+  translatedHtml    String   @db.Text
+  sourceModifiedAt  DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([server, postId])
+}
+
+model XNewsPost {
+  id          String   @id @default(cuid())
+  account     String
+  postId      String
+  text        String   @db.Text
+  url         String
+  publishedAt DateTime
+  media       Json
+  quotedPost  Json?
+  linkPreview Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([account, postId])
+  @@index([account, publishedAt])
+}
+
+model XNewsSyncState {
+  account       String    @id
+  lastSuccessAt DateTime?
+  lastAttemptAt DateTime?
+  lastPostId    String?
+  error         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model RaidType {

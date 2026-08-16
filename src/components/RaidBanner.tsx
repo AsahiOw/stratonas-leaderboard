@@ -10,7 +10,7 @@ const patternMap: Record<string, string> = {
 
 interface RaidBannerRaid {
   raidBoss: { name: string; description: string; image?: string | null }
-  season: number
+  season: number | string
   type: { name: string }
   server: { name: string }
   terrain: { name: string }
@@ -27,12 +27,17 @@ interface TopPlayer { name: string; score: number }
 interface Props {
   raid: RaidBannerRaid
   topPlayer?: TopPlayer | null
+  standalone?: boolean
 }
 
-export function RaidBanner({ raid, topPlayer }: Props) {
+export function RaidBanner({ raid, topPlayer, standalone = false }: Props) {
+  const season = String(raid.season).replace(/^S/i, '')
+
   return (
     <div
-      className="relative overflow-hidden rounded-t-xl border border-b-0 px-4 py-4 sm:px-5 sm:py-5"
+      className={`relative overflow-hidden border px-4 py-4 sm:px-5 sm:py-5 ${
+        standalone ? 'rounded-xl' : 'rounded-t-xl border-b-0'
+      }`}
       style={{
         background: `linear-gradient(135deg,${raid.color}22 0%,${raid.color2}18 50%,#0d0d13 100%)`,
         borderColor: `${raid.color}33`,
@@ -72,7 +77,7 @@ export function RaidBanner({ raid, topPlayer }: Props) {
               className="text-[11px] font-semibold tracking-[0.07em]"
               style={{ color: `${raid.color}cc` }}
             >
-              S{raid.season} · {raid.type.name.toUpperCase()} · {raid.terrain.name.toUpperCase()}
+              S{season} · {raid.type.name.toUpperCase()} · {raid.terrain.name.toUpperCase()}
             </span>
           </div>
           <h2 className="text-lg sm:text-xl font-bold tracking-[-0.02em] mb-1 break-words">

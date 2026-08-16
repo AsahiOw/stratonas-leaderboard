@@ -1,14 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  serverExternalPackages: ['@duckdb/node-api'],
   allowedDevOrigins: ['192.168.1.*'],
   experimental: {
     proxyClientMaxBodySize: '250mb',
   },
   outputFileTracingExcludes: {
     '*': [
-      './Development_data/**/*',
-      './Production_data/**/*',
+      'Development_data/**/*',
+      'Production_data/**/*',
     ],
   },
   async headers() {
@@ -72,6 +73,19 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'private, no-store, max-age=0, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/',
           },
         ],
       },

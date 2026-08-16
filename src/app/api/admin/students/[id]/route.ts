@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { deleteCustomStudentMedia, deleteCustomStudentMediaFolder, saveCustomStudentMedia } from '@/lib/custom-student-media'
+import { readValidatedFormData } from '@/lib/request-form'
 import {
   normalizePortraitOffsetNumber,
   normalizePortraitScale,
@@ -20,7 +21,7 @@ async function readStudentBody(req: Request) {
     return { body: await req.json(), imageFile: null, portraitFile: null }
   }
 
-  const form = await req.formData()
+  const form = await readValidatedFormData(req)
   const body = Object.fromEntries(form.entries())
   const imageFile = form.get('imageFile')
   const portraitFile = form.get('portraitFile')
@@ -49,7 +50,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const id = normalizeStudentId(rawId)
   if (!id) return NextResponse.json({ error: 'Invalid student id' }, { status: 400 })
 
-  const { body, imageFile, portraitFile } = await readStudentBody(req)
+  let parsedBody: Awaited<ReturnType<typeof readStudentBody>>
+  try { parsedBody = await readStudentBody(req) } catch (error) { return studentErrorResponse(error) }
+  const { body, imageFile, portraitFile } = parsedBody
   const name = typeof body.name === 'string' ? body.name.trim() : ''
   const memorial = typeof body.memorial === 'string' && body.memorial.trim() ? body.memorial.trim() : null
   const memorialOffsetX = normalizePortraitOffsetNumber(body.memorialOffsetX, -7.6)

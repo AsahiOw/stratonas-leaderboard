@@ -52,8 +52,8 @@ export async function GET(request: NextRequest) {
 
     if (!filePath) throw new Error('Poster not found')
 
-    const stats = await fsPromises.stat(filePath)
-    const image = await fsPromises.readFile(filePath)
+    const stats = await fsPromises.stat(/*turbopackIgnore: true*/ filePath)
+    const image = await fsPromises.readFile(/*turbopackIgnore: true*/ filePath)
     const etag = `"${stats.size}-${Math.floor(stats.mtimeMs)}"`
 
     if (request.headers.get('if-none-match') === etag) {

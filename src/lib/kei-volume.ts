@@ -2,6 +2,7 @@ export const KEI_VOLUME_KEY = 'stratonas:kei-volume'
 export const KEI_GREETING_ENABLED_KEY = 'stratonas:kei-greeting-enabled'
 export const KEI_GREETING_ENABLED_EVENT = 'stratonas:kei-greeting-enabled-change'
 export const KEI_GREETING_REQUEST_EVENT = 'stratonas:kei-greeting-request'
+const KEI_GREETING_SUPPRESS_ONCE_KEY = 'stratonas:kei-greeting-suppress-once'
 export const DEFAULT_KEI_VOLUME = 0.8
 export const DEFAULT_KEI_GREETING_ENABLED = true
 
@@ -38,4 +39,18 @@ export function setKeiGreetingEnabled(enabled: boolean) {
 export function requestKeiGreeting() {
   if (typeof window === 'undefined' || !isKeiGreetingEnabled()) return
   window.dispatchEvent(new Event(KEI_GREETING_REQUEST_EVENT))
+}
+
+export function suppressNextKeiGreeting() {
+  if (typeof window === 'undefined') return
+  window.sessionStorage.setItem(KEI_GREETING_SUPPRESS_ONCE_KEY, 'true')
+}
+
+export function consumeKeiGreetingSuppression() {
+  if (typeof window === 'undefined') return false
+  const suppressed = window.sessionStorage.getItem(KEI_GREETING_SUPPRESS_ONCE_KEY) === 'true'
+  if (suppressed) {
+    window.setTimeout(() => window.sessionStorage.removeItem(KEI_GREETING_SUPPRESS_ONCE_KEY), 0)
+  }
+  return suppressed
 }

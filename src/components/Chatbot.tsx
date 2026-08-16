@@ -2,6 +2,9 @@
 
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import { RefreshCw } from 'lucide-react'
+import { PLANA_NEWS_SUMMARY_EVENT, type PlanaNewsSummaryRequest } from '@/lib/plana-events'
+import type { NewsServer } from '@/lib/blue-archive-news'
 
 type ChatRole = 'user' | 'assistant'
 type PlanaExpression =
@@ -24,6 +27,8 @@ interface ChatMessage {
   expression?: PlanaExpression
   expressionIntensity?: number
   failed?: boolean
+  newsThreadId?: string
+  newsServer?: NewsServer
 }
 
 interface ChatResponse {
@@ -265,12 +270,29 @@ export function Chatbot() {
   const [pending, setPending] = useState(false)
   const [introPending, setIntroPending] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [conversationFocused, setConversationFocused] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [memory, setMemory] = useState<ChatMemory>(EMPTY_MEMORY)
+  const [newsSummaryRequest, setNewsSummaryRequest] = useState<PlanaNewsSummaryRequest | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const introTimerRef = useRef<number | null>(null)
   const chatSessionRef = useRef(0)
+
+  useEffect(() => {
+    function handleNewsSummary(event: Event) {
+      if (!(event instanceof CustomEvent)) return
+      const detail = event.detail as Partial<PlanaNewsSummaryRequest> | null
+      if (!detail || typeof detail.threadId !== 'string' || !/^\d{1,20}$/.test(detail.threadId)) return
+      if (typeof detail.title !== 'string' || !detail.title.trim()) return
+      if (detail.server !== 'global' && detail.server !== 'jp' && detail.server !== 'global-x' && detail.server !== 'jp-x') return
+      setNewsSummaryRequest({ threadId: detail.threadId, title: detail.title.trim().slice(0, 220), server: detail.server })
+      setOpen(true)
+    }
+
+    window.addEventListener(PLANA_NEWS_SUMMARY_EVENT, handleNewsSummary)
+    return () => window.removeEventListener(PLANA_NEWS_SUMMARY_EVENT, handleNewsSummary)
+  }, [])
 
   function clearIntroTimer() {
     if (introTimerRef.current === null) return
@@ -324,7 +346,7 @@ export function Chatbot() {
     scrollRef.current?.scrollIntoView({ block: 'end' })
   }, [messages, pending, introPending, open])
 
-  async function requestAssistantResponse(history: ChatMessage[]) {
+  async function requestAssistantResponse(history: ChatMessage[], newsThreadId?: string, newsServer?: NewsServer) {
     const chatSession = chatSessionRef.current
     setPending(true)
 
@@ -332,7 +354,7 @@ export function Chatbot() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages(history), memory }),
+        body: JSON.stringify({ messages: apiMessages(history), memory, newsThreadId, newsServer }),
       })
       const data = await response.json().catch(() => ({})) as ChatResponse
 
@@ -375,6 +397,32 @@ export function Chatbot() {
     }
   }
 
+  useEffect(() => {
+    if (!newsSummaryRequest || pending) return
+
+    const userMessage: ChatMessage = {
+      id: createId(),
+      role: 'user',
+      content: `Plana, please summarize the official news post “${newsSummaryRequest.title}”.`,
+      newsThreadId: newsSummaryRequest.threadId,
+      newsServer: newsSummaryRequest.server,
+    }
+    const baseMessages = messages.filter((message) => !message.failed)
+    const nextMessages = [
+      ...(baseMessages.length === 0 ? [createGreetingMessage()] : baseMessages),
+      userMessage,
+    ]
+
+    clearIntroTimer()
+    setIntroPending(false)
+    setNewsSummaryRequest(null)
+    setMessages(nextMessages)
+    setDraft('')
+    void requestAssistantResponse(nextMessages, newsSummaryRequest.threadId, newsSummaryRequest.server)
+    // This effect intentionally consumes the current chat snapshot once per queued summary request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newsSummaryRequest, pending])
+
   function handleSubmit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault()
     if (pending) return
@@ -406,7 +454,8 @@ export function Chatbot() {
     if (!nextMessages.some((message) => message.role === 'user')) return
 
     setMessages(nextMessages)
-    void requestAssistantResponse(nextMessages)
+    const latestUser = [...nextMessages].reverse().find((message) => message.role === 'user')
+    void requestAssistantResponse(nextMessages, latestUser?.newsThreadId, latestUser?.newsServer)
   }
 
   function handleRefreshChat() {
@@ -417,6 +466,7 @@ export function Chatbot() {
     setPending(false)
     setIntroPending(false)
     setInfoOpen(false)
+    setNewsSummaryRequest(null)
     setMemory(EMPTY_MEMORY)
     setRefreshKey((current) => current + 1)
   }
@@ -478,40 +528,55 @@ export function Chatbot() {
 
               <div className="flex min-h-0 flex-1">
                 <aside className="flex w-[54px] shrink-0 flex-col bg-[#4b5a6f] sm:w-[72px]">
-                  <div className="flex h-[96px] items-center justify-center bg-[#56667d] text-white sm:h-[112px]">
+                  <button
+                    type="button"
+                    onClick={() => setConversationFocused(false)}
+                    aria-label="Show conversations"
+                    aria-pressed={!conversationFocused}
+                    className={`flex h-[96px] items-center justify-center text-white transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white/70 sm:h-[112px] ${conversationFocused ? 'bg-[#56667d] hover:bg-[#607188]' : 'bg-[#68788f]'}`}
+                  >
                     <PersonIcon className="opacity-95" />
-                  </div>
-                  <div className="relative flex h-[86px] items-center justify-center bg-[#68788f] text-white sm:h-[100px]">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConversationFocused((current) => !current)}
+                    aria-label={conversationFocused ? 'Show conversation sidebar' : 'Hide conversation sidebar'}
+                    aria-pressed={conversationFocused}
+                    className={`relative flex h-[86px] items-center justify-center text-white transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white/70 sm:h-[100px] ${conversationFocused ? 'bg-[#68788f]' : 'bg-[#56667d] hover:bg-[#607188]'}`}
+                  >
                     <ChatIcon />
-                  </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRefreshChat}
+                    aria-label="Refresh Plana chat"
+                    className="flex h-[76px] items-center justify-center bg-[#56667d] text-white transition-colors hover:bg-[#607188] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white/70 sm:h-[88px]"
+                  >
+                    <RefreshCw size={29} strokeWidth={2} aria-hidden />
+                  </button>
                   <div className="flex-1" />
                 </aside>
 
-                <aside className="hidden w-[310px] shrink-0 flex-col border-r border-[#cdd3dc] bg-[#f3f7f8] md:flex">
-                  <div className="flex h-[72px] shrink-0 items-center gap-2 border-b border-[#dce5ec] px-5">
-                    <div className="min-w-0 flex-1 whitespace-nowrap text-[18px] font-black leading-tight text-[#2a323e]">Unread Messages (0)</div>
+                <aside className={`hidden shrink-0 overflow-hidden bg-[#f3f7f8] transition-[width,transform,opacity,border-color] duration-300 ease-out motion-reduce:transition-none md:flex ${conversationFocused ? 'w-0 -translate-x-4 border-r border-transparent opacity-0' : 'w-[310px] translate-x-0 border-r border-[#cdd3dc] opacity-100'}`}>
+                  <div className="flex h-full w-[310px] shrink-0 flex-col">
+                    <div className="flex h-[72px] shrink-0 items-center border-b border-[#dce5ec] px-5">
+                      <div className="min-w-0 flex-1 whitespace-nowrap text-[18px] font-black leading-tight text-[#2a323e]">Unread Messages (0)</div>
+                    </div>
                     <button
                       type="button"
-                      onClick={handleRefreshChat}
-                      className="h-10 min-w-[78px] skew-x-[-12deg] rounded-[5px] border border-[#dce5ec] bg-white px-3 text-[15px] font-semibold text-[#4b5a6f] shadow-sm transition-colors hover:bg-[#e1e7ec] focus:outline-none focus:ring-2 focus:ring-[#4a8ac6]/35"
+                      className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 border-b border-[#dce5ec] bg-[#e1e7ec] px-5 py-3 text-left transition-colors hover:bg-[#d7e1ea]"
                     >
-                      <span className="inline-block skew-x-[12deg]">Refresh</span>
+                      <PlanaAvatar expression={currentExpression} sizeClass="h-16 w-16" className="border border-[#dce5ec]" />
+                      <span className="min-w-0 self-center">
+                        <span className="block truncate text-[24px] font-black leading-7 text-[#2a323e]">Plana</span>
+                        <span className="block truncate text-[18px] font-semibold leading-6 text-[#87929e]">{preview}</span>
+                      </span>
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    className="grid grid-cols-[64px_minmax(0,1fr)] gap-3 border-b border-[#dce5ec] bg-[#e1e7ec] px-5 py-3 text-left transition-colors hover:bg-[#d7e1ea]"
-                  >
-                    <PlanaAvatar expression={currentExpression} sizeClass="h-16 w-16" className="border border-[#dce5ec]" />
-                    <span className="min-w-0 self-center">
-                      <span className="block truncate text-[24px] font-black leading-7 text-[#2a323e]">Plana</span>
-                      <span className="block truncate text-[18px] font-semibold leading-6 text-[#87929e]">{preview}</span>
-                    </span>
-                  </button>
                 </aside>
 
                 <main className="flex min-w-0 flex-1 flex-col bg-white">
-                  <div className="flex h-[56px] shrink-0 items-center border-b border-[#e1e7ec] px-4 md:hidden">
+                  <div className={`h-[56px] shrink-0 items-center border-b border-[#e1e7ec] px-4 ${conversationFocused ? 'flex' : 'flex md:hidden'}`}>
                     <PlanaAvatar expression={currentExpression} sizeClass="h-10 w-10" className="border border-[#dce5ec]" />
                     <div className="ml-3 min-w-0">
                       <div className="truncate text-lg font-black leading-6 text-[#2a323e]">Plana</div>

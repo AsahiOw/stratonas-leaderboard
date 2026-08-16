@@ -24,6 +24,7 @@ import { arrangeRecruitmentQueue, buildCalendarDays, daysBetweenDateKeys, groupS
 import { dateKeyFromDate } from '@/lib/recruitments'
 import { parseBirthdayKey } from '@/lib/birthdays'
 import { fmtDate, imageSrc } from '@/lib/utils'
+import { useStudentAccent } from '@/lib/student-accent'
 import type { BirthdayStudent } from '@/components/BirthdayTicket'
 
 export interface RecruitmentCalendarRecruitment {
@@ -126,10 +127,6 @@ function studentDisplayName(student: RecruitmentCalendarRecruitment['student']) 
   return [student.familyName, student.personalName].filter(Boolean).join(' · ') || student.name
 }
 
-function studentAccent(student: RecruitmentCalendarRecruitment['student']) {
-  return student.accentColor || '#4f8ef7'
-}
-
 function stickerImage(student: RecruitmentCalendarRecruitment['student'], fallback: string) {
   return imageSrc(student.portrait || student.image, imageSrc(fallback))
 }
@@ -181,7 +178,11 @@ function CalendarStudentSticker({
   slot: StickerSlot
   onSelect: (source: HTMLButtonElement) => void
 }) {
-  const accent = studentAccent(recruitment.student)
+  const accent = useStudentAccent(
+    recruitment.student.id,
+    imageSrc(recruitment.student.image),
+    recruitment.student.accentColor,
+  )
   const style = {
     '--sticker-x': slot.x,
     '--sticker-y': slot.y,
@@ -399,7 +400,7 @@ function RecruitmentDossier({
   dossierRef: React.RefObject<HTMLElement>
 }) {
   const { student } = recruitment
-  const accent = studentAccent(student)
+  const accent = useStudentAccent(student.id, imageSrc(student.image), student.accentColor)
   const style = { '--dossier-accent': accent } as CSSProperties
   const modalTransitionState = motionPhase === 'opening-start'
     ? 'from-bottom'
