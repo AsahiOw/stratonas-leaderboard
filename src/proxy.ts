@@ -184,13 +184,34 @@ function validateUrl(request: NextRequest) {
   return true
 }
 
-async function validatePayload(request: NextRequest) {
+async function hasRequestBody(request: NextRequest) {
+  const body = request.clone().body
+  if (!body) return false
+
+  const reader = body.getReader()
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) return false
+      if (value.byteLength > 0) return true
+    }
+  } finally {
+    void reader.cancel().catch(() => undefined)
+  }
+}
+
+export async function validatePayload(request: NextRequest) {
   const declaredLength = Number(request.headers.get('content-length') || '0')
   const rawContentType = request.headers.get('content-type')?.toLowerCase() || ''
   const contentType = rawContentType.split(';', 1)[0].trim()
   const limit = payloadLimit(request.nextUrl.pathname, contentType)
 
-  if (!contentType && declaredLength === 0 && !request.headers.has('transfer-encoding')) return null
+  if (!contentType) {
+    if (Number.isFinite(declaredLength) && declaredLength > 0) {
+      return { status: 415, error: 'Unsupported content type' }
+    }
+    if (!await hasRequestBody(request)) return null
+  }
   if (limit === null) return { status: 415, error: 'Unsupported content type' }
   if (contentType === 'multipart/form-data') {
     if (!Number.isFinite(declaredLength) || declaredLength <= 0) {
