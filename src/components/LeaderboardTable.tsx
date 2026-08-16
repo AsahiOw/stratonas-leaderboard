@@ -66,8 +66,8 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap, returnTa
                 key={`${p.name}-${i}`}
                 onMouseEnter={() => setHov(i)}
                 onMouseLeave={() => setHov(null)}
-                className="border-b border-border transition-colors"
-                style={{ background: rowBg }}
+                className="leaderboard-row border-b border-border transition-colors"
+                style={{ background: rowBg, '--row-index': i } as React.CSSProperties}
               >
                 <td
                   className="sticky left-0 z-10 px-2 sm:px-3.5 py-3 text-center w-12 sm:w-14"

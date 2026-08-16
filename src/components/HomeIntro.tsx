@@ -59,8 +59,8 @@ export function HomeIntro({ open, onClose }: HomeIntroProps) {
 
           <div className="px-4 py-4 sm:px-5">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {featureItems.map((item) => (
-                <div key={item.label} className="border-l border-border2 pl-3">
+              {featureItems.map((item, index) => (
+                <div key={item.label} className="intro-feature border-l border-border2 pl-3" style={{ '--item-index': index } as React.CSSProperties}>
                   <div className="text-sm font-bold text-text">{item.label}</div>
                   <div className="mt-1 text-xs leading-5 text-muted2">{item.text}</div>
                 </div>

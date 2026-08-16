@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { flushSync } from 'react-dom'
 import { useSession, signOut } from 'next-auth/react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Navbar } from '@/components/Navbar'
@@ -197,7 +198,6 @@ export function LeaderboardApp({
   }, [])
 
   function handleTabChange(nextTab: Tab) {
-    setTab(nextTab)
     const routeByTab: Partial<Record<Tab, string>> = {
       previous: '/history',
       raid: '/raiddata',
@@ -211,7 +211,16 @@ export function LeaderboardApp({
       admin: '/admin',
     }
     const nextPath = routeByTab[nextTab] || '/'
-    if (window.location.pathname !== nextPath) window.history.pushState(null, '', nextPath)
+    const updateTab = () => {
+      flushSync(() => setTab(nextTab))
+      if (window.location.pathname !== nextPath) window.history.pushState(null, '', nextPath)
+    }
+
+    if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.startViewTransition(updateTab)
+    } else {
+      updateTab()
+    }
   }
 
   function handleLoginClick() {

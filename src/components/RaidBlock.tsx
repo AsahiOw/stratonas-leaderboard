@@ -182,11 +182,12 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
         )}
       </div>
 
-      {open && (
-        <div
-          className="bg-card border border-t-0 rounded-b-xl overflow-hidden"
-          style={{ borderColor: `${raid.color}25` }}
-        >
+      <div className={`raid-disclosure ${open ? 'raid-disclosure-open' : ''}`} aria-hidden={!open} inert={!open ? true : undefined}>
+        <div className="min-h-0 overflow-hidden">
+          <div
+            className="bg-card border border-t-0 rounded-b-xl overflow-hidden raid-disclosure-content"
+            style={{ borderColor: `${raid.color}25` }}
+          >
           <div key={hideGuests ? 'guild-only' : 'all-players'} className="leaderboard-filter-transition">
             <TopThreePodium entries={podiumEntries} accent={raid.color} onPlayerClick={onPlayerClick} returnTab={returnTab} />
             <LeaderboardTable
@@ -216,30 +217,35 @@ export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen =
             </button>
             <button
               onClick={() => setOpen(false)}
+              tabIndex={open ? 0 : -1}
               className="bg-transparent border border-border rounded-md px-3.5 py-1 text-muted text-xs hover:text-text hover:border-border2 transition-colors w-full sm:w-auto"
             >
               Collapse ▲
             </button>
           </div>
+          </div>
         </div>
-      )}
+      </div>
 
-      {!open && (
-        <div
-          className="bg-card border border-t-0 rounded-b-xl px-3 py-2.5 sm:px-4 flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center"
-          style={{ borderColor: `${raid.color}25` }}
-        >
+      <div className={`raid-summary ${open ? '' : 'raid-summary-open'}`} aria-hidden={open} inert={open ? true : undefined}>
+        <div className="min-h-0 overflow-hidden">
+          <div
+            className="bg-card border border-t-0 rounded-b-xl px-3 py-2.5 sm:px-4 flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center raid-summary-content"
+            style={{ borderColor: `${raid.color}25` }}
+          >
           <span key={hideGuests ? 'guild-only-summary' : 'all-players-summary'} className="leaderboard-filter-transition text-xs text-muted">
             Top: {topPlayer?.name} ({topPlayer?.score.toLocaleString('en-US')} pts)
           </span>
           <button
             onClick={() => setOpen(true)}
+            tabIndex={open ? -1 : 0}
             className="bg-transparent border border-border rounded-md px-3.5 py-1 text-muted text-xs hover:text-text hover:border-border2 transition-colors w-full sm:w-auto"
           >
             Expand ▼
           </button>
+          </div>
         </div>
-      )}
+      </div>
 
       {showDetail && (
         <RaidDetailModal
