@@ -4,6 +4,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
+import { buildRadioPoTokenArgs, RADIO_AUDIO_DOWNLOAD_ARGS } from '@/lib/radio-sync-options'
 
 export const RADIO_SYNC_ID = 'bluearchive-global-radio'
 export const RADIO_TITLE_MARKER = '| OST [1 Hour Loop]'
@@ -14,6 +15,8 @@ export const RADIO_AUDIO_DIR = path.join(DATA_DIR, 'radio', 'audio')
 export const RADIO_THUMBNAIL_DIR = path.join(DATA_DIR, 'radio', 'thumbnails')
 const ARCHIVE_PATH = path.join(DATA_DIR, 'radio', 'bluearchive-global-archive.txt')
 const COOKIES_PATH = path.join(DATA_DIR, 'cookies.txt')
+const DEFAULT_PO_TOKEN_PLUGIN_DIR = path.join(DATA_DIR, 'yt-dlp-plugins')
+const DEFAULT_PO_TOKEN_PROVIDER_URL = 'http://127.0.0.1:4416'
 const STALE_SYNC_MS = 90_000
 const HEARTBEAT_MS = 10_000
 
@@ -56,6 +59,20 @@ export async function recoverInterruptedRadioSync(now = new Date()) {
 }
 
 export async function startRadioSync() {
+  const claimed = await claimRadioSync()
+  if (!claimed) return false
+  void runRadioSync()
+  return true
+}
+
+export async function runRadioSyncNow() {
+  const claimed = await claimRadioSync()
+  if (!claimed) return false
+  await runRadioSync()
+  return true
+}
+
+async function claimRadioSync() {
   await ensureDirectories()
   await prisma.radioSyncState.upsert({
     where: { id: RADIO_SYNC_ID }, update: {},
@@ -73,9 +90,7 @@ export async function startRadioSync() {
       startedAt: new Date(), completedAt: null,
     },
   })
-  if (!lock.count) return false
-  void runRadioSync()
-  return true
+  return lock.count > 0
 }
 
 async function runRadioSync() {
@@ -161,13 +176,13 @@ async function downloadTrack(ytDlp: string, video: Listing) {
 
   if (!hadAudio) {
     await runCommand(ytDlp, [
-      ...cookieArgs(), '--no-warnings', '--no-playlist', '-x', '--audio-format', 'm4a',
-      '--audio-quality', '128K', '-o', path.join(RADIO_AUDIO_DIR, `${video.id}.%(ext)s`), youtubeUrl(video.id),
+      ...youtubeArgs(), ...cookieArgs(), '--no-warnings', '--no-playlist', ...RADIO_AUDIO_DOWNLOAD_ARGS,
+      '-o', path.join(RADIO_AUDIO_DIR, `${video.id}.%(ext)s`), youtubeUrl(video.id),
     ])
   }
   if (!hadThumbnail) {
     await runCommand(ytDlp, [
-      ...cookieArgs(), '--no-warnings', '--no-playlist', '--skip-download', '--write-thumbnail',
+      ...youtubeArgs(), ...cookieArgs(), '--no-warnings', '--no-playlist', '--skip-download', '--write-thumbnail',
       '--convert-thumbnails', 'webp', '-o', path.join(RADIO_THUMBNAIL_DIR, `${video.id}.%(ext)s`), youtubeUrl(video.id),
     ])
   }
@@ -186,7 +201,7 @@ async function downloadTrack(ytDlp: string, video: Listing) {
 
 async function listChannel(ytDlp: string) {
   const output = await runCommand(ytDlp, [
-    ...cookieArgs(), '--no-warnings', '--flat-playlist', '--print', '%(id)s\t%(title)s\t%(upload_date)s', CHANNEL_URL,
+    ...youtubeArgs(), ...cookieArgs(), '--no-warnings', '--flat-playlist', '--print', '%(id)s\t%(title)s\t%(upload_date)s', CHANNEL_URL,
   ])
   return output.split(/\r?\n/).map((line): Listing | null => {
     const [id, title, uploadDate] = line.trim().split('\t')
@@ -211,6 +226,17 @@ function cookieArgs() {
   if (browser) return ['--cookies-from-browser', browser]
   try { if (statSync(COOKIES_PATH).isFile()) return ['--cookies', COOKIES_PATH] } catch { /* optional */ }
   return []
+}
+
+function youtubeArgs() {
+  const pluginDir = process.env.MEDIA_YTDLP_PLUGIN_DIR?.trim() || DEFAULT_PO_TOKEN_PLUGIN_DIR
+  try {
+    if (!statSync(/*turbopackIgnore: true*/ pluginDir).isDirectory()) return []
+  } catch {
+    return []
+  }
+  const providerUrl = process.env.MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL?.trim() || DEFAULT_PO_TOKEN_PROVIDER_URL
+  return buildRadioPoTokenArgs(pluginDir, providerUrl)
 }
 
 async function runCommand(command: string, args: string[]) {

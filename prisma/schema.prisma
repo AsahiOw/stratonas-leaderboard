@@ -340,6 +340,30 @@ model RadioSyncState {
   updatedAt     DateTime  @updatedAt
 }
 
+model MaintenanceJobRun {
+  id          String    @id @default(cuid())
+  jobId       String
+  scheduledAt DateTime
+  status      String    @default("pending")
+  message     String?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([jobId, scheduledAt])
+  @@index([status, scheduledAt])
+}
+
+model MaintenanceSchedulerLock {
+  id        String   @id @default("global")
+  holder    String?
+  jobId     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model NewsTranslation {
   id                String   @id @default(cuid())
   server            String

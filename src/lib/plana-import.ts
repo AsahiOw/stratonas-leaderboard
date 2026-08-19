@@ -118,6 +118,20 @@ async function ensurePlanaImportState() {
 }
 
 export async function startPlanaImport(mode: PlanaImportMode = 'new') {
+  const claimed = await claimPlanaImport(mode)
+  if (!claimed) return false
+  void runPlanaImport(mode)
+  return true
+}
+
+export async function runPlanaImportSync(mode: PlanaImportMode = 'new') {
+  const claimed = await claimPlanaImport(mode)
+  if (!claimed) return false
+  await runPlanaImport(mode)
+  return true
+}
+
+async function claimPlanaImport(mode: PlanaImportMode) {
   await ensurePlanaImportState()
 
   const lock = await prisma.planaImportState.updateMany({
@@ -140,10 +154,7 @@ export async function startPlanaImport(mode: PlanaImportMode = 'new') {
     },
   })
 
-  if (lock.count === 0) return false
-
-  void runPlanaImport(mode)
-  return true
+  return lock.count > 0
 }
 
 async function runPlanaImport(mode: PlanaImportMode) {

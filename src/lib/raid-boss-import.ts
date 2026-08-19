@@ -66,6 +66,20 @@ async function ensureRaidBossImportState() {
 }
 
 export async function startRaidBossImport() {
+  const claimed = await claimRaidBossImport()
+  if (!claimed) return false
+  void runRaidBossImport()
+  return true
+}
+
+export async function runRaidBossImportSync() {
+  const claimed = await claimRaidBossImport()
+  if (!claimed) return false
+  await runRaidBossImport()
+  return true
+}
+
+async function claimRaidBossImport() {
   await ensureRaidBossImportState()
 
   const lock = await prisma.raidBossImportState.updateMany({
@@ -82,10 +96,7 @@ export async function startRaidBossImport() {
     },
   })
 
-  if (lock.count === 0) return false
-
-  void runRaidBossImport()
-  return true
+  return lock.count > 0
 }
 
 async function runRaidBossImport() {

@@ -308,7 +308,7 @@ To process local MP4 files already in `./Development_data/lobbies` without check
 npm run media:process-existing
 ```
 
-The scripts skip existing optimized videos and posters. The server also checks automatically every Thursday at `00:00 UTC+7`, and admins can start the same sync from the Admin Import page.
+The scripts skip existing optimized videos and posters. The weekly maintenance scheduler runs Radio OST at Wednesday `02:00 UTC+7`, SchaleDB Students at `03:00`, SchaleDB Raid Bosses at `04:00`, Plana Stats Raid at `05:00`, and Memorial Lobby Media on Thursday at `00:00`. Each job has a 10-minute start window and is skipped if another scheduled or manual import keeps the maintenance slot busy for that entire window. The scheduler never runs missed jobs merely because the server started or restarted. Admins can still start each import manually.
 
 Each sync also scans `./Development_data/lobbies` for existing raw MP4 files that are missing either a matching optimized MP4 or JPG poster, so local files downloaded before the automation are completed without being downloaded again.
 
@@ -321,6 +321,14 @@ brew install ffmpeg yt-dlp
 ```
 
 If YouTube requires sign-in or age confirmation, update `./Development_data/cookies.txt` with exported YouTube cookies from a signed-in browser session. As an alternative for local runs, set `MEDIA_YTDLP_COOKIES_FROM_BROWSER` to a yt-dlp browser value such as `chrome`, `edge`, or `firefox`.
+
+YouTube radio downloads also use a local PO-token provider. On Windows, macOS, or Linux, install the pinned yt-dlp plugin and start its Docker provider with:
+
+```bash
+npm run media:radio:setup
+```
+
+The setup refreshes the pinned plugin on every run and updates the bundled Windows yt-dlp executable to its nightly channel because YouTube compatibility changes frequently. On macOS and Linux, it verifies the package-managed `yt-dlp` available in `PATH` without modifying it. The normal `npm run dev` process discovers the plugin in `./Development_data/yt-dlp-plugins`. Docker Compose starts the same provider automatically for production containers. Set `MEDIA_YTDLP_PLUGIN_DIR` or `MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL` only when using a custom plugin location or provider address.
 
 ### Legacy Windows PowerShell Scripts
 
