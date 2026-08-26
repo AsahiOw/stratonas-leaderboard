@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -13,12 +13,7 @@ async function main() {
   await mkdir(PLUGIN_DIRECTORY, { recursive: true })
   await downloadPlugin()
 
-  const bundledYtDlp = path.join(ROOT, 'Development_data', 'yt-dlp.exe')
-  if (process.platform === 'win32' && await isFile(bundledYtDlp)) {
-    await run(bundledYtDlp, ['--update-to', 'nightly'])
-  } else {
-    await run('yt-dlp', ['--version'])
-  }
+  await run('yt-dlp', ['--version'])
 
   await run('docker', ['compose', 'up', '-d', 'bgutil-provider'])
 
@@ -37,14 +32,6 @@ async function downloadPlugin() {
   await writeFile(temporaryPath, bytes)
   await rm(PLUGIN_PATH, { force: true })
   await rename(temporaryPath, PLUGIN_PATH)
-}
-
-async function isFile(filePath: string) {
-  try {
-    return (await stat(filePath)).isFile()
-  } catch {
-    return false
-  }
 }
 
 async function run(command: string, args: string[]) {

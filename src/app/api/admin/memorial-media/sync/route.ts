@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-guard'
 import { getMemorialMediaSyncState, startMemorialMediaSync } from '@/lib/memorial-media-sync'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST() {
+async function post(_req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -17,3 +18,5 @@ export async function POST() {
   const state = await getMemorialMediaSyncState()
   return NextResponse.json(state, { status: 202 })
 }
+
+export const POST = withAdminMutationAudit({ action: 'SYNC', entityType: 'memorial media' }, post)

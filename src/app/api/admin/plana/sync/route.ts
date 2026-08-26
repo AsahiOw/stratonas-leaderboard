@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-guard'
 import { getPlanaImportStatus, startPlanaImport } from '@/lib/plana-import'
 import type { PlanaImportMode } from '@/lib/plana-manifest'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(request: Request) {
+async function post(request: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -23,3 +24,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json(await getPlanaImportStatus(), { status: 202 })
 }
+
+export const POST = withAdminMutationAudit({ action: 'SYNC', entityType: 'Plana stats' }, post)

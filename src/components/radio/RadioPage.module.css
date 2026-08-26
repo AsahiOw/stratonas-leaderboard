@@ -85,6 +85,9 @@
 
 .hardware {
   position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   height: 100%;
   min-height: 0;
   padding: clamp(15px, 2vh, 24px);
@@ -128,6 +131,9 @@
 .powerOn { background:#cf432f; box-shadow:0 0 8px rgba(224,67,45,.8), inset 0 0 2px #fff; }
 
 .hardwareBody {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   height: calc(100% - 37px);
   min-height: 0;
   position: relative;
@@ -169,14 +175,15 @@
 .tonearm i::after { content:""; position:absolute; bottom:-8px; left:-4px; width:16px; height:21px; transform:rotate(8deg); background:#252a29; border:1px solid #777c78; }
 .deckCaption { position:absolute; inset:auto 12px 9px; display:flex; justify-content:space-between; color:#7d8580; font-size:7px; letter-spacing:.12em; }
 
-.controlBay { min-height:0; display:flex; flex-direction:column; gap:clamp(8px,1vh,12px); }
-.lcd { position:relative; min-height:145px; flex:0 0 auto; padding:13px 15px 10px; overflow:hidden; border:5px solid #272d2c; border-radius:3px; color:var(--lcd-ink); background:linear-gradient(120deg,rgba(255,255,255,.25),transparent 22%), repeating-linear-gradient(0deg,rgba(20,35,22,.035) 0 1px,transparent 1px 3px), var(--lcd); box-shadow:inset 0 0 14px rgba(21,35,24,.3),0 1px rgba(255,255,255,.3); font-family:"Courier New",monospace; }
+.controlBay { width:100%; min-width:0; max-width:100%; min-height:0; display:flex; flex-direction:column; gap:clamp(8px,1vh,12px); }
+.lcd { position:relative; width:100%; min-width:0; max-width:100%; min-height:145px; flex:0 0 auto; padding:13px 15px 10px; overflow:hidden; border:5px solid #272d2c; border-radius:3px; color:var(--lcd-ink); background:linear-gradient(120deg,rgba(255,255,255,.25),transparent 22%), repeating-linear-gradient(0deg,rgba(20,35,22,.035) 0 1px,transparent 1px 3px), var(--lcd); box-shadow:inset 0 0 14px rgba(21,35,24,.3),0 1px rgba(255,255,255,.3); font-family:"Courier New",monospace; }
 .lcd::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(105deg,transparent 55%,rgba(255,255,255,.15) 57%,transparent 63%); }
 .lcdRefreshing { animation:lcdFlicker .28s steps(2,end) infinite; }
 .lcdTopline,.lcdTime { display:flex; justify-content:space-between; font-size:10px; font-weight:bold; letter-spacing:.07em; }
 .lcdStatus { padding:1px 3px; color:var(--lcd); background:var(--lcd-ink); }
-.lcdTitle { margin-top:8px; overflow:hidden; white-space:nowrap; font-size:clamp(14px,1.3vw,20px); font-weight:bold; letter-spacing:.03em; }
-.lcdTitle span { display:block; overflow:hidden; text-overflow:ellipsis; }
+.lcdTitle { display:block; width:100%; min-width:0; max-width:100%; margin-top:8px; overflow:hidden; contain:inline-size; white-space:nowrap; font-size:clamp(14px,1.3vw,20px); font-weight:bold; letter-spacing:.03em; }
+.lcdTitle span { display:inline-block; min-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.lcdTitleScrolling span { width:max-content; min-width:0; max-width:none; overflow:visible; text-overflow:clip; will-change:transform; animation:lcdTitleScroll var(--title-duration) linear infinite; }
 .lcdMeta { margin-top:2px; font-size:9px; opacity:.8; }
 .visualizer { height:34px; margin:7px 0 4px; display:flex; align-items:end; gap:2px; border-block:1px solid rgba(20,35,22,.18); padding:3px 0; }
 .visualizer i { flex:1; height:100%; background:var(--lcd-ink); opacity:.58; transform:scaleY(.08); transform-origin:bottom; }
@@ -268,6 +275,7 @@
 .miniControls { display:grid; grid-template-columns:repeat(2,28px); gap:4px; }.miniControls button { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:1px solid #2a2f2d; border-radius:1px; color:#1f2423; background:linear-gradient(#b9bbb3,#747973); box-shadow:0 2px 0 #343936; }.miniControls button:active { transform:translateY(2px); box-shadow:none; }
 
 @keyframes recordSpin { to { transform:rotate(360deg); } }
+@keyframes lcdTitleScroll { 0%,12% { transform:translateX(0); } 88%,100% { transform:translateX(calc(-1 * var(--title-overflow))); } }
 @keyframes discEject { from { opacity:1; transform:translate(0,0) scale(1) rotate(0); } to { opacity:0; transform:translate(38%,-42%) scale(.66) rotate(24deg); } }
 @keyframes discInsert { from { opacity:0; transform:translate(-38%,-42%) scale(.66) rotate(-24deg); } to { opacity:1; transform:translate(0,0) scale(1) rotate(0); } }
 @keyframes lcdFlicker { 0%,100% { opacity:1; } 50% { opacity:.78; } }
@@ -373,4 +381,5 @@
   .disc,.discPlaying,.lcdRefreshing,.loadingSegments,.shuffleFan > span,.shuffleText { animation:none !important; transition:none !important; }
   .tonearm,.roomGlow,.magazineDisc { transition:none !important; }
   .magazineSlotLoading .magazineDisc,.magazineSlotLoading .slotMouth { animation:none !important; }
+  .lcdTitleScrolling span { max-width:100%; overflow:hidden; text-overflow:ellipsis; }
 }

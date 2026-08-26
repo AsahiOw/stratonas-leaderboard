@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { deleteCustomStudentMedia, deleteCustomStudentMediaFolder, saveCustomStudentMedia } from '@/lib/custom-student-media'
 import { readValidatedFormData } from '@/lib/request-form'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 import {
   normalizePortraitOffsetNumber,
   normalizePortraitScale,
@@ -43,7 +44,7 @@ function studentErrorResponse(error: unknown, fallback = 'Could not save student
   return NextResponse.json({ error: fallback }, { status: 500 })
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function put(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id: rawId } = await params
@@ -124,7 +125,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function del(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id: rawId } = await params
@@ -136,11 +137,14 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       where: { favouriteStudentId: id },
       data: { favouriteStudentId: null },
     })
-    await prisma.student.delete({ where: { id } })
+    const deleted = await prisma.student.delete({ where: { id } })
     await deleteCustomStudentMediaFolder(id)
     invalidatePublicData()
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, deleted })
   } catch (error) {
     return studentErrorResponse(error, 'Could not delete student.')
   }
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'student' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'student' }, del)

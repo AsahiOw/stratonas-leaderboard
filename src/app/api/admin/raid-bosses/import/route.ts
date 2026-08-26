@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-guard'
 import { getRaidBossImportState, startRaidBossImport } from '@/lib/raid-boss-import'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST() {
+async function post(_req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -17,3 +18,5 @@ export async function POST() {
   const state = await getRaidBossImportState()
   return NextResponse.json(state, { status: 202 })
 }
+
+export const POST = withAdminMutationAudit({ action: 'IMPORT', entityType: 'raid bosses' }, post)

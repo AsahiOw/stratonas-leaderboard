@@ -44,7 +44,6 @@ Install examples:
 ```powershell
 # Windows: install these with winget, Chocolatey, or official installers.
 # Make sure node, npm, docker, psql, ffmpeg, and optionally yt-dlp are available in PATH.
-# The repo can also use ./Development_data/yt-dlp.exe on Windows if present.
 ```
 
 ```bash
@@ -126,7 +125,7 @@ macOS/Linux/Git Bash:
 npm install
 cp .env.docker.example .env.docker
 docker compose up -d db
-npm run db:migrate
+npx prisma migrate deploy
 npm run dev:local
 ```
 
@@ -314,7 +313,7 @@ Each sync also scans `./Development_data/lobbies` for existing raw MP4 files tha
 
 Video optimization uses ffmpeg and can affect app responsiveness on the same machine. The cross-platform media job limits ffmpeg to 2 threads by default; set `MEDIA_FFMPEG_THREADS=1` for gentler background processing or a higher value for faster offline processing.
 
-Windows uses `./Development_data/yt-dlp.exe` when that file exists; otherwise install `yt-dlp` and make it available in PATH. macOS users can install dependencies with:
+Native Windows, macOS, and Linux runs require `yt-dlp` in `PATH`. macOS users can install dependencies with:
 
 ```bash
 brew install ffmpeg yt-dlp
@@ -328,7 +327,7 @@ YouTube radio downloads also use a local PO-token provider. On Windows, macOS, o
 npm run media:radio:setup
 ```
 
-The setup refreshes the pinned plugin on every run and updates the bundled Windows yt-dlp executable to its nightly channel because YouTube compatibility changes frequently. On macOS and Linux, it verifies the package-managed `yt-dlp` available in `PATH` without modifying it. The normal `npm run dev` process discovers the plugin in `./Development_data/yt-dlp-plugins`. Docker Compose starts the same provider automatically for production containers. Set `MEDIA_YTDLP_PLUGIN_DIR` or `MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL` only when using a custom plugin location or provider address.
+The setup refreshes the pinned plugin on every run and verifies the installed `yt-dlp` command without modifying it. The normal `npm run dev` process discovers the plugin in `./Development_data/yt-dlp-plugins`. Docker Compose starts the same provider automatically for production containers. Set `MEDIA_YTDLP_PLUGIN_DIR` or `MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL` only when using a custom plugin location or provider address.
 
 ### Legacy Windows PowerShell Scripts
 

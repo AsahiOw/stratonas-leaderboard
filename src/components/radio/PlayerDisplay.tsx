@@ -1,16 +1,31 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatRadioTime, type RadioPlayerValue } from './RadioPlayerProvider'
 import styles from './RadioPage.module.css'
 
 export function PlayerDisplay({ player }: { player: RadioPlayerValue }) {
   const visualizerRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLDivElement>(null)
+  const titleTextRef = useRef<HTMLSpanElement>(null)
+  const [titleOverflow, setTitleOverflow] = useState(0)
   const playing = player.playing
   const readFrequencyData = player.readFrequencyData
   const title = player.currentTrack?.displayTitle || 'NO DISC INSERTED'
   const status = player.error ? 'ERR' : player.loading ? 'LOAD' : player.playing ? 'PLAY' : 'PAUSE'
   const progress = player.duration ? Math.min(100, (player.currentTime / player.duration) * 100) : 0
+
+  useEffect(() => {
+    const titleElement = titleRef.current
+    const titleTextElement = titleTextRef.current
+    if (!titleElement || !titleTextElement) return
+    const updateOverflow = () => setTitleOverflow(Math.max(0, titleTextElement.scrollWidth - titleElement.clientWidth))
+    updateOverflow()
+    const observer = new ResizeObserver(updateOverflow)
+    observer.observe(titleElement)
+    observer.observe(titleTextElement)
+    return () => observer.disconnect()
+  }, [title])
 
   useEffect(() => {
     const visualizer = visualizerRef.current
@@ -87,7 +102,14 @@ export function PlayerDisplay({ player }: { player: RadioPlayerValue }) {
         <span>MD-01 / KIVOTOS</span>
         <span className={styles.lcdStatus}>{status}</span>
       </div>
-      <div className={styles.lcdTitle} title={title}><span>{title}</span></div>
+      <div
+        ref={titleRef}
+        className={`${styles.lcdTitle} ${titleOverflow > 0 ? styles.lcdTitleScrolling : ''}`}
+        title={title}
+        style={{ '--title-overflow': `${titleOverflow}px`, '--title-duration': `${Math.max(8, title.length * 0.16)}s` } as React.CSSProperties}
+      >
+        <span ref={titleTextRef}>{title}</span>
+      </div>
       <div className={styles.lcdMeta}>BLUE ARCHIVE GLOBAL · OST ARCHIVE</div>
       <div ref={visualizerRef} className={styles.visualizer} aria-hidden="true">
         {Array.from({ length: 24 }, (_, index) => <i key={index} />)}

@@ -153,6 +153,74 @@ interface Entry {
   createdAt: string; player: Player; raid: Raid
 }
 
+interface AdminActivity {
+  id: string
+  actorType: 'ADMIN' | 'AUTOMATION'
+  actorId?: string | null
+  actorEmail?: string | null
+  action: string
+  entityType: string
+  entityId?: string | null
+  summary: string
+  status: string
+  details?: unknown
+  createdAt: string
+}
+
+interface DashboardData {
+  counts: { players: number; clubs: number; activeRaids: number; entries: number }
+  recentActivity: AdminActivity[]
+}
+
+type ActivityChange = {
+  field: string
+  before: unknown
+  after: unknown
+}
+
+function activityRecord(value: unknown) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function activityComparison(activity: AdminActivity) {
+  const details = activityRecord(activity.details)
+  if (!['CREATE', 'UPDATE', 'DELETE', 'UPSERT', 'RESOLVE'].includes(activity.action)
+    || !details
+    || !Object.prototype.hasOwnProperty.call(details, 'before')) {
+    return { available: false, changes: [] as ActivityChange[] }
+  }
+
+  const before = activityRecord(details.before)
+  const result = activityRecord(details.result)
+  const deleted = activityRecord(result?.deleted)
+  const after = activity.action === 'DELETE' ? null : result
+  const previous = before || deleted
+
+  if (!previous && !after) return { available: false, changes: [] as ActivityChange[] }
+
+  const keys = activity.action === 'CREATE' || (!previous && after)
+    ? Object.keys(after || {})
+    : activity.action === 'DELETE'
+      ? Object.keys(previous || {})
+      : Object.keys(previous || {}).filter((key) => Object.prototype.hasOwnProperty.call(after || {}, key))
+
+  const changes = keys
+    .filter((key) => key !== 'updatedAt')
+    .map((field) => ({ field, before: previous?.[field], after: after?.[field] }))
+    .filter((change) => JSON.stringify(change.before) !== JSON.stringify(change.after))
+
+  return { available: true, changes }
+}
+
+function activityValue(value: unknown) {
+  if (value === undefined || value === null || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'object') return JSON.stringify(value, null, 2)
+  return String(value)
+}
+
 interface XlsxImportResult {
   raid: { id: string; title: string; created: boolean }
   rowsRead: number
@@ -330,7 +398,10 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const [raidServers, setRaidServers] = useState<RaidServer[]>([])
   const [raidTerrains, setRaidTerrains] = useState<RaidTerrain[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   const [modal, setModal] = useState<string | null>(null)
+  const [activityDetail, setActivityDetail] = useState<AdminActivity | null>(null)
+  const [activityDetailMode, setActivityDetailMode] = useState<'simplified' | 'raw'>('simplified')
   const [editTarget, setEditTarget] = useState<Player | Club | Student | Raid | Entry | RaidBoss | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null)
@@ -435,6 +506,15 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const loadRaids = useCallback(() => fetch('/api/admin/raids', { cache: 'no-store' }).then(r => r.json()).then(setRaids), [])
   const loadBosses = useCallback(() => fetch('/api/admin/raid-bosses', { cache: 'no-store' }).then(r => r.json()).then(setBosses), [])
   const loadEntries = useCallback(() => fetch('/api/admin/entries', { cache: 'no-store' }).then(r => r.json()).then(setEntries), [])
+  const loadDashboard = useCallback(() => {
+    fetch('/api/admin/dashboard', { cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json()
+        if (!response.ok) throw new Error(body?.error || 'Could not load dashboard.')
+        setDashboard(body)
+      })
+      .catch(() => null)
+  }, [])
   const loadXlsxReviewItems = useCallback(() => {
     fetch('/api/admin/import/xlsx/review')
       .then(r => r.json())
@@ -502,32 +582,21 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       })
   }, [])
 
-  const loadLookups = useCallback(() => {
-    Promise.all([
-      fetch('/api/admin/raid-bosses', { cache: 'no-store' }).then(r => r.json()),
-      fetch('/api/admin/raids', { cache: 'no-store' }).then(r => r.json()),
-    ]).then(([b, raids]) => {
-      setBosses(b)
-      if (raids.length > 0) {
-        setRaidTypes([raids[0].type, ...raids
-          .map((r: Raid) => r.type)
-          .filter((t: RaidType, i: number, arr: RaidType[]) => arr.findIndex(x => x.id === t.id) === i)
-          .slice(1)])
-        setRaidServers([raids[0].server, ...raids
-          .map((r: Raid) => r.server)
-          .filter((s: RaidServer, i: number, arr: RaidServer[]) => arr.findIndex(x => x.id === s.id) === i)
-          .slice(1)])
-        setRaidTerrains([raids[0].terrain, ...raids
-          .map((r: Raid) => r.terrain)
-          .filter((t: RaidTerrain, i: number, arr: RaidTerrain[]) => arr.findIndex(x => x.id === t.id) === i)
-          .slice(1)])
-      }
-    })
-  }, [])
-
   useEffect(() => {
-    loadPlayers(); loadClubs(); loadStudents(); loadRaids(); loadBosses(); loadEntries(); loadLookups(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadMemorialMediaSyncStatus(); loadRadioSyncStatus(); loadPlanaImportStatus(); loadMemorialVideos(); loadXlsxReviewItems(); loadStudentMatchRules()
-  }, [loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadLookups, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadMemorialMediaSyncStatus, loadRadioSyncStatus, loadPlanaImportStatus, loadMemorialVideos, loadXlsxReviewItems, loadStudentMatchRules])
+    if (!active) return
+    if (sec === 'dashboard') loadDashboard()
+    if (sec === 'players') { loadPlayers(); loadClubs(); loadStudents() }
+    if (sec === 'clubs') loadClubs()
+    if (sec === 'students') { loadStudents(); loadImportStatus(); loadMemorialMediaSyncStatus() }
+    if (sec === 'videos') loadMemorialVideos()
+    if (sec === 'raids') { loadRaids(); loadBosses(); loadRaidLookups() }
+    if (sec === 'bosses') { loadBosses(); loadRaids(); loadBossImportStatus() }
+    if (sec === 'entries') { loadEntries(); loadPlayers(); loadRaids() }
+    if (sec === 'plana') loadPlanaImportStatus()
+    if (sec === 'import') { loadStudents(); loadRaidLookups(); loadImportStatus(); loadBossImportStatus(); loadXlsxReviewItems(); loadStudentMatchRules() }
+    if (sec === 'recruitment') loadStudents()
+    if (sec === 'settings') { loadStudents(); loadStudentMatchRules() }
+  }, [active, sec, loadDashboard, loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadMemorialMediaSyncStatus, loadPlanaImportStatus, loadMemorialVideos, loadXlsxReviewItems, loadStudentMatchRules])
 
   useEffect(() => {
     if (!showImportProgress || importState?.status !== 'running') return
@@ -1461,7 +1530,6 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     ? studentMatchRules
     : studentMatchRules.filter((rule) => rule.type === ruleTypeFilter)
 
-  const latestRaidCount = raids.filter(r => r.isActive).length
   const currentNav = navItems.find((n) => n.id === sec)
   const CurrentNavIcon = currentNav?.icon
   const planaProgressPercent = planaImportStatus?.status === 'running'
@@ -1527,9 +1595,10 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     e.raid.raidBoss.name, e.raid.season, e.raid.type.name, e.raid.server.name, e.raid.terrain.name,
     e.score, e.createdAt,
   ], normalizedSearch.entries))
-  const filteredActivity = entries.filter((e) => searchable([
-    e.player.ign, e.player.username, e.raid.raidBoss.name, e.raid.season, e.raid.server.name, e.raid.terrain.name,
-    e.score, e.createdAt,
+  const dashboardActivity = dashboard?.recentActivity || []
+  const filteredActivity = dashboardActivity.filter((e) => searchable([
+    e.actorType, e.actorEmail, e.action, e.entityType, e.entityId, e.summary, e.status, e.createdAt,
+    e.details ? JSON.stringify(e.details) : '',
   ], normalizedSearch.activity))
 
   const visibleActivity = filteredActivity.slice(0, visibleRows.activity)
@@ -1677,43 +1746,60 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
             <div className="font-bold text-lg mb-5">Dashboard</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
               {[
-                { l: 'Total Players', v: players.length, c: 'var(--accent)' },
-                { l: 'Clubs', v: clubs.length, c: 'var(--gold)' },
-                { l: 'Latest Raids', v: latestRaidCount, c: 'var(--green)' },
-                { l: 'Total Entries', v: entries.length, c: '#a78bfa' },
+                { l: 'Total Players', v: dashboard?.counts.players, c: 'var(--accent)' },
+                { l: 'Clubs', v: dashboard?.counts.clubs, c: 'var(--gold)' },
+                { l: 'Latest Raids', v: dashboard?.counts.activeRaids, c: 'var(--green)' },
+                { l: 'Total Entries', v: dashboard?.counts.entries, c: '#a78bfa' },
               ].map((d) => (
                 <div key={d.l} className="bg-card border border-border rounded-xl px-5 py-4">
-                  <div className="text-2xl font-bold font-mono" style={{ color: d.c }}>{d.v}</div>
+                  <div className="text-2xl font-bold font-mono" style={{ color: d.c }}>{d.v ?? '—'}</div>
                   <div className="text-xs text-muted mt-1">{d.l}</div>
                 </div>
               ))}
             </div>
             <div className="bg-card border border-border rounded-xl px-5 py-4">
               <div className="text-[13px] font-semibold mb-3">Recent Activity</div>
-              {renderListControls('activity', entries.length, filteredActivity.length, visibleActivity.length, 'Search activity by player, raid, server, score, or date...')}
+              {renderListControls('activity', dashboardActivity.length, filteredActivity.length, visibleActivity.length, 'Search by admin, action, entity, detail, or date...')}
               {visibleActivity.map((e, i) => (
                 <div
                   key={e.id}
-                  className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 py-2 ${i < visibleActivity.length - 1 ? 'border-b border-border' : ''
+                  className={`py-3 ${i < visibleActivity.length - 1 ? 'border-b border-border' : ''
                     }`}
                 >
-                  <div className="min-w-0">
-                    <span className="font-semibold text-[13px]">{e.player.ign}</span>
-                    <span className="text-xs text-muted ml-2">
-                      Entry — {e.raid.raidBoss.name} S{e.raid.season}
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${e.status === 'failed' ? 'bg-red/10 text-red' : 'bg-green/10 text-green'}`}>
+                          {e.action}
+                        </span>
+                        <span className="font-semibold text-[13px]">{e.summary}</span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-muted">
+                        {e.actorType === 'AUTOMATION' ? 'Scheduled automation' : e.actorEmail || 'Admin'}
+                        {' · '}{e.entityType}{e.entityId ? ` · ${e.entityId}` : ''}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-muted text-[11px]" title={new Date(e.createdAt).toLocaleString()}>
+                      {new Date(e.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2.5 sm:shrink-0">
-                    <span className="text-green font-mono text-[13px]">+{e.score.toLocaleString('en-US')}</span>
-                    <span className="text-muted text-[11px]">
-                      {new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
+                  {e.details != null && (
+                    <button
+                      type="button"
+                      className="mt-2 text-xs font-semibold text-accent hover:underline"
+                      onClick={() => {
+                        setActivityDetail(e)
+                        setActivityDetailMode('simplified')
+                      }}
+                    >
+                      View details
+                    </button>
+                  )}
                 </div>
               ))}
               {filteredActivity.length === 0 && (
                 <div className="text-center text-muted text-sm py-8">
-                  {entries.length === 0 ? 'No recent activity yet.' : 'No activity matches your search.'}
+                  {!dashboard ? 'Loading recent activity...' : dashboardActivity.length === 0 ? 'No recent activity yet.' : 'No activity matches your search.'}
                 </div>
               )}
               {renderShowMore('activity', filteredActivity.length, visibleActivity.length)}
@@ -3121,6 +3207,89 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       </div>
 
       {toast && <Toast message={toast} />}
+
+      {activityDetail && (() => {
+        const comparison = activityComparison(activityDetail)
+        return (
+          <StModal
+            title="Activity details"
+            onClose={() => setActivityDetail(null)}
+            extraWide
+            headerActions={(
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${activityDetailMode === 'simplified'
+                    ? 'border-accent bg-accent text-white'
+                    : 'border-border bg-bg text-muted2 hover:text-text'
+                    }`}
+                  onClick={() => setActivityDetailMode('simplified')}
+                >
+                  Simplify
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${activityDetailMode === 'raw'
+                    ? 'border-accent bg-accent text-white'
+                    : 'border-border bg-bg text-muted2 hover:text-text'
+                    }`}
+                  onClick={() => setActivityDetailMode('raw')}
+                >
+                  Raw details
+                </button>
+              </div>
+            )}
+          >
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border bg-bg p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${activityDetail.status === 'failed' ? 'bg-red/10 text-red' : 'bg-green/10 text-green'}`}>
+                    {activityDetail.action}
+                  </span>
+                  <span className="text-sm font-semibold">{activityDetail.summary}</span>
+                </div>
+                <div className="mt-2 text-xs text-muted2">
+                  {activityDetail.actorType === 'AUTOMATION' ? 'Scheduled automation' : activityDetail.actorEmail || 'Admin'}
+                  {' · '}{activityDetail.entityType}{activityDetail.entityId ? ` · ${activityDetail.entityId}` : ''}
+                </div>
+                <div className="mt-1 text-xs text-muted">{new Date(activityDetail.createdAt).toLocaleString()}</div>
+              </div>
+
+              {activityDetailMode === 'simplified' ? (
+                <div>
+                  <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Persisted changes</div>
+                  {!comparison.available ? (
+                    <div className="rounded-lg border border-border bg-bg px-4 py-5 text-sm text-muted2">
+                      A previous snapshot was not recorded for this activity. Use Raw details to inspect the saved request and result.
+                    </div>
+                  ) : comparison.changes.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-bg px-4 py-5 text-sm text-muted2">
+                      No persisted field changes were detected.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {comparison.changes.map((change) => (
+                        <div key={change.field} className="rounded-lg border border-border bg-bg p-3">
+                          <div className="mb-2 font-mono text-[11px] font-bold text-accent">{change.field}</div>
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-2">
+                            <pre className="min-w-0 overflow-auto whitespace-pre-wrap break-words rounded-md bg-red/10 p-2 text-xs text-red">{activityValue(change.before)}</pre>
+                            <span className="self-center text-muted" aria-hidden>→</span>
+                            <pre className="min-w-0 overflow-auto whitespace-pre-wrap break-words rounded-md bg-green/10 p-2 text-xs text-green">{activityValue(change.after)}</pre>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-bg p-4 text-[11px] text-muted2">
+                  {JSON.stringify(activityDetail.details, null, 2)}
+                </pre>
+              )}
+            </div>
+          </StModal>
+        )
+      })()}
 
       {/* Player modal */}
       {modal === 'player' && (

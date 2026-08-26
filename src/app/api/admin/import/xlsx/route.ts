@@ -4,6 +4,7 @@ import { readValidatedFormData } from '@/lib/request-form'
 import { invalidatePublicData } from '@/lib/cache'
 import { importRaidXlsx } from '@/lib/xlsx-raid-import'
 import { completeXlsxImportProgress, failXlsxImportProgress, resetXlsxImportProgress } from '@/lib/xlsx-import-progress'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,7 @@ function stringField(value: FormDataEntryValue | null): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -51,3 +52,5 @@ export async function POST(req: Request) {
     }, { status: 400 })
   }
 }
+
+export const POST = withAdminMutationAudit({ action: 'IMPORT', entityType: 'raid XLSX', summary: 'Imported raid XLSX workbook' }, post)

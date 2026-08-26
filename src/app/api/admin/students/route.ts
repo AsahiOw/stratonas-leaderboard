@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { deleteCustomStudentMedia, saveCustomStudentMedia } from '@/lib/custom-student-media'
 import { readValidatedFormData } from '@/lib/request-form'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 import {
   normalizePortraitOffsetNumber,
   normalizePortraitScale,
@@ -50,7 +51,7 @@ export async function GET() {
   return NextResponse.json(students)
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
   let parsedBody: Awaited<ReturnType<typeof readStudentBody>>
@@ -117,3 +118,5 @@ export async function POST(req: Request) {
     return studentErrorResponse(error)
   }
 }
+
+export const POST = withAdminMutationAudit({ action: 'CREATE', entityType: 'student' }, post)

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { normalizeStudentId } from '@/lib/students'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 function playerErrorResponse(error: unknown, fallback = 'Could not save player.') {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -25,7 +26,7 @@ function playerErrorResponse(error: unknown, fallback = 'Could not save player.'
   return NextResponse.json({ error: fallback }, { status: 500 })
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function put(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
@@ -70,16 +71,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function del(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
   try {
     await prisma.raidEntry.deleteMany({ where: { playerId: id } })
-    await prisma.player.delete({ where: { id } })
+    const deleted = await prisma.player.delete({ where: { id } })
     invalidatePublicData()
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, deleted })
   } catch (error) {
     return playerErrorResponse(error, 'Could not delete player.')
   }
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'player' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'player' }, del)

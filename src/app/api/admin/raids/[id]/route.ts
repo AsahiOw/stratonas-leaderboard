@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { withRaidActivity } from '@/lib/raid-activity'
 import { resolveRaidServer, resolveRaidTerrain, resolveRaidType } from '@/lib/raid-lookups'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 const raidInclude = {
   raidBoss: true,
@@ -12,7 +13,7 @@ const raidInclude = {
   terrain: true,
 } as const
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function put(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
@@ -44,12 +45,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json(withRaidActivity([raid])[0])
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function del(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
   await prisma.raidEntry.deleteMany({ where: { raidId: id } })
-  await prisma.raid.delete({ where: { id } })
+  const deleted = await prisma.raid.delete({ where: { id } })
   invalidatePublicData()
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, deleted })
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'raid' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'raid' }, del)

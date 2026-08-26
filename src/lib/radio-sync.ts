@@ -99,7 +99,7 @@ async function runRadioSync() {
   let skipped = 0
   let failed = 0
   try {
-    const ytDlp = await resolveYtDlp()
+    const ytDlp = 'yt-dlp'
     const all = await listChannel(ytDlp)
     const matching = all.filter((video) => video.title.includes(RADIO_TITLE_MARKER))
 
@@ -214,11 +214,6 @@ async function probeDuration(filePath: string) {
   const output = await runCommand('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', filePath])
   const duration = Number(output.trim())
   return Number.isFinite(duration) ? Math.round(duration) : null
-}
-
-async function resolveYtDlp() {
-  const bundled = path.join(DATA_DIR, 'yt-dlp.exe')
-  return process.platform === 'win32' && await isFile(bundled) ? bundled : 'yt-dlp'
 }
 
 function cookieArgs() {

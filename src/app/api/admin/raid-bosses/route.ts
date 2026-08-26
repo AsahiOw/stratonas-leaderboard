@@ -3,6 +3,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData, jsonWithNoStore } from '@/lib/cache'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +21,7 @@ export async function GET() {
   return jsonWithNoStore(bosses)
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
   const body = await req.json()
@@ -43,3 +44,5 @@ export async function POST(req: Request) {
     return bossErrorResponse(error)
   }
 }
+
+export const POST = withAdminMutationAudit({ action: 'CREATE', entityType: 'raid boss' }, post)

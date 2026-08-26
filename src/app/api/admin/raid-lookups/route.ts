@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
+import { recordAdminActivity } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,23 +17,28 @@ export async function GET() {
   const guard = await requireAdmin()
   if (guard) return guard
 
-  await Promise.all([
-    ...DEFAULT_TYPES.map((name) => prisma.raidType.upsert({
-      where: { name },
-      update: {},
-      create: { id: lookupId('raidtype', name), name },
-    })),
-    ...DEFAULT_SERVERS.map((name) => prisma.raidServer.upsert({
-      where: { name },
-      update: {},
-      create: { id: lookupId('raidserver', name), name },
-    })),
-    ...DEFAULT_TERRAINS.map((name) => prisma.raidTerrain.upsert({
-      where: { name },
-      update: {},
-      create: { id: lookupId('raidterrain', name), name },
-    })),
+  const [existingTypes, existingServers, existingTerrains] = await Promise.all([
+    prisma.raidType.findMany({ select: { name: true } }),
+    prisma.raidServer.findMany({ select: { name: true } }),
+    prisma.raidTerrain.findMany({ select: { name: true } }),
   ])
+  const missingTypes = DEFAULT_TYPES.filter((name) => !existingTypes.some((item) => item.name === name))
+  const missingServers = DEFAULT_SERVERS.filter((name) => !existingServers.some((item) => item.name === name))
+  const missingTerrains = DEFAULT_TERRAINS.filter((name) => !existingTerrains.some((item) => item.name === name))
+  const [createdTypes, createdServers, createdTerrains] = await Promise.all([
+    missingTypes.length ? prisma.raidType.createMany({ data: missingTypes.map((name) => ({ id: lookupId('raidtype', name), name })), skipDuplicates: true }) : { count: 0 },
+    missingServers.length ? prisma.raidServer.createMany({ data: missingServers.map((name) => ({ id: lookupId('raidserver', name), name })), skipDuplicates: true }) : { count: 0 },
+    missingTerrains.length ? prisma.raidTerrain.createMany({ data: missingTerrains.map((name) => ({ id: lookupId('raidterrain', name), name })), skipDuplicates: true }) : { count: 0 },
+  ])
+  const created = createdTypes.count + createdServers.count + createdTerrains.count
+  if (created > 0) {
+    await recordAdminActivity({
+      action: 'CREATE',
+      entityType: 'raid lookup defaults',
+      summary: `Created ${created} missing raid lookup default${created === 1 ? '' : 's'}`,
+      details: { types: missingTypes, servers: missingServers, terrains: missingTerrains },
+    })
+  }
 
   const [types, servers, terrains] = await Promise.all([
     prisma.raidType.findMany({ orderBy: { name: 'asc' } }),

@@ -4,10 +4,11 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { deleteClubLogo, saveClubLogo } from '@/lib/club-logo-upload'
 import { readValidatedFormData } from '@/lib/request-form'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const runtime = 'nodejs'
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function put(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
@@ -54,7 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json(club)
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function del(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
@@ -63,7 +64,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     where: { clubId: id },
     data: { clubId: null },
   })
-  await prisma.club.delete({ where: { id } })
+  const deleted = await prisma.club.delete({ where: { id } })
   invalidatePublicData()
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, deleted })
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'club' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'club' }, del)

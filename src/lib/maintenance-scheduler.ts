@@ -7,6 +7,7 @@ import {
   type MaintenanceSchedule,
 } from '@/lib/maintenance-schedule'
 import { prisma } from '@/lib/prisma'
+import { recordAdminActivity } from '@/lib/admin-activity'
 
 const TICK_MS = 60_000
 const LOCK_STALE_MS = 2 * 60_000
@@ -112,19 +113,40 @@ async function attemptScheduledJob(schedule: MaintenanceSchedule, scheduledAt: D
       where: { id: run.id },
       data: { status: 'completed', message, error: null, completedAt: new Date() },
     })
+    await recordScheduledMaintenanceActivity(schedule, run.id, scheduledAt, 'success', message)
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : `${schedule.label} failed.`
     await prisma.maintenanceJobRun.update({
       where: { id: run.id },
       data: {
         status: 'failed',
-        error: error instanceof Error ? error.message : `${schedule.label} failed.`,
+        error: errorMessage,
         completedAt: new Date(),
       },
     })
+    await recordScheduledMaintenanceActivity(schedule, run.id, scheduledAt, 'failed', errorMessage)
   } finally {
     clearInterval(heartbeat)
     await releaseMaintenanceLock(holder)
   }
+}
+
+export async function recordScheduledMaintenanceActivity(
+  schedule: MaintenanceSchedule,
+  runId: string,
+  scheduledAt: Date,
+  status: 'success' | 'failed',
+  message: string,
+) {
+  await recordAdminActivity({
+    actorType: 'AUTOMATION',
+    action: schedule.id === 'students' || schedule.id === 'bosses' ? 'IMPORT' : 'SYNC',
+    entityType: schedule.label,
+    entityId: runId,
+    summary: `${schedule.label} scheduled job ${status === 'success' ? 'completed' : 'failed'}`,
+    status,
+    details: { jobId: schedule.id, runId, scheduledAt, message },
+  }).catch((error) => console.error(`Could not record ${schedule.label} scheduler activity:`, error))
 }
 
 async function executeJob(jobId: MaintenanceJobId, scheduledAt: Date): Promise<string | false> {

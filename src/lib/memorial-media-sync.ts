@@ -283,7 +283,7 @@ async function findSyncVideosNeedingWork() {
 }
 
 async function downloadNewVideos() {
-  const ytDlp = await resolveYtDlp()
+  const ytDlp = 'yt-dlp'
   await updateState({ stage: 'Checking YouTube', message: 'Reading Jaymie Arclight channel videos.' })
 
   const videos = await listChannelVideos(ytDlp)
@@ -531,14 +531,6 @@ function formatDuration(seconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
   const remainder = totalSeconds % 60
   return `${minutes}:${String(remainder).padStart(2, '0')}`
-}
-
-async function resolveYtDlp() {
-  if (process.platform === 'win32') {
-    const bundled = path.join(DEVELOPMENT_DATA_DIR, 'yt-dlp.exe')
-    if (await isFile(bundled)) return bundled
-  }
-  return 'yt-dlp'
 }
 
 async function runCommand(

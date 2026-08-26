@@ -17,6 +17,26 @@ model User {
   role          Role      @default(VIEWER)
   sessions      Session[]
   accounts      Account[]
+  adminActivities AdminActivity[]
+}
+
+model AdminActivity {
+  id          String   @id @default(cuid())
+  actorType   String
+  actorId     String?
+  actorEmail  String?
+  action      String
+  entityType  String
+  entityId    String?
+  summary     String
+  status      String   @default("success")
+  details     Json?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, createdAt])
 }
 
 enum Role {

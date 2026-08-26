@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { normalizeStudentId } from '@/lib/students'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 function playerErrorResponse(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -34,7 +35,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
   const body = await req.json()
@@ -76,3 +77,5 @@ export async function POST(req: Request) {
     return playerErrorResponse(error)
   }
 }
+
+export const POST = withAdminMutationAudit({ action: 'CREATE', entityType: 'player' }, post)
