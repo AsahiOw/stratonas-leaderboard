@@ -4,7 +4,7 @@
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Disc3, GripVertical, Play, Search, StepForward, X } from 'lucide-react'
 import { RadioArtwork } from './RadioArtwork'
 import { formatRadioTime, type RadioTrack } from './RadioPlayerProvider'
@@ -30,7 +30,7 @@ type Props = {
   onAnnounce: (message: string) => void
 }
 
-export function TrackLibrary(props: Props) {
+export const TrackLibrary = memo(function TrackLibrary(props: Props) {
   const tracksPerBank = 5
   const [bank, setBank] = useState(0)
   const [loadingId, setLoadingId] = useState<string | null>(null)
@@ -61,11 +61,8 @@ export function TrackLibrary(props: Props) {
   function loadSelectedDisc() {
     if (!selectedTrack || loadingId) return
     setLoadingId(selectedTrack.id)
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    window.setTimeout(() => {
-      props.onPlay(selectedTrack.id)
-      setLoadingId(null)
-    }, reducedMotion ? 40 : 520)
+    props.onPlay(selectedTrack.id)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) setLoadingId(null)
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -110,6 +107,7 @@ export function TrackLibrary(props: Props) {
                 aria-selected={selected}
                 key={track.id}
                 onClick={() => props.onSelect(track.id)}
+                onAnimationEnd={() => loading && setLoadingId(null)}
                 className={`${styles.magazineSlot} ${selected ? styles.magazineSlotSelected : ''} ${loading ? styles.magazineSlotLoading : ''}`}
                 title={`${track.displayTitle} — ${formatRadioTime(track.durationSeconds || 0)}`}
               >
@@ -171,7 +169,7 @@ export function TrackLibrary(props: Props) {
       </DndContext>
     </section>
   )
-}
+})
 
 function MediaDrawer({ id, label, counter, tracks, search, onSearch, currentId, actions }: {
   id: string; label: string; counter: number; tracks: RadioTrack[]; search: string

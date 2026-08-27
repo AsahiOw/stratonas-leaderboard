@@ -1,7 +1,7 @@
 'use client'
 
 import { Disc3, ListMusic, RadioTower } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { suppressNextKeiGreeting } from '@/lib/kei-volume'
 import { PhysicalPlayer } from './PhysicalPlayer'
 import { RadioArtwork } from './RadioArtwork'
@@ -20,6 +20,11 @@ export function RadioPage({ onReturnToOther }: { onReturnToOther: () => void }) 
   const [exiting, setExiting] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('player')
+  const playSwitchSfx = player.playSwitchSfx
+  const setPlayerQueue = player.setQueue
+  const playerQueue = player.queue
+  const playerTracks = player.tracks
+  const currentPlayerId = player.currentId
 
   const selected = player.tracks.find((track) => track.id === selectedId) || player.currentTrack || player.tracks[0] || null
   const queued = useMemo(() => player.queue.map((id) => player.tracks.find((track) => track.id === id)).filter(Boolean) as RadioTrack[], [player.queue, player.tracks])
@@ -29,10 +34,10 @@ export function RadioPage({ onReturnToOther }: { onReturnToOther: () => void }) 
     if (!selectedId && selected) setSelectedId(selected.id)
   }, [selected, selectedId])
 
-  function selectTrack(id: string) {
+  const selectTrack = useCallback((id: string) => {
     setSelectedId(id)
-    player.playSwitchSfx()
-  }
+    playSwitchSfx()
+  }, [playSwitchSfx])
 
   function handleKeyDown(event: React.KeyboardEvent) {
     if (!player.tracks.length || isTypingTarget(event.target)) return
@@ -50,22 +55,22 @@ export function RadioPage({ onReturnToOther }: { onReturnToOther: () => void }) 
     }
   }
 
-  function moveTrack(id: string, delta: number) {
-    const queue = [...player.queue]
+  const moveTrack = useCallback((id: string, delta: number) => {
+    const queue = [...playerQueue]
     const from = queue.indexOf(id)
     const to = Math.max(0, Math.min(queue.length - 1, from + delta))
     if (from < 0 || from === to) return
     queue.splice(from, 1)
     queue.splice(to, 0, id)
-    player.setQueue(queue)
-    setAnnouncement(`Moved ${player.tracks.find((track) => track.id === id)?.displayTitle}.`)
-  }
+    setPlayerQueue(queue)
+    setAnnouncement(`Moved ${playerTracks.find((track) => track.id === id)?.displayTitle}.`)
+  }, [playerQueue, playerTracks, setPlayerQueue])
 
-  function removeTrack(id: string) {
-    if (id === player.currentId) return
-    player.setQueue(player.queue.filter((trackId) => trackId !== id))
+  const removeTrack = useCallback((id: string) => {
+    if (id === currentPlayerId) return
+    setPlayerQueue(playerQueue.filter((trackId) => trackId !== id))
     setAnnouncement('Disc returned to the archive.')
-  }
+  }, [currentPlayerId, playerQueue, setPlayerQueue])
 
   function shuffleAll() {
     if (!player.tracks.length || shuffling) return
@@ -135,6 +140,7 @@ export function RadioPage({ onReturnToOther }: { onReturnToOther: () => void }) 
               player={player}
               selectedTrack={selected}
               shuffling={shuffling}
+              visible={mobilePanel === 'player'}
               onShuffle={shuffleAll}
               onExit={ejectAndExit}
               onBackground={enterBackgroundMode}

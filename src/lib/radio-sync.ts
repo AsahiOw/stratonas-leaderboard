@@ -4,7 +4,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
-import { buildRadioPoTokenArgs, RADIO_AUDIO_DOWNLOAD_ARGS } from '@/lib/radio-sync-options'
+import { buildYoutubePoTokenArgs, RADIO_AUDIO_DOWNLOAD_ARGS } from '@/lib/radio-sync-options'
 
 export const RADIO_SYNC_ID = 'bluearchive-global-radio'
 export const RADIO_TITLE_MARKER = '| OST [1 Hour Loop]'
@@ -231,7 +231,7 @@ function youtubeArgs() {
     return []
   }
   const providerUrl = process.env.MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL?.trim() || DEFAULT_PO_TOKEN_PROVIDER_URL
-  return buildRadioPoTokenArgs(pluginDir, providerUrl)
+  return buildYoutubePoTokenArgs(pluginDir, providerUrl)
 }
 
 async function runCommand(command: string, args: string[]) {

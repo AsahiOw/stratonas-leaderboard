@@ -3,6 +3,7 @@ import { statSync } from 'fs'
 import fs from 'fs/promises'
 import path from 'path'
 import { prisma } from '@/lib/prisma'
+import { buildYoutubePoTokenArgs, MEMORIAL_VIDEO_DOWNLOAD_ARGS } from '@/lib/radio-sync-options'
 import { runStudentImportSync } from '@/lib/student-import'
 
 export const MEMORIAL_MEDIA_SYNC_ID = 'jaymie-memorial-media'
@@ -14,6 +15,8 @@ const VIDEO_OUT_DIR = path.join(DEVELOPMENT_DATA_DIR, 'lobbies-optimized')
 const POSTER_OUT_DIR = path.join(DEVELOPMENT_DATA_DIR, 'lobby-posters')
 const ARCHIVE_PATH = path.join(DEVELOPMENT_DATA_DIR, 'jaymie-yt-dlp-archive.txt')
 const COOKIES_PATH = path.join(DEVELOPMENT_DATA_DIR, 'cookies.txt')
+const DEFAULT_PO_TOKEN_PLUGIN_DIR = path.join(DEVELOPMENT_DATA_DIR, 'yt-dlp-plugins')
+const DEFAULT_PO_TOKEN_PROVIDER_URL = 'http://127.0.0.1:4416'
 const HEIGHT = 720
 const FPS = 24
 const CRF = 30
@@ -398,8 +401,21 @@ async function runYtDlpDownload(ytDlp: string) {
 function commonYtDlpArgs() {
   return [
     ...cookieArgs(),
+    ...youtubeArgs(),
+    ...MEMORIAL_VIDEO_DOWNLOAD_ARGS,
     '--no-warnings',
   ]
+}
+
+function youtubeArgs() {
+  const pluginDir = process.env.MEDIA_YTDLP_PLUGIN_DIR?.trim() || DEFAULT_PO_TOKEN_PLUGIN_DIR
+  try {
+    if (!statSync(/*turbopackIgnore: true*/ pluginDir).isDirectory()) return []
+  } catch {
+    return []
+  }
+  const providerUrl = process.env.MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL?.trim() || DEFAULT_PO_TOKEN_PROVIDER_URL
+  return buildYoutubePoTokenArgs(pluginDir, providerUrl)
 }
 
 async function readArchiveIds() {

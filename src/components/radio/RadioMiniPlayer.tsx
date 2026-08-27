@@ -2,6 +2,7 @@
 
 import { Pause, Play, SkipBack, SkipForward, X } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 import { formatRadioTime, useRadioPlayer } from './RadioPlayerProvider'
 import { RadioArtwork } from './RadioArtwork'
 import styles from './RadioPage.module.css'
@@ -10,11 +11,21 @@ export function RadioMiniPlayer() {
   const pathname = usePathname()
   const router = useRouter()
   const player = useRadioPlayer()
+  const discRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const spin = discRef.current?.getAnimations()[0]
+      spin?.updatePlaybackRate(player.playbackRate)
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [pathname, player.backgroundMode, player.currentTrack, player.playbackRate])
+
   if (!player.backgroundMode || !player.currentTrack || ['/radio', '/login', '/admin'].includes(pathname)) return null
   const open = () => router.push('/radio')
   return (
     <aside className={styles.miniPlayer} aria-label="Radio mini player">
-      <button type="button" onClick={open} className={`${styles.miniDisc} ${player.playing ? styles.miniDiscPlaying : ''}`} aria-label="Open Radio">
+      <button ref={discRef} type="button" onClick={open} className={`${styles.miniDisc} ${player.playing ? styles.miniDiscPlaying : ''}`} aria-label="Open Radio">
         <RadioArtwork src={player.currentTrack.thumbnailUrl} alt="" sizes="56px" />
         <i />
       </button>
@@ -25,9 +36,9 @@ export function RadioMiniPlayer() {
       </div>
       <div className={styles.miniControls}>
         <button type="button" onClick={player.previous} aria-label="Previous"><SkipBack size={14} /></button>
-        <button type="button" onClick={player.togglePlay} aria-label={player.playing ? 'Pause' : 'Play'}>{player.playing ? <Pause size={15} /> : <Play size={15} />}</button>
+        <button type="button" onClick={player.togglePlay} aria-label={player.playbackRequested ? 'Pause' : 'Play'}>{player.playbackRequested ? <Pause size={15} /> : <Play size={15} />}</button>
         <button type="button" onClick={player.next} aria-label="Next"><SkipForward size={14} /></button>
-        <button type="button" onClick={() => { player.setBackgroundMode(false); if (player.playing) player.togglePlay() }} aria-label="Exit background mode"><X size={14} /></button>
+        <button type="button" onClick={() => { player.setBackgroundMode(false); if (player.playbackRequested) player.togglePlay() }} aria-label="Exit background mode"><X size={14} /></button>
       </div>
     </aside>
   )

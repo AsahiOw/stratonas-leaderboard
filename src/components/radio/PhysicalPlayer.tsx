@@ -11,12 +11,13 @@ type Props = {
   player: RadioPlayerValue
   selectedTrack: RadioTrack | null
   shuffling: boolean
+  visible: boolean
   onShuffle: () => void
   onExit: () => void
   onBackground: () => void
 }
 
-export function PhysicalPlayer({ player, selectedTrack, shuffling, onShuffle, onExit, onBackground }: Props) {
+export function PhysicalPlayer({ player, selectedTrack, shuffling, visible, onShuffle, onExit, onBackground }: Props) {
   const knobRotation = -135 + player.volume * 270
   const volumePresets = [0, 0.25, 0.5, 0.75, 1]
   const cycleLoop = () => player.setLoopMode(nextLoop(player.loopMode))
@@ -29,43 +30,61 @@ export function PhysicalPlayer({ player, selectedTrack, shuffling, onShuffle, on
   const playMechanismSfx = player.playMechanismSfx
   const [displayedTrack, setDisplayedTrack] = useState<RadioTrack | null>(player.currentTrack)
   const [discPhase, setDiscPhase] = useState<'idle' | 'ejecting' | 'inserting' | 'empty'>(player.currentTrack ? 'idle' : 'empty')
+  const discRef = useRef<HTMLButtonElement>(null)
   const displayedTrackRef = useRef(displayedTrack)
+  const pendingTrackRef = useRef<RadioTrack | null>(player.currentTrack)
   const operatePlatter = () => player.currentTrack ? player.togglePlay() : selectedTrack && player.playTrack(selectedTrack.id)
 
   useEffect(() => {
     if (displayedTrackRef.current?.id === currentTrack?.id) return
     const outgoing = displayedTrackRef.current
     const incoming = currentTrack
-    let insertTimer: number | undefined
-    let finishTimer: number | undefined
+    pendingTrackRef.current = incoming
+
+    if (!visible || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      displayedTrackRef.current = incoming
+      setDisplayedTrack(incoming)
+      setDiscPhase(incoming ? 'idle' : 'empty')
+      return
+    }
 
     if (outgoing) {
       setDiscPhase('ejecting')
       playMechanismSfx('eject')
-      insertTimer = window.setTimeout(() => {
-        displayedTrackRef.current = incoming
-        setDisplayedTrack(incoming)
-        if (incoming) {
-          setDiscPhase('inserting')
-          playMechanismSfx('insert')
-          finishTimer = window.setTimeout(() => setDiscPhase('idle'), 380)
-        } else {
-          setDiscPhase('empty')
-        }
-      }, 420)
     } else if (incoming) {
       displayedTrackRef.current = incoming
       setDisplayedTrack(incoming)
       setDiscPhase('inserting')
       playMechanismSfx('insert')
-      finishTimer = window.setTimeout(() => setDiscPhase('idle'), 380)
     }
+  }, [currentTrack, playMechanismSfx, visible])
 
-    return () => {
-      if (insertTimer) window.clearTimeout(insertTimer)
-      if (finishTimer) window.clearTimeout(finishTimer)
+  const finishDiscAnimation = () => {
+    if (discPhase === 'ejecting') {
+      const incoming = pendingTrackRef.current
+      displayedTrackRef.current = incoming
+      setDisplayedTrack(incoming)
+      if (incoming) {
+        setDiscPhase('inserting')
+        playMechanismSfx('insert')
+      } else {
+        setDiscPhase('empty')
+      }
+    } else if (discPhase === 'inserting') {
+      setDiscPhase('idle')
     }
-  }, [currentTrack, playMechanismSfx])
+  }
+
+  const playbackRequested = player.playbackRequested
+
+  useEffect(() => {
+    if (discPhase !== 'idle') return
+    const frame = window.requestAnimationFrame(() => {
+      const spin = discRef.current?.getAnimations()[0]
+      spin?.updatePlaybackRate(player.playbackRate)
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [discPhase, player.playbackRate])
 
   return (
     <section className={styles.hardware} aria-label="Kivotos MD-01 music player">
@@ -83,7 +102,7 @@ export function PhysicalPlayer({ player, selectedTrack, shuffling, onShuffle, on
         <div className={styles.turntableBay}>
           <div className={styles.lidReflection} />
           <div className={styles.platterRim}>
-            <button type="button" onClick={operatePlatter} className={`${styles.disc} ${player.playing && discPhase === 'idle' ? styles.discPlaying : ''} ${discPhase === 'ejecting' ? styles.discEjecting : ''} ${discPhase === 'inserting' ? styles.discInserting : ''} ${discPhase === 'empty' ? styles.discEmpty : ''}`} aria-label={player.playing ? 'Pause current track' : player.currentTrack ? 'Play current track' : 'Load and play selected track'}>
+            <button ref={discRef} type="button" onClick={operatePlatter} onAnimationEnd={finishDiscAnimation} className={`${styles.disc} ${player.playing && discPhase === 'idle' ? styles.discPlaying : ''} ${discPhase === 'ejecting' ? styles.discEjecting : ''} ${discPhase === 'inserting' ? styles.discInserting : ''} ${discPhase === 'empty' ? styles.discEmpty : ''}`} aria-label={playbackRequested ? 'Pause current track' : player.currentTrack ? 'Play current track' : 'Load and play selected track'}>
               {displayedTrack && <RadioArtwork src={displayedTrack.thumbnailUrl} alt={displayedTrack.displayTitle} sizes="min(42vw, 370px)" eager />}
               <span className={styles.discGrooves} /><span className={styles.discLabel}><b>ST</b><small>KVT</small></span>
             </button>
@@ -97,7 +116,7 @@ export function PhysicalPlayer({ player, selectedTrack, shuffling, onShuffle, on
 
           <div className={styles.transport} aria-label="Playback controls">
             <button type="button" onClick={player.previous} className={styles.metalButton} aria-label="Previous track"><SkipBack size={21} /></button>
-            <button type="button" onClick={operatePlatter} className={`${styles.metalButton} ${styles.playButton}`} aria-label={player.playing ? 'Pause' : player.currentTrack ? 'Play' : 'Load and play selected track'}>{player.playing ? <Pause size={24} /> : <Play size={24} />}</button>
+            <button type="button" onClick={operatePlatter} className={`${styles.metalButton} ${styles.playButton}`} aria-label={playbackRequested ? 'Pause' : player.currentTrack ? 'Play' : 'Load and play selected track'}>{playbackRequested ? <Pause size={24} /> : <Play size={24} />}</button>
             <button type="button" onClick={player.next} className={styles.metalButton} aria-label="Next track"><SkipForward size={21} /></button>
             <button type="button" onClick={onShuffle} disabled={shuffling || !player.tracks.length} className={`${styles.squareSwitch} ${shuffling ? styles.switchActive : ''}`} aria-label="Shuffle all tracks"><Shuffle size={18} /><span>RANDOM</span></button>
             <button type="button" onClick={cycleLoop} className={`${styles.squareSwitch} ${player.loopMode !== 'off' ? styles.switchActive : ''}`} aria-label={`Repeat mode: ${player.loopMode}`}>{player.loopMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}<span>{player.loopMode.toUpperCase()}</span></button>

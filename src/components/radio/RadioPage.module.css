@@ -191,7 +191,7 @@
 .seekTrack { --progress:0%; display:block; appearance:none; width:100%; height:12px; margin-top:4px; background:linear-gradient(90deg,var(--lcd-ink) var(--progress),rgba(21,37,26,.22) var(--progress)); border:1px solid rgba(21,37,26,.45); border-radius:0; }
 .seekTrack::-webkit-slider-thumb { appearance:none; width:5px; height:16px; background:var(--lcd-ink); cursor:ew-resize; }
 .seekTrack::-moz-range-thumb { width:5px; height:16px; border:0; border-radius:0; background:var(--lcd-ink); cursor:ew-resize; }
-.lcdError { position:absolute; inset:auto 10px 7px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#5b0c08; font-size:7px; font-weight:bold; }
+.lcdError { min-height:14px; margin-top:4px; color:#5b0c08; font-size:clamp(9px,1vw,11px); font-weight:bold; line-height:1.3; white-space:normal; overflow-wrap:anywhere; }
 
 .transport { display:grid; grid-template-columns:repeat(3,48px) repeat(2,minmax(54px,1fr)); align-items:stretch; gap:8px; }
 .metalButton,.squareSwitch { position:relative; min-height:48px; display:flex; align-items:center; justify-content:center; border:1px solid #292e2d; border-radius:2px; color:#181c1b; background:linear-gradient(#b8bbb3,#707572); box-shadow:inset 0 1px rgba(255,255,255,.55),0 3px 0 #343937,0 4px 5px rgba(0,0,0,.45); text-shadow:0 1px rgba(255,255,255,.3); transition:transform .08s,box-shadow .08s; }
@@ -320,6 +320,7 @@
 
 @media (max-width: 767px) {
   .radioWorld { background:radial-gradient(circle at 50% 30%,#28302e,#0d1112 72%); }
+  .roomGlow { display:none; }
   .station { padding:8px 8px 7px; grid-template-rows:auto minmax(0,1fr) 58px; gap:7px; }
   .stationTop { padding:0 3px; }.stationId b,.warningLabel { display:none; }.broadcastBadge { margin-left:auto; font-size:7px; }.stationFooter { display:none; }
   .stationBody { display:block; min-height:0; }
@@ -329,10 +330,10 @@
   .hardware { padding:13px; border-radius:30px 30px 24px 24px; background:linear-gradient(145deg,#a9a997,#686e68 45%,#7f837a); }
   .hardwareHeader { height:30px; padding:0 7px; }.hardwareHeader strong { font-size:8px; }.brandMark { font-size:7px; }
   .hardwareBody { height:calc(100% - 30px); display:flex; flex-direction:column; gap:8px; }
-  .turntableBay { flex:1 1 44%; min-height:170px; border-radius:16px 16px 5px 5px; }.platterRim { width:min(67%,260px); }.tonearm { right:14%; height:76%; }.deckCaption { font-size:5px; }
+  .turntableBay { flex:1 1 44%; min-height:170px; contain:paint; border-radius:16px 16px 5px 5px; }.platterRim { width:min(67%,260px); }.disc { box-shadow:inset 0 0 0 2px #050606; }.discGrooves { mix-blend-mode:normal; opacity:.2; }.tonearm { right:14%; height:76%; transition-duration:.35s; }.deckCaption { font-size:5px; }
   .tonearmDown { transform:rotate(calc(54deg + var(--tonearm-right-shift))); }
   .controlBay { flex:1 1 56%; min-height:0; gap:6px; }
-  .lcd { min-height:110px; padding:9px 11px 7px; border-width:4px; }.visualizer { height:23px; margin:4px 0 2px; }.lcdTime strong { font-size:15px; }.lcdMeta { display:none; }
+  .lcd { min-height:110px; padding:9px 11px 7px; border-width:4px; }.lcdRefreshing { animation:none; }.visualizer { height:23px; margin:4px 0 2px; }.visualizer i:nth-child(n+17) { display:none; }.lcdTime strong { font-size:15px; }.lcdMeta { display:none; }
   .transport { grid-template-columns:repeat(5,1fr); gap:5px; }.metalButton,.squareSwitch { min-height:42px; }.squareSwitch span { display:none; }
   .lowerControls { min-height:67px; flex:0 0 auto; grid-template-columns:83px 1fr; padding:5px 8px; }.knob { width:47px; height:47px; }.knobScale { width:68px; }.rateSwitches { margin-top:5px; }.rateSwitches button { min-height:29px; font-size:7px; }
   .utilityStrip button { min-height:25px; font-size:6px; }

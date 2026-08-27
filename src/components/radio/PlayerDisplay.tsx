@@ -30,7 +30,8 @@ export function PlayerDisplay({ player }: { player: RadioPlayerValue }) {
   useEffect(() => {
     const visualizer = visualizerRef.current
     if (!visualizer) return
-    const bars = Array.from(visualizer.children) as HTMLElement[]
+    const allBars = Array.from(visualizer.children) as HTMLElement[]
+    const bars = window.matchMedia('(max-width: 767px)').matches ? allBars.slice(0, 16) : allBars
     const reset = () => bars.forEach((bar) => { bar.style.transform = 'scaleY(.08)' })
     if (!playing || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       reset()
@@ -38,8 +39,10 @@ export function PlayerDisplay({ player }: { player: RadioPlayerValue }) {
     }
 
     let frame = 0
-    const levels = bars.map(() => 0.08)
-    const previousEnergy = bars.map(() => 0)
+    let lastDraw = 0
+    const levels = new Float32Array(bars.length).fill(0.08)
+    const previousEnergy = new Float32Array(bars.length)
+    const bandLevels = new Float32Array(bars.length)
     const traits = bars.map((_, index) => {
       const variation = Math.abs(Math.sin((index + 1) * 91.173) * 43758.5453) % 1
       const region = index < 7 ? 'low' : index < 17 ? 'mid' : 'high'
@@ -53,21 +56,25 @@ export function PlayerDisplay({ player }: { player: RadioPlayerValue }) {
       }
     })
     const draw = (now: number) => {
+      frame = 0
+      if (now - lastDraw < 1000 / 30) {
+        frame = window.requestAnimationFrame(draw)
+        return
+      }
+      lastDraw = now
       const frequencies = readFrequencyData()
       if (frequencies) {
-        const bandLevels = bars.map((_, index) => {
+        const regionPeaks = [0.16, 0.12, 0.08]
+        bars.forEach((_, index) => {
           const start = Math.floor(Math.pow(frequencies.length, index / bars.length)) - 1
           const end = Math.max(start + 1, Math.floor(Math.pow(frequencies.length, (index + 1) / bars.length)) - 1)
           let total = 0
           for (let bin = Math.max(0, start); bin <= Math.min(frequencies.length - 1, end); bin += 1) total += frequencies[bin]
           const average = total / (Math.min(frequencies.length - 1, end) - Math.max(0, start) + 1) / 255
-          return average * (1 + index / bars.length * 0.85)
+          bandLevels[index] = average * (1 + index / bars.length * 0.85)
+          const region = index < 7 ? 0 : index < 17 ? 1 : 2
+          regionPeaks[region] = Math.max(regionPeaks[region], bandLevels[index])
         })
-        const regionPeaks = [
-          Math.max(0.16, ...bandLevels.slice(0, 7)),
-          Math.max(0.12, ...bandLevels.slice(7, 17)),
-          Math.max(0.08, ...bandLevels.slice(17)),
-        ]
         bars.forEach((bar, index) => {
           const region = index < 7 ? 0 : index < 17 ? 1 : 2
           const regionStart = region === 0 ? 0 : region === 1 ? 7 : 17
@@ -89,9 +96,20 @@ export function PlayerDisplay({ player }: { player: RadioPlayerValue }) {
       }
       frame = window.requestAnimationFrame(draw)
     }
-    frame = window.requestAnimationFrame(draw)
+    const updateVisibility = () => {
+      if (document.hidden) {
+        if (frame) window.cancelAnimationFrame(frame)
+        frame = 0
+        reset()
+      } else if (!frame) {
+        frame = window.requestAnimationFrame(draw)
+      }
+    }
+    document.addEventListener('visibilitychange', updateVisibility)
+    updateVisibility()
     return () => {
-      window.cancelAnimationFrame(frame)
+      document.removeEventListener('visibilitychange', updateVisibility)
+      if (frame) window.cancelAnimationFrame(frame)
       reset()
     }
   }, [playing, readFrequencyData])
