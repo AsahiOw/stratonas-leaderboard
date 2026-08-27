@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { dateKeyFromDate } from '@/lib/recruitments'
 import { fmtDate, imageSrc } from '@/lib/utils'
 
@@ -48,8 +48,7 @@ export function FutureRecruitmentSection({ schedule }: Props) {
   const recruitments = useMemo(() => currentSchedule?.recruitments || [], [currentSchedule?.recruitments])
   const videoStageRef = useRef<HTMLDivElement | null>(null)
   const [activeId, setActiveId] = useState(recruitments[0]?.id || '')
-  const [ready, setReady] = useState(false)
-  const [now, setNow] = useState(() => Date.now())
+  const [now, setNow] = useState<number | null>(null)
   const [videoHeight, setVideoHeight] = useState<number | null>(null)
 
   useEffect(() => {
@@ -58,10 +57,9 @@ export function FutureRecruitmentSection({ schedule }: Props) {
 
   useEffect(() => {
     setActiveId(recruitments[0]?.id || '')
-    setReady(false)
   }, [currentSchedule?.id, recruitments])
 
-  async function refreshFutureRecruitment() {
+  const refreshFutureRecruitment = useCallback(async () => {
     const params = new URLSearchParams({
       todayKey: dateKeyFromDate(),
       t: String(Date.now()),
@@ -69,35 +67,13 @@ export function FutureRecruitmentSection({ schedule }: Props) {
     const res = await fetch(`/api/recruitments/future?${params}`, { cache: 'no-store' })
     if (!res.ok) throw new Error('Future recruitment lookup failed')
     const nextSchedule = await res.json() as FutureRecruitmentSchedule | null
-    setCurrentSchedule(nextSchedule)
-  }
+    setCurrentSchedule((current) => JSON.stringify(current) === JSON.stringify(nextSchedule) ? current : nextSchedule)
+  }, [])
 
   useEffect(() => {
     if (currentScheduleDateKey && currentScheduleDateKey > dateKeyFromDate()) return
     refreshFutureRecruitment().catch(() => undefined)
-  }, [currentScheduleDateKey])
-
-  useEffect(() => {
-    if (!currentSchedule || recruitments.length === 0) return
-
-    let cancelled = false
-    Promise.all(
-      recruitments.flatMap((recruitment) => [
-        fetch(imageSrc(recruitment.bannerPath))
-          .then((res) => res.blob())
-          .catch(() => null),
-        fetch(imageSrc(recruitment.animationPath))
-          .then((res) => res.blob())
-          .catch(() => null),
-      ])
-    ).then(() => {
-      if (!cancelled) setReady(true)
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [currentSchedule, recruitments])
+  }, [currentScheduleDateKey, refreshFutureRecruitment])
 
   useEffect(() => {
     if (!currentSchedule) return
@@ -113,16 +89,20 @@ export function FutureRecruitmentSection({ schedule }: Props) {
       refreshFutureRecruitment().catch(() => undefined)
     }, delay)
     return () => window.clearTimeout(timer)
-  }, [currentSchedule])
+  }, [currentSchedule, refreshFutureRecruitment])
 
   useEffect(() => {
     function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') refreshFutureRecruitment().catch(() => undefined)
+      if (document.visibilityState !== 'visible') return
+      setNow(Date.now())
+      if (!currentSchedule || countdownTarget(currentSchedule.dateKey) <= Date.now()) {
+        refreshFutureRecruitment().catch(() => undefined)
+      }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [])
+  }, [currentSchedule, refreshFutureRecruitment])
 
   useEffect(() => {
     const stage = videoStageRef.current
@@ -142,9 +122,9 @@ export function FutureRecruitmentSection({ schedule }: Props) {
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateVideoHeight)
     }
-  }, [ready])
+  }, [currentSchedule?.id])
 
-  if (!currentSchedule || recruitments.length === 0 || !ready) return null
+  if (!currentSchedule || recruitments.length === 0) return null
 
   const activeRecruitment = recruitments.find((recruitment) => recruitment.id === activeId) || recruitments[0]
 
@@ -156,7 +136,7 @@ export function FutureRecruitmentSection({ schedule }: Props) {
         </div>
         <div className="h-px flex-1 bg-border" />
         <div className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
-          {formatCountdown(currentSchedule.dateKey, now)}
+          {now === null ? '\u00a0' : formatCountdown(currentSchedule.dateKey, now)}
         </div>
       </div>
 

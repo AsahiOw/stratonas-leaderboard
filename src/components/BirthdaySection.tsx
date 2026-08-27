@@ -31,11 +31,13 @@ export function BirthdaySection({ initialData = null, initialUpcomingData = null
   const [upcomingData, setUpcomingData] = useState<UpcomingBirthdayResponse | null>(initialUpcomingData)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef({ active: false, startX: 0, scrollLeft: 0 })
+  const nextRefreshAtRef = useRef(initialData?.nextRefreshAt || initialUpcomingData?.nextRefreshAt || null)
 
   useEffect(() => {
     let alive = true
     let refreshTimer: number | undefined
     let retryTimer: number | undefined
+    let pendingLoad: Promise<void> | null = null
 
     async function loadBirthdayEndpoint<T>(url: string) {
       const res = await fetch(url, { cache: 'no-store' })
@@ -43,20 +45,35 @@ export function BirthdaySection({ initialData = null, initialUpcomingData = null
       return res.json() as Promise<T>
     }
 
-    async function loadBirthdays() {
-      const cacheBust = Date.now()
-      const [todayResult, upcomingResult] = await Promise.allSettled([
-        loadBirthdayEndpoint<BirthdayResponse>(`/api/birthdays/today?t=${cacheBust}`),
-        loadBirthdayEndpoint<UpcomingBirthdayResponse>(`/api/birthdays/upcoming?days=60&t=${cacheBust}`),
-      ])
-      if (todayResult.status === 'rejected' && upcomingResult.status === 'rejected') throw new Error('Birthday lookup failed')
-      if (alive) {
-        if (todayResult.status === 'fulfilled') setData(todayResult.value)
-        if (upcomingResult.status === 'fulfilled') setUpcomingData(upcomingResult.value)
-      }
+    function loadBirthdays() {
+      if (pendingLoad) return pendingLoad
+
+      pendingLoad = (async () => {
+        const cacheBust = Date.now()
+        const [todayResult, upcomingResult] = await Promise.allSettled([
+          loadBirthdayEndpoint<BirthdayResponse>(`/api/birthdays/today?t=${cacheBust}`),
+          loadBirthdayEndpoint<UpcomingBirthdayResponse>(`/api/birthdays/upcoming?days=60&t=${cacheBust}`),
+        ])
+        if (todayResult.status === 'rejected' && upcomingResult.status === 'rejected') throw new Error('Birthday lookup failed')
+        if (alive) {
+          if (todayResult.status === 'fulfilled') {
+            setData(todayResult.value)
+            nextRefreshAtRef.current = todayResult.value.nextRefreshAt
+          }
+          if (upcomingResult.status === 'fulfilled') {
+            setUpcomingData(upcomingResult.value)
+            nextRefreshAtRef.current = upcomingResult.value.nextRefreshAt
+          }
+        }
+      })().finally(() => {
+        pendingLoad = null
+      })
+
+      return pendingLoad
     }
 
     function scheduleNextRefresh() {
+      if (refreshTimer) window.clearTimeout(refreshTimer)
       refreshTimer = window.setTimeout(() => {
         loadBirthdays().finally(() => {
           if (alive) scheduleNextRefresh()
@@ -70,7 +87,13 @@ export function BirthdaySection({ initialData = null, initialUpcomingData = null
     scheduleNextRefresh()
 
     function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') loadBirthdays().catch(() => undefined)
+      if (document.visibilityState !== 'visible') return
+      const nextRefreshAt = Date.parse(nextRefreshAtRef.current || '')
+      if (!Number.isFinite(nextRefreshAt) || Date.now() >= nextRefreshAt) {
+        loadBirthdays().catch(() => undefined).finally(() => {
+          if (alive) scheduleNextRefresh()
+        })
+      }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
