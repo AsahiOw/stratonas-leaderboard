@@ -3,6 +3,7 @@ import { statSync } from 'fs'
 import fs from 'fs/promises'
 import path from 'path'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
+import { finishAdminActivity, recordAdminActivity } from '@/lib/admin-activity'
 import { prisma } from '@/lib/prisma'
 import { buildYoutubePoTokenArgs, RADIO_AUDIO_DOWNLOAD_ARGS } from '@/lib/radio-sync-options'
 
@@ -58,11 +59,20 @@ export async function recoverInterruptedRadioSync(now = new Date()) {
   })
 }
 
-export async function startRadioSync() {
+export async function startRadioSync(options: { audit?: boolean } = {}) {
   const claimed = await claimRadioSync()
   if (!claimed) return false
-  void runRadioSync()
+  const activity = options.audit ? await recordAdminActivity({
+    action: 'SYNC', entityType: 'radio catalog', entityId: RADIO_SYNC_ID,
+    summary: 'Syncing radio catalog: bluearchive-global-radio', status: 'running',
+    details: { result: { status: 'running', message: 'Radio catalog sync is running in the background.' } },
+  }).catch(() => null) : null
+  void runRadioSync(activity?.id)
   return true
+}
+
+export function radioSyncTerminalStatus(failed: number) {
+  return failed > 0 ? 'failed' : 'completed'
 }
 
 export async function runRadioSyncNow() {
@@ -93,7 +103,7 @@ async function claimRadioSync() {
   return lock.count > 0
 }
 
-async function runRadioSync() {
+async function runRadioSync(activityId?: string) {
   let downloaded = 0
   let thumbnails = 0
   let skipped = 0
@@ -151,16 +161,25 @@ async function runRadioSync() {
       await updateState({ processed: index + 1, downloaded, thumbnails, skipped, failed })
     }
 
-    await updateState({
-      status: 'completed', stage: 'Complete', currentItem: null, completedAt: new Date(),
-      message: `Radio sync complete: ${downloaded} audio, ${thumbnails} thumbnail${thumbnails === 1 ? '' : 's'}, ${failed} failed.`,
+    const message = `Radio sync complete: ${downloaded} audio, ${thumbnails} thumbnail${thumbnails === 1 ? '' : 's'}, ${failed} failed.`
+    const status = radioSyncTerminalStatus(failed)
+    const finalState = await updateState({
+      status, stage: failed ? 'Completed with errors' : 'Complete', currentItem: null, completedAt: new Date(),
+      message, error: failed ? `${failed} radio track download${failed === 1 ? '' : 's'} failed.` : null,
     })
+    await finishAdminActivity(activityId, failed ? 'failed' : 'success', `${failed ? 'Failed' : 'Completed'} sync for radio catalog: bluearchive-global-radio`, {
+      ...finalState,
+    }).catch(() => undefined)
     invalidatePublicData([PUBLIC_CACHE_TAGS.radio])
   } catch (error) {
-    await updateState({
+    const message = error instanceof Error ? error.message : 'Radio sync failed.'
+    const finalState = await updateState({
       status: 'failed', stage: 'Failed', currentItem: null, completedAt: new Date(),
-      error: error instanceof Error ? error.message : 'Radio sync failed.',
+      error: message,
     })
+    await finishAdminActivity(activityId, 'failed', 'Failed sync for radio catalog: bluearchive-global-radio', {
+      ...finalState, message,
+    }).catch(() => undefined)
   }
 }
 
@@ -261,7 +280,7 @@ async function runCommand(command: string, args: string[]) {
 }
 
 async function updateState(data: Record<string, unknown>) {
-  await prisma.radioSyncState.update({ where: { id: RADIO_SYNC_ID }, data })
+  return prisma.radioSyncState.update({ where: { id: RADIO_SYNC_ID }, data })
 }
 
 async function ensureDirectories() {

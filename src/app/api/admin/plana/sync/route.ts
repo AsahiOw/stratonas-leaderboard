@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-guard'
 import { getPlanaImportStatus, startPlanaImport } from '@/lib/plana-import'
 import type { PlanaImportMode } from '@/lib/plana-manifest'
-import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +15,7 @@ async function post(request: Request) {
     return NextResponse.json({ error: 'Mode must be "new" or "backfill".' }, { status: 400 })
   }
 
-  const started = await startPlanaImport(mode)
+  const started = await startPlanaImport(mode, { audit: true })
   if (!started) {
     const state = await getPlanaImportStatus()
     return NextResponse.json({ error: 'Plana import is already running.', state }, { status: 409 })
@@ -25,4 +24,4 @@ async function post(request: Request) {
   return NextResponse.json(await getPlanaImportStatus(), { status: 202 })
 }
 
-export const POST = withAdminMutationAudit({ action: 'SYNC', entityType: 'Plana stats' }, post)
+export const POST = post

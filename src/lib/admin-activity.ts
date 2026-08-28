@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { normalizeStudentLookup } from '@/lib/student-name-matcher'
 
 type ActivityAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'UPSERT' | 'IMPORT' | 'SYNC' | 'RESOLVE'
-type ActivityStatus = 'success' | 'failed'
+type ActivityStatus = 'running' | 'success' | 'failed'
 
 type ActivityInput = {
   actorType?: 'ADMIN' | 'AUTOMATION'
@@ -147,6 +147,24 @@ export async function recordAdminActivity(input: ActivityInput) {
   })
 }
 
+export async function finishAdminActivity(
+  id: string | undefined,
+  status: Exclude<ActivityStatus, 'running'>,
+  summary: string,
+  result: unknown,
+) {
+  if (!id) return
+  const activity = await prisma.adminActivity.findUnique({ where: { id }, select: { details: true } })
+  if (!activity) return
+  const details = activity.details && typeof activity.details === 'object' && !Array.isArray(activity.details)
+    ? activity.details as Record<string, unknown>
+    : {}
+  await prisma.adminActivity.update({
+    where: { id },
+    data: { status, summary, details: safeValue({ ...details, result }) as object },
+  })
+}
+
 export function withAdminMutationAudit<TArgs extends [Request, ...unknown[]]>(
   config: AuditConfig,
   handler: (...args: TArgs) => Promise<Response>,
@@ -158,16 +176,20 @@ export function withAdminMutationAudit<TArgs extends [Request, ...unknown[]]>(
     const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'ADMIN'
     const before = isAdmin ? await previousState(config, request, input) : null
     const response = await handler(...args)
-    if (!response.ok) return response
-
     const result = await response.clone().json().catch(() => null)
+    if (!response.ok && config.action !== 'IMPORT' && config.action !== 'SYNC') return response
+    const successfulSummary = typeof config.summary === 'function' ? config.summary(result) : config.summary || defaultSummary(config, result)
+    const failureMessage = result && typeof result === 'object' && 'error' in result && typeof result.error === 'string'
+      ? `: ${result.error}`
+      : ''
     await recordAdminActivity({
       action: config.action,
       entityType: config.entityType,
       entityId: entityIdFrom(request, result),
       actorId: session?.user?.id || null,
       actorEmail: session?.user?.email || null,
-      summary: typeof config.summary === 'function' ? config.summary(result) : config.summary || defaultSummary(config, result),
+      summary: response.ok ? successfulSummary : `Failed ${config.action.toLowerCase()} for ${config.entityType}${failureMessage}`,
+      status: response.ok ? 'success' : 'failed',
       details: { method: request.method, route: new URL(request.url).pathname, before: safeValue(before), input, result: safeValue(result) },
     })
     return response

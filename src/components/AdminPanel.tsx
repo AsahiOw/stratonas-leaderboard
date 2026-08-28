@@ -162,6 +162,7 @@ interface AdminActivity {
   entityType: string
   entityId?: string | null
   summary: string
+  outcome?: string | null
   status: string
   details?: unknown
   createdAt: string
@@ -170,6 +171,8 @@ interface AdminActivity {
 interface DashboardData {
   counts: { players: number; clubs: number; activeRaids: number; entries: number }
   recentActivity: AdminActivity[]
+  activityPage: { hasMore: boolean; nextCursor?: string | null }
+  activityTotal: number
 }
 
 type ActivityChange = {
@@ -219,6 +222,12 @@ function activityValue(value: unknown) {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   if (typeof value === 'object') return JSON.stringify(value, null, 2)
   return String(value)
+}
+
+function activityStatusClass(status: string) {
+  if (status === 'failed') return 'bg-red/10 text-red'
+  if (status === 'running' || status === 'started') return 'bg-amber-400/10 text-amber-400'
+  return 'bg-green/10 text-green'
 }
 
 interface XlsxImportResult {
@@ -399,6 +408,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const [raidTerrains, setRaidTerrains] = useState<RaidTerrain[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
   const [dashboard, setDashboard] = useState<DashboardData | null>(null)
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false)
   const [modal, setModal] = useState<string | null>(null)
   const [activityDetail, setActivityDetail] = useState<AdminActivity | null>(null)
   const [activityDetailMode, setActivityDetailMode] = useState<'simplified' | 'raw'>('simplified')
@@ -507,7 +517,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const loadBosses = useCallback(() => fetch('/api/admin/raid-bosses', { cache: 'no-store' }).then(r => r.json()).then(setBosses), [])
   const loadEntries = useCallback(() => fetch('/api/admin/entries', { cache: 'no-store' }).then(r => r.json()).then(setEntries), [])
   const loadDashboard = useCallback(() => {
-    fetch('/api/admin/dashboard', { cache: 'no-store' })
+    fetch('/api/admin/dashboard?activityLimit=10', { cache: 'no-store' })
       .then(async (response) => {
         const body = await response.json()
         if (!response.ok) throw new Error(body?.error || 'Could not load dashboard.')
@@ -515,6 +525,47 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
       })
       .catch(() => null)
   }, [])
+  const refreshRunningActivity = useCallback(() => {
+    fetch('/api/admin/dashboard?activityOnly=1&activityLimit=10', { cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json()
+        if (!response.ok) throw new Error(body?.error || 'Could not refresh dashboard activity.')
+        const refreshed = body.recentActivity as AdminActivity[]
+        setDashboard((current) => {
+          if (!current) return current
+          const refreshedById = new Map(refreshed.map((activity) => [activity.id, activity]))
+          return {
+            ...current,
+            recentActivity: current.recentActivity.map((activity) => refreshedById.get(activity.id) || activity),
+          }
+        })
+        setActivityDetail((current) => current
+          ? refreshed.find((activity) => activity.id === current.id) || current
+          : null)
+      })
+      .catch(() => null)
+  }, [])
+  const loadMoreActivity = useCallback(async () => {
+    const cursor = dashboard?.activityPage.nextCursor
+    if (!cursor || activityLoadingMore) return
+    setActivityLoadingMore(true)
+    try {
+      const params = new URLSearchParams({ activityOnly: '1', activityLimit: '50', activityCursor: cursor })
+      const response = await fetch(`/api/admin/dashboard?${params}`, { cache: 'no-store' })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body?.error || 'Could not load more activity.')
+      setDashboard((current) => {
+        if (!current) return current
+        const known = new Set(current.recentActivity.map((activity) => activity.id))
+        const additions = (body.recentActivity as AdminActivity[]).filter((activity) => !known.has(activity.id))
+        return { ...current, recentActivity: [...current.recentActivity, ...additions], activityPage: body.activityPage }
+      })
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not load more activity.')
+    } finally {
+      setActivityLoadingMore(false)
+    }
+  }, [activityLoadingMore, dashboard?.activityPage.nextCursor, showToast])
   const loadXlsxReviewItems = useCallback(() => {
     fetch('/api/admin/import/xlsx/review')
       .then(r => r.json())
@@ -597,6 +648,12 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
     if (sec === 'recruitment') loadStudents()
     if (sec === 'settings') { loadStudents(); loadStudentMatchRules() }
   }, [active, sec, loadDashboard, loadPlayers, loadClubs, loadStudents, loadRaids, loadBosses, loadEntries, loadRaidLookups, loadImportStatus, loadBossImportStatus, loadMemorialMediaSyncStatus, loadPlanaImportStatus, loadMemorialVideos, loadXlsxReviewItems, loadStudentMatchRules])
+
+  useEffect(() => {
+    if (!active || sec !== 'dashboard' || !dashboard?.recentActivity.some((activity) => activity.status === 'running')) return
+    const timer = window.setInterval(refreshRunningActivity, 2000)
+    return () => window.clearInterval(timer)
+  }, [active, sec, dashboard?.recentActivity, refreshRunningActivity])
 
   useEffect(() => {
     if (!showImportProgress || importState?.status !== 'running') return
@@ -1597,11 +1654,11 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   ], normalizedSearch.entries))
   const dashboardActivity = dashboard?.recentActivity || []
   const filteredActivity = dashboardActivity.filter((e) => searchable([
-    e.actorType, e.actorEmail, e.action, e.entityType, e.entityId, e.summary, e.status, e.createdAt,
+    e.actorType, e.actorEmail, e.action, e.entityType, e.entityId, e.summary, e.outcome, e.status, e.createdAt,
     e.details ? JSON.stringify(e.details) : '',
   ], normalizedSearch.activity))
 
-  const visibleActivity = filteredActivity.slice(0, visibleRows.activity)
+  const visibleActivity = filteredActivity
   const visiblePlayers = filteredPlayers.slice(0, visibleRows.players)
   const visibleClubs = filteredClubs.slice(0, visibleRows.clubs)
   const visibleStudents = filteredStudents.slice(0, visibleRows.students)
@@ -1759,7 +1816,21 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
             </div>
             <div className="bg-card border border-border rounded-xl px-5 py-4">
               <div className="text-[13px] font-semibold mb-3">Recent Activity</div>
-              {renderListControls('activity', dashboardActivity.length, filteredActivity.length, visibleActivity.length, 'Search by admin, action, entity, detail, or date...')}
+              <div className="mb-3">
+                <input
+                  className={searchInputClass}
+                  type="search"
+                  value={search.activity}
+                  onChange={(event) => updateSearch('activity', event.target.value)}
+                  placeholder="Search loaded activity by admin, action, entity, detail, or date..."
+                  aria-label="Search activity"
+                />
+              </div>
+              <div className="mb-3 text-[12px] text-muted">
+                {search.activity.trim()
+                  ? `Showing ${filteredActivity.length} matches in ${dashboardActivity.length} loaded · ${dashboard?.activityTotal ?? dashboardActivity.length} total`
+                  : `Showing ${dashboardActivity.length} of ${dashboard?.activityTotal ?? dashboardActivity.length}`}
+              </div>
               {visibleActivity.map((e, i) => (
                 <div
                   key={e.id}
@@ -1769,8 +1840,11 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${e.status === 'failed' ? 'bg-red/10 text-red' : 'bg-green/10 text-green'}`}>
+                        <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-accent">
                           {e.action}
+                        </span>
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${activityStatusClass(e.status)}`}>
+                          {e.status.toUpperCase()}
                         </span>
                         <span className="font-semibold text-[13px]">{e.summary}</span>
                       </div>
@@ -1778,6 +1852,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                         {e.actorType === 'AUTOMATION' ? 'Scheduled automation' : e.actorEmail || 'Admin'}
                         {' · '}{e.entityType}{e.entityId ? ` · ${e.entityId}` : ''}
                       </div>
+                      {e.outcome && <div className="mt-1.5 text-[12px] text-muted2">{e.outcome}</div>}
                     </div>
                     <span className="shrink-0 text-muted text-[11px]" title={new Date(e.createdAt).toLocaleString()}>
                       {new Date(e.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
@@ -1802,7 +1877,13 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                   {!dashboard ? 'Loading recent activity...' : dashboardActivity.length === 0 ? 'No recent activity yet.' : 'No activity matches your search.'}
                 </div>
               )}
-              {renderShowMore('activity', filteredActivity.length, visibleActivity.length)}
+              {dashboard?.activityPage.hasMore && (
+                <div className="flex justify-center mt-3">
+                  <button type="button" onClick={loadMoreActivity} disabled={activityLoadingMore} className={showMoreBtnClass}>
+                    {activityLoadingMore ? 'Loading...' : 'Show 50 more'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -3210,6 +3291,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
 
       {activityDetail && (() => {
         const comparison = activityComparison(activityDetail)
+        const isOperation = activityDetail.action === 'IMPORT' || activityDetail.action === 'SYNC'
         return (
           <StModal
             title="Activity details"
@@ -3243,8 +3325,11 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
             <div className="space-y-4">
               <div className="rounded-xl border border-border bg-bg p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${activityDetail.status === 'failed' ? 'bg-red/10 text-red' : 'bg-green/10 text-green'}`}>
+                  <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-accent">
                     {activityDetail.action}
+                  </span>
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${activityStatusClass(activityDetail.status)}`}>
+                    {activityDetail.status.toUpperCase()}
                   </span>
                   <span className="text-sm font-semibold">{activityDetail.summary}</span>
                 </div>
@@ -3257,8 +3342,14 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
 
               {activityDetailMode === 'simplified' ? (
                 <div>
-                  <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Persisted changes</div>
-                  {!comparison.available ? (
+                  <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    {isOperation ? 'Operation result' : 'Persisted changes'}
+                  </div>
+                  {isOperation ? (
+                    <div className={`rounded-lg border px-4 py-5 text-sm ${activityStatusClass(activityDetail.status)}`}>
+                      {activityDetail.outcome || (activityDetail.status === 'running' ? 'This operation is still running.' : activityDetail.summary)}
+                    </div>
+                  ) : !comparison.available ? (
                     <div className="rounded-lg border border-border bg-bg px-4 py-5 text-sm text-muted2">
                       A previous snapshot was not recorded for this activity. Use Raw details to inspect the saved request and result.
                     </div>
