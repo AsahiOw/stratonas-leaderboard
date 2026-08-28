@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-guard'
 import { prisma } from '@/lib/prisma'
 import { PLANA_IMPORT_ID, getPlanaImportStatus } from '@/lib/plana-import'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ async function validateRaidId(value: string | null | undefined, raidType: string
   return id === value ? id : undefined
 }
 
-export async function PUT(request: Request) {
+async function put(request: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -48,7 +49,7 @@ export async function PUT(request: Request) {
   return NextResponse.json(await getPlanaImportStatus())
 }
 
-export async function DELETE() {
+async function del(_request: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -59,3 +60,6 @@ export async function DELETE() {
   })
   return NextResponse.json(await getPlanaImportStatus())
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'Plana emerging raid settings' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'Plana emerging raid settings' }, del)

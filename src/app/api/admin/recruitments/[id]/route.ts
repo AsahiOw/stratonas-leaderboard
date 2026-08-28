@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { readValidatedFormData } from '@/lib/request-form'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
 import { deleteRecruitmentAsset, resolveRecruitmentAsset, type ResolvedRecruitmentAsset } from '@/lib/recruitment-media'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -47,7 +48,7 @@ function recruitmentErrorResponse(error: unknown) {
   return NextResponse.json({ error: message }, { status: 400 })
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function put(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
@@ -120,7 +121,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function del(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
@@ -129,17 +130,20 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     const current = await prisma.recruitment.findUnique({ where: { id } })
     if (!current) return NextResponse.json({ error: 'Recruitment not found.' }, { status: 404 })
 
-    await prisma.recruitment.delete({ where: { id } })
+    const deleted = await prisma.recruitment.delete({ where: { id } })
     await Promise.all([
       deleteRecruitmentAsset(current.bannerPath, 'banner'),
       deleteRecruitmentAsset(current.animationPath, 'animation'),
     ])
 
     invalidatePublicData([PUBLIC_CACHE_TAGS.recruitments])
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, deleted })
   } catch (error) {
     const notFound = notFoundResponse(error)
     if (notFound) return notFound
     return NextResponse.json({ error: 'Could not delete recruitment.' }, { status: 500 })
   }
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'recruitment' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'recruitment' }, del)

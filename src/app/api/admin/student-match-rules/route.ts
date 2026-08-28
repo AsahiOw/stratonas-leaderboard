@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { normalizeStudentLookup } from '@/lib/student-name-matcher'
 import { normalizeStudentId } from '@/lib/students'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export async function GET() {
   return NextResponse.json({ rules, aliases })
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -81,3 +82,5 @@ export async function POST(req: Request) {
   })
   return NextResponse.json(record, { status: 201 })
 }
+
+export const POST = withAdminMutationAudit({ action: 'UPSERT', entityType: 'student matching rule' }, post)

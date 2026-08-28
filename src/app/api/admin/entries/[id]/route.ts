@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function put(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
@@ -18,11 +19,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json(entry)
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function del(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
-  await prisma.raidEntry.delete({ where: { id } })
+  const deleted = await prisma.raidEntry.delete({ where: { id } })
   invalidatePublicData()
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, deleted })
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'raid entry' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'raid entry' }, del)

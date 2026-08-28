@@ -1,4 +1,5 @@
 import { invalidatePublicData } from '@/lib/cache'
+import { finishAdminActivity, recordAdminActivity } from '@/lib/admin-activity'
 import { prisma } from '@/lib/prisma'
 
 export const RAID_BOSS_IMPORT_ID = 'schaledb-raid-bosses'
@@ -65,7 +66,26 @@ async function ensureRaidBossImportState() {
   })
 }
 
-export async function startRaidBossImport() {
+export async function startRaidBossImport(options: { audit?: boolean } = {}) {
+  const claimed = await claimRaidBossImport()
+  if (!claimed) return false
+  const activity = options.audit ? await recordAdminActivity({
+    action: 'IMPORT', entityType: 'raid bosses', entityId: RAID_BOSS_IMPORT_ID,
+    summary: 'Importing raid bosses: schaledb-raid-bosses', status: 'running',
+    details: { result: { status: 'running', message: 'Raid boss import is running in the background.' } },
+  }).catch(() => null) : null
+  void runRaidBossImport(activity?.id)
+  return true
+}
+
+export async function runRaidBossImportSync() {
+  const claimed = await claimRaidBossImport()
+  if (!claimed) return false
+  await runRaidBossImport()
+  return true
+}
+
+async function claimRaidBossImport() {
   await ensureRaidBossImportState()
 
   const lock = await prisma.raidBossImportState.updateMany({
@@ -82,13 +102,10 @@ export async function startRaidBossImport() {
     },
   })
 
-  if (lock.count === 0) return false
-
-  void runRaidBossImport()
-  return true
+  return lock.count > 0
 }
 
-async function runRaidBossImport() {
+async function runRaidBossImport(activityId?: string) {
   let processed = 0
   let added = 0
   let skipped = 0
@@ -163,7 +180,7 @@ async function runRaidBossImport() {
       })
     }
 
-    await prisma.raidBossImportState.update({
+    const finalState = await prisma.raidBossImportState.update({
       where: { id: RAID_BOSS_IMPORT_ID },
       data: {
         status: 'completed',
@@ -174,18 +191,26 @@ async function runRaidBossImport() {
         completedAt: new Date(),
       },
     })
+    await finishAdminActivity(
+      activityId,
+      'success',
+      'Completed import for raid bosses: schaledb-raid-bosses',
+      { ...finalState, message: `Raid boss import completed: ${added} added, ${skipped} unchanged.` },
+    ).catch(() => undefined)
     invalidatePublicData()
   } catch (error) {
-    await prisma.raidBossImportState.update({
+    const message = error instanceof Error ? error.message : 'Import failed'
+    const finalState = await prisma.raidBossImportState.update({
       where: { id: RAID_BOSS_IMPORT_ID },
       data: {
         status: 'failed',
         processed,
         added,
         skipped,
-        error: error instanceof Error ? error.message : 'Import failed',
+        error: message,
         completedAt: new Date(),
       },
     })
+    await finishAdminActivity(activityId, 'failed', 'Failed import for raid bosses: schaledb-raid-bosses', { ...finalState, message }).catch(() => undefined)
   }
 }

@@ -5,7 +5,7 @@ import type { PlanaImportMode } from '@/lib/plana-manifest'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(request: Request) {
+async function post(request: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Mode must be "new" or "backfill".' }, { status: 400 })
   }
 
-  const started = await startPlanaImport(mode)
+  const started = await startPlanaImport(mode, { audit: true })
   if (!started) {
     const state = await getPlanaImportStatus()
     return NextResponse.json({ error: 'Plana import is already running.', state }, { status: 409 })
@@ -23,3 +23,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json(await getPlanaImportStatus(), { status: 202 })
 }
+
+export const POST = post

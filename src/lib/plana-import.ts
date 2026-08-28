@@ -5,6 +5,7 @@ import { Readable, Transform } from 'stream'
 import { pipeline } from 'stream/promises'
 import { randomUUID } from 'crypto'
 import { Prisma } from '@/generated/prisma/client'
+import { finishAdminActivity, recordAdminActivity } from '@/lib/admin-activity'
 import { prisma } from '@/lib/prisma'
 import { precomputePlanaRaidArtifacts } from '@/lib/plana-public'
 import {
@@ -117,7 +118,26 @@ async function ensurePlanaImportState() {
   })
 }
 
-export async function startPlanaImport(mode: PlanaImportMode = 'new') {
+export async function startPlanaImport(mode: PlanaImportMode = 'new', options: { audit?: boolean } = {}) {
+  const claimed = await claimPlanaImport(mode)
+  if (!claimed) return false
+  const activity = options.audit ? await recordAdminActivity({
+    action: 'SYNC', entityType: 'Plana stats', entityId: PLANA_IMPORT_ID,
+    summary: `Syncing Plana stats: ${mode}`, status: 'running',
+    details: { input: { mode }, result: { status: 'running', message: `Plana ${mode} import is running in the background.` } },
+  }).catch(() => null) : null
+  void runPlanaImport(mode, activity?.id)
+  return true
+}
+
+export async function runPlanaImportSync(mode: PlanaImportMode = 'new') {
+  const claimed = await claimPlanaImport(mode)
+  if (!claimed) return false
+  await runPlanaImport(mode)
+  return true
+}
+
+async function claimPlanaImport(mode: PlanaImportMode) {
   await ensurePlanaImportState()
 
   const lock = await prisma.planaImportState.updateMany({
@@ -140,13 +160,10 @@ export async function startPlanaImport(mode: PlanaImportMode = 'new') {
     },
   })
 
-  if (lock.count === 0) return false
-
-  void runPlanaImport(mode)
-  return true
+  return lock.count > 0
 }
 
-async function runPlanaImport(mode: PlanaImportMode) {
+async function runPlanaImport(mode: PlanaImportMode, activityId?: string) {
   let processed = 0
   let downloaded = 0
   let failed = 0
@@ -248,29 +265,40 @@ async function runPlanaImport(mode: PlanaImportMode) {
         },
       })
     }
-    await updateState({
-      status: failed ? 'failed' : 'completed',
+    const status = failed ? 'failed' : 'completed'
+    const message = failed
+      ? `Downloaded ${downloaded} dataset(s); ${failed} failed.`
+      : `Downloaded ${downloaded} dataset(s).`
+    const finalError = failed ? `${failed} Plana dataset download(s) failed.` : null
+    const finalState = await updateState({
+      status,
       stage: failed ? 'Completed with errors' : 'Completed',
       currentDataset: null,
-      message: failed
-        ? `Downloaded ${downloaded} dataset(s); ${failed} failed.`
-        : `Downloaded ${downloaded} dataset(s).`,
-      error: failed ? `${failed} Plana dataset download(s) failed.` : null,
+      message,
+      error: finalError,
       completedAt,
       ...(failed ? {} : { lastSuccessfulSyncAt: completedAt }),
     })
+    await finishAdminActivity(
+      activityId,
+      failed ? 'failed' : 'success',
+      `${failed ? 'Failed' : 'Completed'} sync for Plana stats: ${mode}`,
+      finalState,
+    ).catch(() => undefined)
   } catch (error) {
-    await updateState({
+    const message = errorMessage(error)
+    const finalState = await updateState({
       status: 'failed',
       stage: 'Failed',
       currentDataset: null,
       message: 'Plana import failed.',
-      error: errorMessage(error),
+      error: message,
       processed,
       downloaded,
       failed,
       completedAt: new Date(),
     })
+    await finishAdminActivity(activityId, 'failed', `Failed sync for Plana stats: ${mode}`, finalState).catch(() => undefined)
   }
 }
 
@@ -573,7 +601,7 @@ async function updateState(data: Partial<{
   completedAt: Date | null
   lastSuccessfulSyncAt: Date | null
 }>) {
-  await prisma.planaImportState.update({
+  return prisma.planaImportState.update({
     where: { id: PLANA_IMPORT_ID },
     data,
   })

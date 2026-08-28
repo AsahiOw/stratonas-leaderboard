@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:student-lookup": "ts-node --project tsconfig.seed.json src/lib/student-name-matcher.test.ts",
+    "test:admin-activity": "tsx --test src/lib/admin-activity-lifecycle.test.ts",
     "test:recruitment-calendar": "ts-node --project tsconfig.seed.json src/lib/recruitment-calendar.test.ts",
     "test:chat-agent": "ts-node --project tsconfig.seed.json src/lib/chat-agent.test.ts",
     "test:plana-import": "ts-node --project tsconfig.seed.json src/lib/plana-manifest.test.ts",
@@ -26,6 +27,9 @@
     "media:memorials": "tsx scripts/memorial-media-sync.ts",
     "media:process-existing": "tsx scripts/memorial-media-sync.ts --process-existing",
     "media:videos:backfill": "tsx scripts/backfill-memorial-video-assets.ts",
+    "media:radio:setup": "tsx scripts/setup-radio-po-token.ts",
+    "test:radio-sync": "tsx src/lib/radio-sync.test.ts",
+    "test:maintenance-schedule": "tsx src/lib/maintenance-schedule.test.ts",
     "wiki:memorials": "set -a; . ./.env.docker; set +a; DATABASE_URL=$(printf '%s' \"$DATABASE_URL\" | sed 's/@db:5432/@localhost:5432/'); tsx scripts/scrape-memorial-lobbies.ts",
     "wiki:memorials:docker": "set -a; . ./.env.docker; set +a; tsx scripts/scrape-memorial-lobbies.ts",
     "postinstall": "prisma generate"

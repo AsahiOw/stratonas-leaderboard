@@ -44,7 +44,6 @@ Install examples:
 ```powershell
 # Windows: install these with winget, Chocolatey, or official installers.
 # Make sure node, npm, docker, psql, ffmpeg, and optionally yt-dlp are available in PATH.
-# The repo can also use ./Development_data/yt-dlp.exe on Windows if present.
 ```
 
 ```bash
@@ -126,7 +125,7 @@ macOS/Linux/Git Bash:
 npm install
 cp .env.docker.example .env.docker
 docker compose up -d db
-npm run db:migrate
+npx prisma migrate deploy
 npm run dev:local
 ```
 
@@ -308,19 +307,27 @@ To process local MP4 files already in `./Development_data/lobbies` without check
 npm run media:process-existing
 ```
 
-The scripts skip existing optimized videos and posters. The server also checks automatically every Thursday at `00:00 UTC+7`, and admins can start the same sync from the Admin Import page.
+The scripts skip existing optimized videos and posters. The weekly maintenance scheduler runs Radio OST at Wednesday `02:00 UTC+7`, SchaleDB Students at `03:00`, SchaleDB Raid Bosses at `04:00`, Plana Stats Raid at `05:00`, and Memorial Lobby Media on Thursday at `00:00`. Each job has a 10-minute start window and is skipped if another scheduled or manual import keeps the maintenance slot busy for that entire window. The scheduler never runs missed jobs merely because the server started or restarted. Admins can still start each import manually.
 
 Each sync also scans `./Development_data/lobbies` for existing raw MP4 files that are missing either a matching optimized MP4 or JPG poster, so local files downloaded before the automation are completed without being downloaded again.
 
 Video optimization uses ffmpeg and can affect app responsiveness on the same machine. The cross-platform media job limits ffmpeg to 2 threads by default; set `MEDIA_FFMPEG_THREADS=1` for gentler background processing or a higher value for faster offline processing.
 
-Windows uses `./Development_data/yt-dlp.exe` when that file exists; otherwise install `yt-dlp` and make it available in PATH. macOS users can install dependencies with:
+Native Windows, macOS, and Linux runs require `yt-dlp` in `PATH`. macOS users can install dependencies with:
 
 ```bash
 brew install ffmpeg yt-dlp
 ```
 
 If YouTube requires sign-in or age confirmation, update `./Development_data/cookies.txt` with exported YouTube cookies from a signed-in browser session. As an alternative for local runs, set `MEDIA_YTDLP_COOKIES_FROM_BROWSER` to a yt-dlp browser value such as `chrome`, `edge`, or `firefox`.
+
+YouTube radio downloads also use a local PO-token provider. On Windows, macOS, or Linux, install the pinned yt-dlp plugin and start its Docker provider with:
+
+```bash
+npm run media:radio:setup
+```
+
+The setup refreshes the pinned plugin on every run and verifies the installed `yt-dlp` command without modifying it. The normal `npm run dev` process discovers the plugin in `./Development_data/yt-dlp-plugins`. Docker Compose starts the same provider automatically for production containers. Set `MEDIA_YTDLP_PLUGIN_DIR` or `MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL` only when using a custom plugin location or provider address.
 
 ### Legacy Windows PowerShell Scripts
 

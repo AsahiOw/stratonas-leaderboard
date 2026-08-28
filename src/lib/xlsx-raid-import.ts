@@ -520,7 +520,7 @@ export async function importRaidXlsx(options: {
       favouriteStudent,
       favouriteStudentId,
       club: club?.name || row.club || 'Guest',
-      clubID: null,
+      clubID: club?.uid || null,
       clubId: club?.id || null,
       isGuildMember: Boolean(club),
     }

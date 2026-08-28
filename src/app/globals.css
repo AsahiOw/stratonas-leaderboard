@@ -100,6 +100,24 @@ body {
 
 .fade-up { animation: fadeUp 0.25s ease forwards; }
 
+@keyframes roleRankingFromLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes roleRankingFromRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.role-ranking-from-left {
+  animation: roleRankingFromLeft 240ms var(--ease-out-quart) both;
+}
+
+.role-ranking-from-right {
+  animation: roleRankingFromRight 240ms var(--ease-out-quart) both;
+}
+
 @keyframes momotalkTypingFirst {
   0%, 24.99% {
     opacity: 0.42;
@@ -286,7 +304,8 @@ body {
   .view-transition,
   .view-transition > *,
   .leaderboard-row,
-  .intro-feature {
+  .intro-feature,
+  .role-ranking-transition {
     animation: none !important;
   }
 

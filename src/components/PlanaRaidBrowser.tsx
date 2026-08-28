@@ -21,9 +21,19 @@ import {
 } from 'lucide-react'
 import { imageSrc } from '@/lib/utils'
 import { RaidBanner } from '@/components/RaidBanner'
+import { RankBadge } from '@/components/ui/RankBadge'
 
 const YELLOW_STAR_URL = 'https://www.plana-stats.com/images/stars/yellow.png'
 const BLUE_STAR_URL = 'https://www.plana-stats.com/images/stars/blue.png'
+const tacticRoles = ['DamageDealer', 'Supporter', 'Healer', 'Tanker', 'Vehicle'] as const
+type TacticRole = (typeof tacticRoles)[number]
+const tacticRoleLabels: Record<TacticRole, string> = {
+  DamageDealer: 'Damage Dealer',
+  Supporter: 'Supporter',
+  Healer: 'Healer',
+  Tanker: 'Tanker',
+  Vehicle: 'Tactical Support',
+}
 
 type RaidView = 'overview' | 'rankings' | 'usage'
 
@@ -102,6 +112,14 @@ interface RaidMeta {
     uses: number
     students: StudentOption[]
   }>
+  mostBorrowedStudents: Array<{
+    student: StudentOption
+    borrows: number
+  }>
+  mostUsedStudentsByRole: Record<TacticRole, Array<{
+    student: StudentOption
+    uses: number
+  }>>
 }
 
 interface RankingsPage {
@@ -545,6 +563,58 @@ function Pagination({
   )
 }
 
+function StudentRankingGrid({
+  entries,
+  totalLabel,
+  emptyLabel,
+}: {
+  entries: Array<{ student: StudentOption; total: number }>
+  totalLabel: string
+  emptyLabel: string
+}) {
+  if (entries.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-bg px-4 py-8 text-center text-sm text-muted">
+        {emptyLabel}
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {[entries.slice(0, 5), entries.slice(5, 10)]
+        .filter((students) => students.length > 0)
+        .map((students, columnIndex) => (
+          <div key={columnIndex} className="overflow-hidden rounded-xl border border-border bg-bg/55">
+            <div className="divide-y divide-border">
+              {students.map(({ student, total }, index) => {
+                const rank = columnIndex * 5 + index + 1
+                return (
+                  <div key={student.id} className="flex min-h-16 items-center gap-3 px-3 py-2.5 sm:px-4">
+                    <div className="flex w-8 shrink-0 justify-center">
+                      <RankBadge rank={rank} size="sm" />
+                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageSrc(student.image)}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-lg border border-white/20 bg-[#e8f1fb] object-cover object-top"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-bold text-text">{student.name}</span>
+                    <div className="shrink-0 text-right">
+                      <div className="font-mono text-sm font-black text-accent">{formatNumber(total)}</div>
+                      <div className="text-[9px] font-bold uppercase tracking-[0.08em] text-muted">{totalLabel}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+    </div>
+  )
+}
+
 export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) {
   const router = useRouter()
   const [raids, setRaids] = useState<PlanaRaid[]>(() => cachedRaidCatalog || [])
@@ -556,6 +626,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
   const [highlightEmerging, setHighlightEmerging] = useState(true)
   const [search, setSearch] = useState('')
   const [view, setView] = useState<RaidView>('overview')
+  const [tacticRole, setTacticRole] = useState<TacticRole>('DamageDealer')
+  const [roleTransitionDirection, setRoleTransitionDirection] = useState<'left' | 'right'>('right')
   const [meta, setMeta] = useState<RaidMeta | null>(null)
   const [metaLoading, setMetaLoading] = useState(false)
   const [rankings, setRankings] = useState<RankingsPage | null>(null)
@@ -1057,6 +1129,54 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                     </div>
                   )
                 })}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+              <div className="mb-4">
+                <h3 className="text-sm font-black text-text">Most borrowed students</h3>
+                <p className="mt-1 text-xs text-muted">Top 10 students by total borrowed appearances.</p>
+              </div>
+              <StudentRankingGrid
+                entries={meta.mostBorrowedStudents.map(({ student, borrows }) => ({ student, total: borrows }))}
+                totalLabel="Borrowed"
+                emptyLabel="No borrowed students were recorded for this raid."
+              />
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+              <div className="mb-4">
+                <h3 className="text-sm font-black text-text">Most used students by tactic role</h3>
+                <p className="mt-1 text-xs text-muted">Top 10 {tacticRoleLabels[tacticRole].toLowerCase()} students by total appearances.</p>
+                <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Select tactic role">
+                  {tacticRoles.map((role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      aria-pressed={tacticRole === role}
+                      onClick={() => {
+                        if (role === tacticRole) return
+                        setRoleTransitionDirection(
+                          tacticRoles.indexOf(role) < tacticRoles.indexOf(tacticRole) ? 'left' : 'right',
+                        )
+                        setTacticRole(role)
+                      }}
+                      className={`rounded-lg border px-3 py-2 text-xs font-bold transition ${tacticRole === role
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-border2 bg-bg text-muted2 hover:border-accent/50 hover:text-text'
+                        }`}
+                    >
+                      {tacticRoleLabels[role]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div key={tacticRole} className={`role-ranking-transition role-ranking-from-${roleTransitionDirection}`}>
+                <StudentRankingGrid
+                  entries={(meta.mostUsedStudentsByRole?.[tacticRole] || []).map(({ student, uses }) => ({ student, total: uses }))}
+                  totalLabel="Used"
+                  emptyLabel={`No ${tacticRoleLabels[tacticRole].toLowerCase()} students were recorded for this raid.`}
+                />
               </div>
             </div>
           </div>

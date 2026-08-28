@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { saveClubLogo } from '@/lib/club-logo-upload'
 import { readValidatedFormData } from '@/lib/request-form'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const runtime = 'nodejs'
 
@@ -18,7 +19,7 @@ export async function GET() {
   return NextResponse.json(clubs)
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -43,3 +44,5 @@ export async function POST(req: Request) {
   invalidatePublicData()
   return NextResponse.json(club, { status: 201 })
 }
+
+export const POST = withAdminMutationAudit({ action: 'CREATE', entityType: 'club' }, post)

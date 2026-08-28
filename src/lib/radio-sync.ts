@@ -3,7 +3,9 @@ import { statSync } from 'fs'
 import fs from 'fs/promises'
 import path from 'path'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
+import { finishAdminActivity, recordAdminActivity } from '@/lib/admin-activity'
 import { prisma } from '@/lib/prisma'
+import { buildYoutubePoTokenArgs, RADIO_AUDIO_DOWNLOAD_ARGS } from '@/lib/radio-sync-options'
 
 export const RADIO_SYNC_ID = 'bluearchive-global-radio'
 export const RADIO_TITLE_MARKER = '| OST [1 Hour Loop]'
@@ -14,6 +16,8 @@ export const RADIO_AUDIO_DIR = path.join(DATA_DIR, 'radio', 'audio')
 export const RADIO_THUMBNAIL_DIR = path.join(DATA_DIR, 'radio', 'thumbnails')
 const ARCHIVE_PATH = path.join(DATA_DIR, 'radio', 'bluearchive-global-archive.txt')
 const COOKIES_PATH = path.join(DATA_DIR, 'cookies.txt')
+const DEFAULT_PO_TOKEN_PLUGIN_DIR = path.join(DATA_DIR, 'yt-dlp-plugins')
+const DEFAULT_PO_TOKEN_PROVIDER_URL = 'http://127.0.0.1:4416'
 const STALE_SYNC_MS = 90_000
 const HEARTBEAT_MS = 10_000
 
@@ -55,7 +59,30 @@ export async function recoverInterruptedRadioSync(now = new Date()) {
   })
 }
 
-export async function startRadioSync() {
+export async function startRadioSync(options: { audit?: boolean } = {}) {
+  const claimed = await claimRadioSync()
+  if (!claimed) return false
+  const activity = options.audit ? await recordAdminActivity({
+    action: 'SYNC', entityType: 'radio catalog', entityId: RADIO_SYNC_ID,
+    summary: 'Syncing radio catalog: bluearchive-global-radio', status: 'running',
+    details: { result: { status: 'running', message: 'Radio catalog sync is running in the background.' } },
+  }).catch(() => null) : null
+  void runRadioSync(activity?.id)
+  return true
+}
+
+export function radioSyncTerminalStatus(failed: number) {
+  return failed > 0 ? 'failed' : 'completed'
+}
+
+export async function runRadioSyncNow() {
+  const claimed = await claimRadioSync()
+  if (!claimed) return false
+  await runRadioSync()
+  return true
+}
+
+async function claimRadioSync() {
   await ensureDirectories()
   await prisma.radioSyncState.upsert({
     where: { id: RADIO_SYNC_ID }, update: {},
@@ -73,18 +100,16 @@ export async function startRadioSync() {
       startedAt: new Date(), completedAt: null,
     },
   })
-  if (!lock.count) return false
-  void runRadioSync()
-  return true
+  return lock.count > 0
 }
 
-async function runRadioSync() {
+async function runRadioSync(activityId?: string) {
   let downloaded = 0
   let thumbnails = 0
   let skipped = 0
   let failed = 0
   try {
-    const ytDlp = await resolveYtDlp()
+    const ytDlp = 'yt-dlp'
     const all = await listChannel(ytDlp)
     const matching = all.filter((video) => video.title.includes(RADIO_TITLE_MARKER))
 
@@ -136,16 +161,25 @@ async function runRadioSync() {
       await updateState({ processed: index + 1, downloaded, thumbnails, skipped, failed })
     }
 
-    await updateState({
-      status: 'completed', stage: 'Complete', currentItem: null, completedAt: new Date(),
-      message: `Radio sync complete: ${downloaded} audio, ${thumbnails} thumbnail${thumbnails === 1 ? '' : 's'}, ${failed} failed.`,
+    const message = `Radio sync complete: ${downloaded} audio, ${thumbnails} thumbnail${thumbnails === 1 ? '' : 's'}, ${failed} failed.`
+    const status = radioSyncTerminalStatus(failed)
+    const finalState = await updateState({
+      status, stage: failed ? 'Completed with errors' : 'Complete', currentItem: null, completedAt: new Date(),
+      message, error: failed ? `${failed} radio track download${failed === 1 ? '' : 's'} failed.` : null,
     })
+    await finishAdminActivity(activityId, failed ? 'failed' : 'success', `${failed ? 'Failed' : 'Completed'} sync for radio catalog: bluearchive-global-radio`, {
+      ...finalState,
+    }).catch(() => undefined)
     invalidatePublicData([PUBLIC_CACHE_TAGS.radio])
   } catch (error) {
-    await updateState({
+    const message = error instanceof Error ? error.message : 'Radio sync failed.'
+    const finalState = await updateState({
       status: 'failed', stage: 'Failed', currentItem: null, completedAt: new Date(),
-      error: error instanceof Error ? error.message : 'Radio sync failed.',
+      error: message,
     })
+    await finishAdminActivity(activityId, 'failed', 'Failed sync for radio catalog: bluearchive-global-radio', {
+      ...finalState, message,
+    }).catch(() => undefined)
   }
 }
 
@@ -161,13 +195,13 @@ async function downloadTrack(ytDlp: string, video: Listing) {
 
   if (!hadAudio) {
     await runCommand(ytDlp, [
-      ...cookieArgs(), '--no-warnings', '--no-playlist', '-x', '--audio-format', 'm4a',
-      '--audio-quality', '128K', '-o', path.join(RADIO_AUDIO_DIR, `${video.id}.%(ext)s`), youtubeUrl(video.id),
+      ...youtubeArgs(), ...cookieArgs(), '--no-warnings', '--no-playlist', ...RADIO_AUDIO_DOWNLOAD_ARGS,
+      '-o', path.join(RADIO_AUDIO_DIR, `${video.id}.%(ext)s`), youtubeUrl(video.id),
     ])
   }
   if (!hadThumbnail) {
     await runCommand(ytDlp, [
-      ...cookieArgs(), '--no-warnings', '--no-playlist', '--skip-download', '--write-thumbnail',
+      ...youtubeArgs(), ...cookieArgs(), '--no-warnings', '--no-playlist', '--skip-download', '--write-thumbnail',
       '--convert-thumbnails', 'webp', '-o', path.join(RADIO_THUMBNAIL_DIR, `${video.id}.%(ext)s`), youtubeUrl(video.id),
     ])
   }
@@ -186,7 +220,7 @@ async function downloadTrack(ytDlp: string, video: Listing) {
 
 async function listChannel(ytDlp: string) {
   const output = await runCommand(ytDlp, [
-    ...cookieArgs(), '--no-warnings', '--flat-playlist', '--print', '%(id)s\t%(title)s\t%(upload_date)s', CHANNEL_URL,
+    ...youtubeArgs(), ...cookieArgs(), '--no-warnings', '--flat-playlist', '--print', '%(id)s\t%(title)s\t%(upload_date)s', CHANNEL_URL,
   ])
   return output.split(/\r?\n/).map((line): Listing | null => {
     const [id, title, uploadDate] = line.trim().split('\t')
@@ -201,16 +235,22 @@ async function probeDuration(filePath: string) {
   return Number.isFinite(duration) ? Math.round(duration) : null
 }
 
-async function resolveYtDlp() {
-  const bundled = path.join(DATA_DIR, 'yt-dlp.exe')
-  return process.platform === 'win32' && await isFile(bundled) ? bundled : 'yt-dlp'
-}
-
 function cookieArgs() {
   const browser = process.env.MEDIA_YTDLP_COOKIES_FROM_BROWSER?.trim()
   if (browser) return ['--cookies-from-browser', browser]
   try { if (statSync(COOKIES_PATH).isFile()) return ['--cookies', COOKIES_PATH] } catch { /* optional */ }
   return []
+}
+
+function youtubeArgs() {
+  const pluginDir = process.env.MEDIA_YTDLP_PLUGIN_DIR?.trim() || DEFAULT_PO_TOKEN_PLUGIN_DIR
+  try {
+    if (!statSync(/*turbopackIgnore: true*/ pluginDir).isDirectory()) return []
+  } catch {
+    return []
+  }
+  const providerUrl = process.env.MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL?.trim() || DEFAULT_PO_TOKEN_PROVIDER_URL
+  return buildYoutubePoTokenArgs(pluginDir, providerUrl)
 }
 
 async function runCommand(command: string, args: string[]) {
@@ -240,7 +280,7 @@ async function runCommand(command: string, args: string[]) {
 }
 
 async function updateState(data: Record<string, unknown>) {
-  await prisma.radioSyncState.update({ where: { id: RADIO_SYNC_ID }, data })
+  return prisma.radioSyncState.update({ where: { id: RADIO_SYNC_ID }, data })
 }
 
 async function ensureDirectories() {

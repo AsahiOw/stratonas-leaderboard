@@ -4,11 +4,11 @@ import { getRaidBossImportState, startRaidBossImport } from '@/lib/raid-boss-imp
 
 export const dynamic = 'force-dynamic'
 
-export async function POST() {
+async function post(_req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
-  const started = await startRaidBossImport()
+  const started = await startRaidBossImport({ audit: true })
   if (!started) {
     const state = await getRaidBossImportState()
     return NextResponse.json({ error: 'Raid boss import is already running', state }, { status: 409 })
@@ -17,3 +17,5 @@ export async function POST() {
   const state = await getRaidBossImportState()
   return NextResponse.json(state, { status: 202 })
 }
+
+export const POST = post

@@ -4,8 +4,9 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData } from '@/lib/cache'
 import { normalizeStudentLookup } from '@/lib/student-name-matcher'
 import { normalizeStudentId } from '@/lib/students'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function post(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -76,3 +77,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   invalidatePublicData()
   return NextResponse.json(updated)
 }
+
+export const POST = withAdminMutationAudit({ action: 'RESOLVE', entityType: 'XLSX review item' }, post)

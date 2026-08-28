@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
 import { isFutureDateKey } from '@/lib/recruitments'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,7 +56,7 @@ function scheduleErrorResponse(error: unknown) {
   return NextResponse.json({ error: message }, { status: 400 })
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function put(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
@@ -96,16 +97,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function del(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
   const { id } = await params
 
   try {
-    await prisma.upcomingRecruitment.delete({ where: { id } })
+    const deleted = await prisma.upcomingRecruitment.delete({ where: { id } })
     invalidatePublicData([PUBLIC_CACHE_TAGS.recruitments])
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, deleted })
   } catch (error) {
     return scheduleErrorResponse(error)
   }
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'recruitment schedule' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'recruitment schedule' }, del)

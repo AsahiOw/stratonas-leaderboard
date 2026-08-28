@@ -4,11 +4,11 @@ import { getMemorialMediaSyncState, startMemorialMediaSync } from '@/lib/memoria
 
 export const dynamic = 'force-dynamic'
 
-export async function POST() {
+async function post(_req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
-  const started = await startMemorialMediaSync({ trigger: 'manual' })
+  const started = await startMemorialMediaSync({ trigger: 'manual', audit: true })
   if (!started) {
     const state = await getMemorialMediaSyncState()
     return NextResponse.json({ error: 'Memorial media sync is already running', state }, { status: 409 })
@@ -17,3 +17,5 @@ export async function POST() {
   const state = await getMemorialMediaSyncState()
   return NextResponse.json(state, { status: 202 })
 }
+
+export const POST = post

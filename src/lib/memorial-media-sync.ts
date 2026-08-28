@@ -2,7 +2,9 @@ import { type ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import { statSync } from 'fs'
 import fs from 'fs/promises'
 import path from 'path'
+import { finishAdminActivity, recordAdminActivity } from '@/lib/admin-activity'
 import { prisma } from '@/lib/prisma'
+import { buildYoutubePoTokenArgs, MEMORIAL_VIDEO_DOWNLOAD_ARGS } from '@/lib/radio-sync-options'
 import { runStudentImportSync } from '@/lib/student-import'
 
 export const MEMORIAL_MEDIA_SYNC_ID = 'jaymie-memorial-media'
@@ -14,6 +16,8 @@ const VIDEO_OUT_DIR = path.join(DEVELOPMENT_DATA_DIR, 'lobbies-optimized')
 const POSTER_OUT_DIR = path.join(DEVELOPMENT_DATA_DIR, 'lobby-posters')
 const ARCHIVE_PATH = path.join(DEVELOPMENT_DATA_DIR, 'jaymie-yt-dlp-archive.txt')
 const COOKIES_PATH = path.join(DEVELOPMENT_DATA_DIR, 'cookies.txt')
+const DEFAULT_PO_TOKEN_PLUGIN_DIR = path.join(DEVELOPMENT_DATA_DIR, 'yt-dlp-plugins')
+const DEFAULT_PO_TOKEN_PROVIDER_URL = 'http://127.0.0.1:4416'
 const HEIGHT = 720
 const FPS = 24
 const CRF = 30
@@ -29,6 +33,7 @@ type StartOptions = {
   mode?: MediaSyncMode
   trigger?: MediaSyncTrigger
   scheduledAt?: Date
+  audit?: boolean
 }
 
 type VideoListing = {
@@ -117,7 +122,15 @@ export async function startMemorialMediaSync(options: StartOptions = {}) {
 
   if (lock.count === 0) return false
 
-  void runMemorialMediaSync(options)
+  const activity = options.audit ? await recordAdminActivity({
+    action: 'SYNC', entityType: 'memorial media', entityId: MEMORIAL_MEDIA_SYNC_ID,
+    summary: 'Syncing memorial media: jaymie-memorial-media', status: 'running',
+    details: {
+      input: { mode: options.mode || 'sync', trigger: options.trigger || 'manual' },
+      result: { status: 'running', message: 'Memorial media sync is running in the background.' },
+    },
+  }).catch(() => null) : null
+  void runMemorialMediaSync(options, activity?.id)
   return true
 }
 
@@ -188,7 +201,7 @@ function initialRunningState(options: StartOptions) {
   }
 }
 
-async function runMemorialMediaSync(options: StartOptions) {
+async function runMemorialMediaSync(options: StartOptions, activityId?: string) {
   let optimized = 0
   let posters = 0
   let skipped = 0
@@ -208,7 +221,10 @@ async function runMemorialMediaSync(options: StartOptions) {
         : state.newVideos > 0
           ? `Found ${state.newVideos} unarchived YouTube video${state.newVideos === 1 ? '' : 's'}, but no local videos need processing.`
           : 'No new YouTube videos or local missing outputs were found.'
-      await completeState({ message })
+      const finalState = await completeState({ message })
+      await finishAdminActivity(activityId, 'success', 'Completed sync for memorial media: jaymie-memorial-media', {
+        ...finalState,
+      }).catch(() => undefined)
       return
     }
 
@@ -249,19 +265,25 @@ async function runMemorialMediaSync(options: StartOptions) {
     }
 
     const finalDownloaded = await downloadedCount()
-    await completeState({
-      message: `Media sync completed. Downloaded ${finalDownloaded} new video${finalDownloaded === 1 ? '' : 's'}, optimized ${optimized}, generated ${posters} poster${posters === 1 ? '' : 's'}.`,
-    })
+    const message = `Media sync completed. Downloaded ${finalDownloaded} new video${finalDownloaded === 1 ? '' : 's'}, optimized ${optimized}, generated ${posters} poster${posters === 1 ? '' : 's'}.`
+    const finalState = await completeState({ message })
+    await finishAdminActivity(activityId, 'success', 'Completed sync for memorial media: jaymie-memorial-media', {
+      ...finalState,
+    }).catch(() => undefined)
   } catch (error) {
-    await prisma.memorialMediaSyncState.update({
+    const message = error instanceof Error ? error.message : 'Memorial media sync failed.'
+    const finalState = await prisma.memorialMediaSyncState.update({
       where: { id: MEMORIAL_MEDIA_SYNC_ID },
       data: {
         status: 'failed',
         stage: 'Failed',
-        error: error instanceof Error ? error.message : 'Memorial media sync failed.',
+        error: message,
         completedAt: new Date(),
       },
     })
+    await finishAdminActivity(activityId, 'failed', 'Failed sync for memorial media: jaymie-memorial-media', {
+      ...finalState, message,
+    }).catch(() => undefined)
   }
 }
 
@@ -283,7 +305,7 @@ async function findSyncVideosNeedingWork() {
 }
 
 async function downloadNewVideos() {
-  const ytDlp = await resolveYtDlp()
+  const ytDlp = 'yt-dlp'
   await updateState({ stage: 'Checking YouTube', message: 'Reading Jaymie Arclight channel videos.' })
 
   const videos = await listChannelVideos(ytDlp)
@@ -398,8 +420,21 @@ async function runYtDlpDownload(ytDlp: string) {
 function commonYtDlpArgs() {
   return [
     ...cookieArgs(),
+    ...youtubeArgs(),
+    ...MEMORIAL_VIDEO_DOWNLOAD_ARGS,
     '--no-warnings',
   ]
+}
+
+function youtubeArgs() {
+  const pluginDir = process.env.MEDIA_YTDLP_PLUGIN_DIR?.trim() || DEFAULT_PO_TOKEN_PLUGIN_DIR
+  try {
+    if (!statSync(/*turbopackIgnore: true*/ pluginDir).isDirectory()) return []
+  } catch {
+    return []
+  }
+  const providerUrl = process.env.MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL?.trim() || DEFAULT_PO_TOKEN_PROVIDER_URL
+  return buildYoutubePoTokenArgs(pluginDir, providerUrl)
 }
 
 async function readArchiveIds() {
@@ -531,14 +566,6 @@ function formatDuration(seconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
   const remainder = totalSeconds % 60
   return `${minutes}:${String(remainder).padStart(2, '0')}`
-}
-
-async function resolveYtDlp() {
-  if (process.platform === 'win32') {
-    const bundled = path.join(DEVELOPMENT_DATA_DIR, 'yt-dlp.exe')
-    if (await isFile(bundled)) return bundled
-  }
-  return 'yt-dlp'
 }
 
 async function runCommand(
@@ -813,14 +840,14 @@ async function updateState(data: Partial<{
   completedAt: Date | null
   updatedAt: Date
 }>) {
-  await prisma.memorialMediaSyncState.update({
+  return prisma.memorialMediaSyncState.update({
     where: { id: MEMORIAL_MEDIA_SYNC_ID },
     data,
   })
 }
 
 async function completeState(data: { message: string }) {
-  await updateState({
+  return updateState({
     status: 'completed',
     stage: 'Completed',
     currentItem: null,

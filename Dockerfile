@@ -16,6 +16,12 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache openssl ffmpeg yt-dlp
+ARG BGUTIL_POT_PROVIDER_VERSION=1.3.1
+RUN mkdir -p /usr/local/share/yt-dlp-plugins && \
+    wget -q "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases/download/${BGUTIL_POT_PROVIDER_VERSION}/bgutil-ytdlp-pot-provider.zip" \
+      -O /usr/local/share/yt-dlp-plugins/bgutil-ytdlp-pot-provider.zip
+ENV MEDIA_YTDLP_PLUGIN_DIR=/usr/local/share/yt-dlp-plugins
+ENV MEDIA_YTDLP_PO_TOKEN_PROVIDER_URL=http://bgutil-provider:4416
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

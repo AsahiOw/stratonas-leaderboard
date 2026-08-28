@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { normalizeStudentLookup } from '@/lib/student-name-matcher'
 import { normalizeStudentId } from '@/lib/students'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 const RULE_TYPES = new Set(['variant_prefix', 'base_alias', 'variant_alias', 'ignored_token', 'student_alias'])
 
@@ -15,7 +16,7 @@ function parseScopedId(value: string) {
   return { kind, id: rest.join(':') }
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function put(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -62,7 +63,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json(record)
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function del(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -70,14 +71,17 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { kind, id } = parseScopedId(decodeURIComponent(rawId))
 
   if (kind === 'alias') {
-    await prisma.studentAlias.delete({ where: { id } })
-    return NextResponse.json({ ok: true })
+    const deleted = await prisma.studentAlias.delete({ where: { id } })
+    return NextResponse.json({ ok: true, deleted })
   }
 
   if (kind === 'rule') {
-    await prisma.studentMatchRule.delete({ where: { id } })
-    return NextResponse.json({ ok: true })
+    const deleted = await prisma.studentMatchRule.delete({ where: { id } })
+    return NextResponse.json({ ok: true, deleted })
   }
 
   return NextResponse.json({ error: 'Invalid rule id.' }, { status: 400 })
 }
+
+export const PUT = withAdminMutationAudit({ action: 'UPDATE', entityType: 'student matching rule' }, put)
+export const DELETE = withAdminMutationAudit({ action: 'DELETE', entityType: 'student matching rule' }, del)

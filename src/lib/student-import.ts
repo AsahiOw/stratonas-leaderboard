@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { invalidatePublicData } from '@/lib/cache'
+import { finishAdminActivity, recordAdminActivity } from '@/lib/admin-activity'
 import { invalidatePlanaArtifacts } from '@/lib/plana-artifacts'
 import { prisma } from '@/lib/prisma'
 import {
@@ -70,7 +71,7 @@ async function ensureStudentImportState() {
   })
 }
 
-export async function startStudentImport() {
+export async function startStudentImport(options: { audit?: boolean } = {}) {
   await ensureStudentImportState()
 
   const lock = await prisma.studentImportState.updateMany({
@@ -89,7 +90,12 @@ export async function startStudentImport() {
 
   if (lock.count === 0) return false
 
-  void runStudentImport()
+  const activity = options.audit ? await recordAdminActivity({
+    action: 'IMPORT', entityType: 'students', entityId: STUDENT_IMPORT_ID,
+    summary: 'Importing students: schaledb-students', status: 'running',
+    details: { result: { status: 'running', message: 'Student import is running in the background.' } },
+  }).catch(() => null) : null
+  void runStudentImport(activity?.id)
   return true
 }
 
@@ -189,7 +195,7 @@ async function loadMemorialLobbyUrls() {
   }
 }
 
-async function runStudentImport() {
+async function runStudentImport(activityId?: string) {
   let processed = 0
   let added = 0
   let skipped = 0
@@ -299,7 +305,7 @@ async function runStudentImport() {
 
     await invalidatePlanaArtifacts()
 
-    await prisma.studentImportState.update({
+    const finalState = await prisma.studentImportState.update({
       where: { id: STUDENT_IMPORT_ID },
       data: {
         status: 'completed',
@@ -310,18 +316,26 @@ async function runStudentImport() {
         completedAt: new Date(),
       },
     })
+    await finishAdminActivity(
+      activityId,
+      'success',
+      'Completed import for students: schaledb-students',
+      { ...finalState, message: `Student import completed: ${added} added, ${skipped} already existed.`, warning: memorialWarning },
+    ).catch(() => undefined)
     invalidatePublicData()
   } catch (error) {
-    await prisma.studentImportState.update({
+    const message = error instanceof Error ? error.message : 'Import failed'
+    const finalState = await prisma.studentImportState.update({
       where: { id: STUDENT_IMPORT_ID },
       data: {
         status: 'failed',
         processed,
         added,
         skipped,
-        error: error instanceof Error ? error.message : 'Import failed',
+        error: message,
         completedAt: new Date(),
       },
     })
+    await finishAdminActivity(activityId, 'failed', 'Failed import for students: schaledb-students', { ...finalState, message }).catch(() => undefined)
   }
 }

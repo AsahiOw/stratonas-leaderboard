@@ -1,7 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@/generated/prisma/client'
 
-const PRISMA_SCHEMA_VERSION = 'x-news-v2'
+const PRISMA_SCHEMA_VERSION = 'admin-activity-v1'
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient; prismaSchemaVersion?: string }
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,

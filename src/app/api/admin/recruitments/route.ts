@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { readValidatedFormData } from '@/lib/request-form'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
 import { deleteRecruitmentAsset, resolveRecruitmentAsset, type ResolvedRecruitmentAsset } from '@/lib/recruitment-media'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -50,7 +51,7 @@ export async function GET() {
   return NextResponse.json(recruitments)
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -102,3 +103,5 @@ export async function POST(req: Request) {
     return recruitmentErrorResponse(error)
   }
 }
+
+export const POST = withAdminMutationAudit({ action: 'CREATE', entityType: 'recruitment' }, post)

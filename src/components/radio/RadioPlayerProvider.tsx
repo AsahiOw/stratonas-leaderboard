@@ -21,7 +21,7 @@ interface PersistedState {
 }
 
 export interface RadioPlayerValue extends PersistedState {
-  tracks: RadioTrack[]; currentTrack: RadioTrack | null; playing: boolean; loading: boolean; catalogLoading: boolean; error: string | null
+  tracks: RadioTrack[]; currentTrack: RadioTrack | null; playing: boolean; playbackRequested: boolean; loading: boolean; catalogLoading: boolean; error: string | null
   duration: number; setQueue: (ids: string[]) => void; playTrack: (id: string) => void; playNext: (id: string) => void
   togglePlay: () => void; previous: () => void; next: () => void; seek: (value: number) => void; eject: () => void
   setVolume: (value: number) => void; setMuted: (value: boolean) => void; setPlaybackRate: (value: number) => void
@@ -47,6 +47,9 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   const lastPreviousRef = useRef(0)
   const failedRef = useRef(new Set<string>())
   const suppressAudioErrorRef = useRef(false)
+  const sourceChangingRef = useRef(false)
+  const playRequestedRef = useRef(false)
+  const lastTimeUpdateRef = useRef(0)
   const sfxTimeRef = useRef(0)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -55,6 +58,7 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(defaults)
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
+  const [playbackRequested, setPlaybackRequested] = useState(false)
   const [loading, setLoading] = useState(false)
   const [catalogLoading, setCatalogLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -66,6 +70,32 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     stateRef.current = state
   }, [state])
+
+  const requestPlay = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio || !audio.src) return
+    playRequestedRef.current = true
+    setPlaybackRequested(true)
+    setLoading(true)
+    setError(null)
+    void audioContextRef.current?.resume()
+    void audio.play().catch(() => {
+      if (!playRequestedRef.current) return
+      playRequestedRef.current = false
+      setPlaybackRequested(false)
+      setPlaying(false)
+      setLoading(false)
+      setError('Playback was blocked. Try pressing Play again.')
+    })
+  }, [])
+
+  const requestPause = useCallback(() => {
+    playRequestedRef.current = false
+    setPlaybackRequested(false)
+    setPlaying(false)
+    setLoading(false)
+    audioRef.current?.pause()
+  }, [])
 
   useEffect(() => {
     try {
@@ -99,28 +129,36 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!ready) return
-    const timer = window.setTimeout(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(state)), 400)
+    const timer = window.setTimeout(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(state)), 1200)
     return () => window.clearTimeout(timer)
   }, [ready, state])
 
+  useEffect(() => {
+    const persist = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(stateRef.current))
+    window.addEventListener('pagehide', persist)
+    return () => window.removeEventListener('pagehide', persist)
+  }, [])
+
   const goTo = useCallback((direction: 1 | -1, autoplay = true) => {
-    setState((value) => {
-      if (!value.queue.length) return value
-      const currentIndex = Math.max(0, value.queue.indexOf(value.currentId || ''))
-      let nextIndex = currentIndex + direction
-      if (nextIndex < 0 || nextIndex >= value.queue.length) {
-        if (value.loopMode !== 'queue') return value
-        nextIndex = nextIndex < 0 ? value.queue.length - 1 : 0
-      }
-      restoredTime.current = 0
-      if (autoplay) window.setTimeout(() => audioRef.current?.play().catch(() => undefined), 0)
-      return { ...value, currentId: value.queue[nextIndex], currentTime: 0 }
-    })
+    const value = stateRef.current
+    if (!value.queue.length) return
+    const currentIndex = Math.max(0, value.queue.indexOf(value.currentId || ''))
+    let nextIndex = currentIndex + direction
+    if (nextIndex < 0 || nextIndex >= value.queue.length) {
+      if (value.loopMode !== 'queue') return
+      nextIndex = nextIndex < 0 ? value.queue.length - 1 : 0
+    }
+    restoredTime.current = 0
+    playRequestedRef.current = autoplay
+    setPlaybackRequested(autoplay)
+    setPlaying(false)
+    setLoading(autoplay)
+    setState((current) => ({ ...current, currentId: value.queue[nextIndex], currentTime: 0 }))
   }, [])
 
   useEffect(() => {
     const audio = new Audio()
-    audio.preload = 'metadata'
+    audio.preload = 'auto'
     audioRef.current = audio
     const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (AudioContextClass) {
@@ -134,53 +172,112 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
       analyserRef.current = analyser
       frequencyDataRef.current = new Uint8Array(analyser.frequencyBinCount)
     }
-    const onTime = () => update({ currentTime: audio.currentTime })
+    const onTime = () => {
+      if (playRequestedRef.current && !audio.paused && audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+        setPlaying(true)
+        setLoading(false)
+      }
+      const now = performance.now()
+      if (now - lastTimeUpdateRef.current >= 500) {
+        lastTimeUpdateRef.current = now
+        update({ currentTime: audio.currentTime })
+      }
+    }
     const onDuration = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0)
-    const onPlay = () => { setPlaying(true); setLoading(false); setError(null) }
-    const onPause = () => setPlaying(false)
-    const onWaiting = () => setLoading(true)
-    const onCanPlay = () => setLoading(false)
+    const onPlay = () => {
+      playRequestedRef.current = true
+      setPlaybackRequested(true)
+      setLoading(true)
+      setError(null)
+    }
+    const onPlaying = () => {
+      setPlaying(true)
+      setLoading(false)
+      setError(null)
+    }
+    const onPause = () => {
+      setPlaying(false)
+      if (sourceChangingRef.current) return
+      playRequestedRef.current = false
+      setPlaybackRequested(false)
+      setLoading(false)
+      update({ currentTime: audio.currentTime })
+    }
+    const onWaiting = () => {
+      setPlaying(false)
+      if (playRequestedRef.current) setLoading(true)
+    }
+    const onCanPlay = () => {
+      if (!playRequestedRef.current) setLoading(false)
+    }
+    const onSeeking = () => {
+      setPlaying(false)
+      if (playRequestedRef.current) setLoading(true)
+    }
     const onEnded = () => {
-      if (stateRef.current.loopMode === 'one') { audio.currentTime = 0; void audio.play(); return }
+      setPlaying(false)
+      if (stateRef.current.loopMode === 'one') { audio.currentTime = 0; requestPlay(); return }
+      playRequestedRef.current = false
+      setPlaybackRequested(false)
+      setLoading(false)
       goTo(1)
     }
     const onError = () => {
       if (suppressAudioErrorRef.current) return
+      sourceChangingRef.current = false
+      playRequestedRef.current = false
+      setPlaybackRequested(false)
+      setPlaying(false)
+      setLoading(false)
       if (stateRef.current.currentId) failedRef.current.add(stateRef.current.currentId)
       setError('This track could not be played. Skipping to the next disk.')
       goTo(1)
     }
     audio.addEventListener('timeupdate', onTime); audio.addEventListener('durationchange', onDuration)
-    audio.addEventListener('play', onPlay); audio.addEventListener('pause', onPause)
-    audio.addEventListener('waiting', onWaiting); audio.addEventListener('canplay', onCanPlay)
+    audio.addEventListener('play', onPlay); audio.addEventListener('playing', onPlaying); audio.addEventListener('pause', onPause)
+    audio.addEventListener('waiting', onWaiting); audio.addEventListener('stalled', onWaiting); audio.addEventListener('canplay', onCanPlay)
+    audio.addEventListener('seeking', onSeeking)
     audio.addEventListener('ended', onEnded); audio.addEventListener('error', onError)
     return () => {
       audio.pause(); audio.src = ''; audioRef.current = null
       analyserRef.current = null; frequencyDataRef.current = null
       void audioContextRef.current?.close(); audioContextRef.current = null
     }
-  }, [goTo, update])
+  }, [goTo, requestPlay, update])
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio || !currentTrack) return
-    const wasPlaying = playing
+    const shouldPlay = playRequestedRef.current
+    const resumeAt = restoredTime.current
+    sourceChangingRef.current = true
+    setPlaying(false)
+    setLoading(shouldPlay)
     audio.src = currentTrack.audioUrl
     audio.load()
     const restore = () => {
-      audio.currentTime = Math.min(restoredTime.current, Number.isFinite(audio.duration) ? audio.duration : restoredTime.current)
+      audio.currentTime = Math.min(resumeAt, Number.isFinite(audio.duration) ? audio.duration : resumeAt)
       restoredTime.current = 0
-      if (wasPlaying) void audio.play().catch(() => setPlaying(false))
+      sourceChangingRef.current = false
     }
     audio.addEventListener('loadedmetadata', restore, { once: true })
-  }, [currentTrack?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (shouldPlay) requestPlay()
+    return () => audio.removeEventListener('loadedmetadata', restore)
+  }, [currentTrack, requestPlay])
 
   useEffect(() => { if (audioRef.current) { audioRef.current.volume = state.volume; audioRef.current.muted = state.muted } }, [state.muted, state.volume])
   useEffect(() => { if (audioRef.current) { audioRef.current.playbackRate = state.playbackRate; audioRef.current.preservesPitch = true } }, [state.playbackRate])
 
   const playTrack = useCallback((id: string) => {
-    void audioContextRef.current?.resume()
     suppressAudioErrorRef.current = false
+    if (stateRef.current.currentId === id && audioRef.current?.src) {
+      requestPlay()
+      return
+    }
+    playRequestedRef.current = true
+    setPlaybackRequested(true)
+    setPlaying(false)
+    setLoading(true)
     setState((value) => {
       const without = value.queue.filter((trackId) => trackId !== id)
       const currentIndex = Math.max(-1, without.indexOf(value.currentId || ''))
@@ -188,8 +285,7 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
       restoredTime.current = 0
       return { ...value, queue: without, currentId: id, currentTime: 0 }
     })
-    window.setTimeout(() => audioRef.current?.play().catch(() => setError('Press Play to start this track.')), 30)
-  }, [])
+  }, [requestPlay])
 
   const playNext = useCallback((id: string) => setState((value) => {
     const queue = value.queue.filter((trackId) => trackId !== id)
@@ -199,14 +295,9 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   }), [])
 
   const togglePlay = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (audio.paused) {
-      void audioContextRef.current?.resume()
-      void audio.play().catch(() => setError('Playback was blocked. Try pressing Play again.'))
-    }
-    else audio.pause()
-  }, [])
+    if (playRequestedRef.current) requestPause()
+    else requestPlay()
+  }, [requestPause, requestPlay])
 
   const readFrequencyData = useCallback(() => {
     const analyser = analyserRef.current
@@ -231,19 +322,17 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   const eject = useCallback(() => {
     const audio = audioRef.current
     suppressAudioErrorRef.current = true
+    requestPause()
     if (audio) {
-      audio.pause()
       audio.removeAttribute('src')
       audio.load()
     }
     restoredTime.current = 0
-    setPlaying(false)
-    setLoading(false)
     setDuration(0)
     setError(null)
     update({ currentId: null, currentTime: 0 })
     window.setTimeout(() => { suppressAudioErrorRef.current = false }, 100)
-  }, [update])
+  }, [requestPause, update])
 
   const playSwitchSfx = useCallback(() => {
     if (!state.sfxEnabled || Date.now() - sfxTimeRef.current < 90) return
@@ -279,18 +368,26 @@ export function RadioPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentTrack) return
     navigator.mediaSession.metadata = new MediaMetadata({ title: currentTrack.displayTitle, artist: 'Blue Archive', artwork: [{ src: currentTrack.thumbnailUrl, sizes: '512x512', type: 'image/webp' }] })
-    navigator.mediaSession.setActionHandler('play', togglePlay); navigator.mediaSession.setActionHandler('pause', togglePlay)
+    navigator.mediaSession.setActionHandler('play', requestPlay); navigator.mediaSession.setActionHandler('pause', requestPause)
     navigator.mediaSession.setActionHandler('previoustrack', previous); navigator.mediaSession.setActionHandler('nexttrack', next)
     navigator.mediaSession.setActionHandler('seekto', (details) => { if (typeof details.seekTime === 'number') seek(details.seekTime) })
-  }, [currentTrack, next, previous, seek, togglePlay])
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
+  }, [currentTrack, next, playing, previous, requestPause, requestPlay, seek])
+
+  const setQueue = useCallback((queue: string[]) => update({ queue }), [update])
+  const setVolume = useCallback((volume: number) => update({ volume }), [update])
+  const setMuted = useCallback((muted: boolean) => update({ muted }), [update])
+  const setPlaybackRate = useCallback((playbackRate: number) => update({ playbackRate }), [update])
+  const setLoopMode = useCallback((loopMode: LoopMode) => update({ loopMode }), [update])
+  const setBackgroundMode = useCallback((backgroundMode: boolean) => update({ backgroundMode }), [update])
+  const setSfxEnabled = useCallback((sfxEnabled: boolean) => update({ sfxEnabled }), [update])
+  const setSfxVolume = useCallback((sfxVolume: number) => update({ sfxVolume }), [update])
 
   const value: RadioPlayerValue = {
-    ...state, tracks, currentTrack, playing, loading, catalogLoading, error, duration: duration || currentTrack?.durationSeconds || 0,
-    setQueue: (queue) => update({ queue }), playTrack, playNext, togglePlay, previous, next, seek, eject,
-    setVolume: (volume) => update({ volume }), setMuted: (muted) => update({ muted }),
-    setPlaybackRate: (playbackRate) => update({ playbackRate }), setLoopMode: (loopMode) => update({ loopMode }),
-    setBackgroundMode: (backgroundMode) => update({ backgroundMode }), setSfxEnabled: (sfxEnabled) => update({ sfxEnabled }),
-    setSfxVolume: (sfxVolume) => update({ sfxVolume }), playSwitchSfx, playMechanismSfx,
+    ...state, tracks, currentTrack, playing, playbackRequested, loading, catalogLoading, error, duration: duration || currentTrack?.durationSeconds || 0,
+    setQueue, playTrack, playNext, togglePlay, previous, next, seek, eject,
+    setVolume, setMuted, setPlaybackRate, setLoopMode, setBackgroundMode, setSfxEnabled,
+    setSfxVolume, playSwitchSfx, playMechanismSfx,
     readFrequencyData,
   }
   return <RadioPlayerContext.Provider value={value}>{children}</RadioPlayerContext.Provider>

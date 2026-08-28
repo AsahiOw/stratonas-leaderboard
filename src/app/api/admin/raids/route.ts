@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData, jsonWithNoStore } from '@/lib/cache'
 import { withRaidActivity } from '@/lib/raid-activity'
 import { resolveRaidServer, resolveRaidTerrain, resolveRaidType } from '@/lib/raid-lookups'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 const raidInclude = {
   raidBoss: true,
@@ -24,7 +25,7 @@ export async function GET() {
   return jsonWithNoStore(withRaidActivity(raids))
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
   const body = await req.json()
@@ -53,3 +54,5 @@ export async function POST(req: Request) {
   invalidatePublicData()
   return NextResponse.json(withRaidActivity([raid])[0], { status: 201 })
 }
+
+export const POST = withAdminMutationAudit({ action: 'CREATE', entityType: 'raid' }, post)

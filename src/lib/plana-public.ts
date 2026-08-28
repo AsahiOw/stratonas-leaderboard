@@ -106,12 +106,24 @@ export interface PlanaUsedTeam {
   students: PlanaStudentOption[]
 }
 
+export interface PlanaBorrowedStudent {
+  student: PlanaStudentOption
+  borrows: number
+}
+
+export interface PlanaUsedStudent {
+  student: PlanaStudentOption
+  uses: number
+}
+
 export interface PlanaRaidMeta {
   totalRankings: number
   maxRank: number
   difficultyStats: PlanaDifficultyStat[]
   students: PlanaStudentOption[]
   mostUsedTeams: PlanaUsedTeam[]
+  mostBorrowedStudents: PlanaBorrowedStudent[]
+  mostUsedStudentsByRole: Record<string, PlanaUsedStudent[]>
 }
 
 export interface PlanaRankingsPage {
@@ -948,13 +960,22 @@ type PlanaRaidInput = {
 
 export async function getPlanaRaidMeta(input: PlanaRaidInput): Promise<PlanaRaidMeta> {
   const dataset = await readyDataset(input.region, input.raidType, input.raidDate)
-  return getOrCreatePlanaArtifact(dataset, 'meta', () => computePlanaRaidMeta(dataset))
+  return getOrCreatePlanaArtifact(dataset, 'meta-with-role-usage', () => computePlanaRaidMeta(dataset))
 }
 
 async function computePlanaRaidMeta(dataset: DatasetRow): Promise<PlanaRaidMeta> {
   const raidType = dataset.raidType as PlanaRaidType
   const armors = stringArray(dataset.armors)
   const file = localDatabasePath(dataset.dbLocalPath)
+  const tacticRoles = ['DamageDealer', 'Supporter', 'Healer', 'Tanker', 'Vehicle']
+  const roleStudents = await prisma.student.findMany({
+    where: { tacticRole: { in: tacticRoles } },
+    select: { id: true, tacticRole: true },
+  })
+  const roleStudentValues = roleStudents
+    .filter((student): student is typeof student & { tacticRole: string } => Boolean(student.tacticRole))
+    .map((student) => `(${student.id}, '${student.tacticRole}')`)
+    .join(', ') || `(NULL, NULL)`
 
   const queried = await withDuckDb(file, async (connection) => {
     const totalReader = await connection.runAndReadAll(
@@ -1008,6 +1029,65 @@ async function computePlanaRaidMeta(dataset: DatasetRow): Promise<PlanaRaidMeta>
     const usageReader = await connection.runAndReadAll(
       raidType === 'Total Assault' ? totalUsageSql() : grandUsageSql(armors),
     )
+    const borrowedReader = raidType === 'Total Assault'
+      ? await connection.runAndReadAll(`
+        SELECT sid, COUNT(*) AS borrows
+        FROM students
+        WHERE assist
+        GROUP BY sid
+        ORDER BY borrows DESC, sid
+        LIMIT 10
+      `)
+      : await connection.runAndReadAll(`
+        SELECT sid, COUNT(*) AS borrows
+        FROM (${armors.map((armor) => `
+          SELECT sid
+          FROM ${safeIdentifier(`students_${armor}`)}
+          WHERE assist
+        `).join(' UNION ALL ')})
+        GROUP BY sid
+        ORDER BY borrows DESC, sid
+        LIMIT 10
+      `)
+    const roleUsageReader = raidType === 'Total Assault'
+      ? await connection.runAndReadAll(`
+        WITH role_students(sid, tactic_role) AS (VALUES ${roleStudentValues}),
+        usage AS (
+          SELECT role_students.tactic_role, students.sid, COUNT(*) AS uses
+          FROM students
+          JOIN role_students USING (sid)
+          GROUP BY role_students.tactic_role, students.sid
+        ),
+        ranked AS (
+          SELECT *, ROW_NUMBER() OVER (PARTITION BY tactic_role ORDER BY uses DESC, sid) AS role_rank
+          FROM usage
+        )
+        SELECT tactic_role, sid, uses
+        FROM ranked
+        WHERE role_rank <= 10
+        ORDER BY tactic_role, role_rank
+      `)
+      : await connection.runAndReadAll(`
+        WITH role_students(sid, tactic_role) AS (VALUES ${roleStudentValues}),
+        students AS (${armors.map((armor) => `
+          SELECT sid
+          FROM ${safeIdentifier(`students_${armor}`)}
+        `).join(' UNION ALL ')}),
+        usage AS (
+          SELECT role_students.tactic_role, students.sid, COUNT(*) AS uses
+          FROM students
+          JOIN role_students USING (sid)
+          GROUP BY role_students.tactic_role, students.sid
+        ),
+        ranked AS (
+          SELECT *, ROW_NUMBER() OVER (PARTITION BY tactic_role ORDER BY uses DESC, sid) AS role_rank
+          FROM usage
+        )
+        SELECT tactic_role, sid, uses
+        FROM ranked
+        WHERE role_rank <= 10
+        ORDER BY tactic_role, role_rank
+      `)
 
     return {
       totalRankings,
@@ -1022,12 +1102,16 @@ async function computePlanaRaidMeta(dataset: DatasetRow): Promise<PlanaRaidMeta>
       }>(difficultyReader),
       studentBuilds: rowObjects<{ sid: number; build: string }>(studentReader),
       usage: rowObjects<{ armor: string | null; student_ids: number[]; uses: number }>(usageReader),
+      borrowedStudents: rowObjects<{ sid: number; borrows: number }>(borrowedReader),
+      roleUsage: rowObjects<{ tactic_role: string; sid: number; uses: number }>(roleUsageReader),
     }
   })
 
   const students = await studentMap([
     ...queried.studentBuilds.map((row) => row.sid),
     ...queried.usage.flatMap((row) => row.student_ids),
+    ...queried.borrowedStudents.map((row) => row.sid),
+    ...queried.roleUsage.map((row) => row.sid),
   ])
   return {
     totalRankings: queried.totalRankings,
@@ -1057,6 +1141,17 @@ async function computePlanaRaidMeta(dataset: DatasetRow): Promise<PlanaRaidMeta>
       uses: numberValue(row.uses),
       students: row.student_ids.map((id) => students.get(id)!).filter(Boolean),
     })),
+    mostBorrowedStudents: queried.borrowedStudents.map((row) => ({
+      student: students.get(row.sid)!,
+      borrows: numberValue(row.borrows),
+    })).filter((row) => Boolean(row.student)),
+    mostUsedStudentsByRole: Object.fromEntries(tacticRoles.map((role) => [
+      role,
+      queried.roleUsage
+        .filter((row) => row.tactic_role === role)
+        .map((row) => ({ student: students.get(row.sid)!, uses: numberValue(row.uses) }))
+        .filter((row) => Boolean(row.student)),
+    ])),
   }
 }
 
@@ -1075,7 +1170,7 @@ export async function precomputePlanaRaidArtifacts(input: PlanaRaidInput) {
   }
   const armors = dataset.raidType === 'Grand Assault' ? stringArray(dataset.armors) : []
 
-  await getOrCreatePlanaArtifact(dataset, 'meta', () => computePlanaRaidMeta(dataset))
+  await getOrCreatePlanaArtifact(dataset, 'meta-with-role-usage', () => computePlanaRaidMeta(dataset))
   await getOrCreatePlanaArtifact(dataset, rankingArtifactKey(1, 10), () => (
     computePlanaRankings(dataset, { ...input, page: 1, pageSize: 10 })
   ))

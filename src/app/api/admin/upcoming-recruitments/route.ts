@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-guard'
 import { invalidatePublicData, PUBLIC_CACHE_TAGS } from '@/lib/cache'
 import { isFutureDateKey } from '@/lib/recruitments'
+import { withAdminMutationAudit } from '@/lib/admin-activity'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +66,7 @@ export async function GET() {
   return NextResponse.json(schedules)
 }
 
-export async function POST(req: Request) {
+async function post(req: Request) {
   const guard = await requireAdmin()
   if (guard) return guard
 
@@ -97,3 +98,5 @@ export async function POST(req: Request) {
     return scheduleErrorResponse(error)
   }
 }
+
+export const POST = withAdminMutationAudit({ action: 'CREATE', entityType: 'recruitment schedule' }, post)
