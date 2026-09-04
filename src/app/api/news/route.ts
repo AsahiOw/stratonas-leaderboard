@@ -1,10 +1,8 @@
 import { jsonWithPublicCache } from '@/lib/cache'
 import { getOfficialJpNews, getOfficialNews, isNewsCategory, isNewsServer, NewsUpstreamError } from '@/lib/blue-archive-news'
-import { getStoredXNews } from '@/lib/x-news'
 
 export const dynamic = 'force-dynamic'
 const NEWS_CACHE_CONTROL = 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'
-const X_NEWS_CACHE_CONTROL = 'public, max-age=0, s-maxage=60, stale-while-revalidate=300'
 
 function newsResponse(body: Awaited<ReturnType<typeof getOfficialNews>>) {
   const response = jsonWithPublicCache(body)
@@ -35,11 +33,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    if (server === 'global-x' || server === 'jp-x') {
-      const response = newsResponse(await getStoredXNews(server, page, limit))
-      response.headers.set('Cache-Control', X_NEWS_CACHE_CONTROL)
-      return response
-    }
     return newsResponse(server === 'jp'
       ? await getOfficialJpNews(page, category, limit)
       : await getOfficialNews(page, category, limit))

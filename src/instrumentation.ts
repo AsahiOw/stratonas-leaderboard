@@ -6,8 +6,4 @@ export async function register() {
     const { startMaintenanceScheduler } = await import('@/lib/maintenance-scheduler')
     startMaintenanceScheduler()
   }
-  if (process.env.X_NEWS_SCHEDULER !== 'disabled') {
-    const { startXNewsScheduler } = await import('@/lib/x-news-scheduler')
-    startXNewsScheduler()
-  }
 }

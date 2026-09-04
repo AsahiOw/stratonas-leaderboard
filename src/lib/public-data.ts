@@ -5,6 +5,7 @@ import { getRankedRaidEntries } from '@/lib/raid-entries'
 import { getBirthdayDay, getDaysUntilBirthday } from '@/lib/birthdays'
 import { PUBLIC_CACHE_TAGS, PUBLIC_DATA_REVALIDATE_SECONDS } from '@/lib/cache'
 import { dateKeyFromDate } from '@/lib/recruitments'
+import { calculatePlayerProfileStats } from '@/lib/player-profile-stats'
 
 const raidInclude = {
   raidBoss: true,
@@ -447,6 +448,7 @@ export const getPublicPlayerProfile = unstable_cache(
     const entriesWithRank = player.entries.map((entry) => ({
       ...entry,
       rank: rankByRaidPlayer.get(`${entry.raidId}:${player.id}`) || 0,
+      participantCount: seenByRaid.get(entry.raidId) || 0,
       raid: { ...entry.raid, isActive: activeRaidIds.has(entry.raidId) },
     })).sort((a, b) => compareDateDesc(a.raid.startDate, b.raid.startDate) || b.score - a.score)
 
@@ -462,6 +464,7 @@ export const getPublicPlayerProfile = unstable_cache(
       ? raids.filter((raid) => participatedServerIds.has(raid.serverId)).length
       : 0
     const bestScoreEntry = [...entriesWithRank].sort((a, b) => b.score - a.score)[0] || null
+    const profileStats = calculatePlayerProfileStats(entriesWithRank)
 
     return {
       ...player,
@@ -479,8 +482,8 @@ export const getPublicPlayerProfile = unstable_cache(
         bestScore: bestScoreEntry?.score || null,
         bestScoreRaid: bestScoreEntry ? `${bestScoreEntry.raid.raidBoss.name} S${bestScoreEntry.raid.season}` : null,
         participationRate: relevantRaidCount > 0 ? Math.round((entriesWithRank.length / relevantRaidCount) * 100) : 0,
-        latestRank: latestEntry?.rank || null,
         latestRaid: latestEntry ? `${latestEntry.raid.raidBoss.name} S${latestEntry.raid.season}` : null,
+        ...profileStats,
       },
     }
   },

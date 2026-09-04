@@ -27,28 +27,7 @@ const INITIAL_BLOCK_START_KEY = '253402300799,9223372036854775807'
 
 export const NEWS_CATEGORIES = BOARD_CATEGORIES.map((category) => category.name)
 export const JP_NEWS_CATEGORIES = ['イベント', 'お知らせ', 'メンテナンス'] as const
-export type NewsServer = 'global' | 'jp' | 'global-x' | 'jp-x'
-
-export type NewsMedia = {
-  url: string
-  type: 'photo' | 'video'
-  targetUrl?: string
-  videoUrl?: string
-}
-
-export type QuotedNewsPost = {
-  text: string
-  url: string
-  authorName: string
-  media: NewsMedia[]
-}
-
-export type NewsLinkPreview = {
-  title: string
-  subtitle: string
-  url: string
-  imageUrl: string | null
-}
+export type NewsServer = 'global' | 'jp'
 
 export type NewsPost = {
   server: NewsServer
@@ -62,10 +41,6 @@ export type NewsPost = {
   summary: string | null
   authorName: string
   authorAvatarUrl: string | null
-  source?: 'website' | 'x'
-  media?: NewsMedia[]
-  quotedPost?: QuotedNewsPost | null
-  linkPreview?: NewsLinkPreview | null
 }
 
 export type NewsPageResult = {
@@ -107,11 +82,10 @@ export class NewsUpstreamError extends Error {
 }
 
 export function isNewsServer(server: string): server is NewsServer {
-  return server === 'global' || server === 'jp' || server === 'global-x' || server === 'jp-x'
+  return server === 'global' || server === 'jp'
 }
 
 export function isNewsCategory(category: string, server: NewsServer = 'global'): boolean {
-  if (server.endsWith('-x')) return category === 'all'
   return category === 'all' || (server === 'jp' ? JP_NEWS_CATEGORIES.includes(category as typeof JP_NEWS_CATEGORIES[number]) : BOARD_BY_CATEGORY.has(category))
 }
 
@@ -277,10 +251,6 @@ async function fetchThreadDetail(threadId: string): Promise<NexonThreadDetail> {
 
 export async function getOfficialNewsArticle(threadId: string, server: NewsServer = 'global'): Promise<OfficialNewsArticle> {
   if (!/^\d{1,20}$/.test(threadId)) throw new NewsUpstreamError()
-  if (server.endsWith('-x')) {
-    const { getStoredXNewsArticle } = await import('@/lib/x-news')
-    return getStoredXNewsArticle(threadId, server)
-  }
   if (server === 'jp') {
     try {
       const url = new URL('/api/news/detail', JP_API_ORIGIN)

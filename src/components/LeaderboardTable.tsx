@@ -32,9 +32,10 @@ interface Props {
   onPlayerClick?: (playerId: string) => void
   cap?: number
   returnTab?: string
+  highlightPlayerId?: string
 }
 
-export function LeaderboardTable({ players, accent, onPlayerClick, cap, returnTab = 'leaderboard' }: Props) {
+export function LeaderboardTable({ players, accent, onPlayerClick, cap, returnTab = 'leaderboard', highlightPlayerId }: Props) {
   const [hov, setHov] = useState<number | null>(null)
   const shown = cap ? players.slice(0, cap) : players
   const glow = `rgba(${hexToRgb(accent)},0.07)`
@@ -64,10 +65,11 @@ export function LeaderboardTable({ players, accent, onPlayerClick, cap, returnTa
             return (
               <tr
                 key={`${p.name}-${i}`}
+                data-player-id={p.playerId}
                 onMouseEnter={() => setHov(i)}
                 onMouseLeave={() => setHov(null)}
-                className="leaderboard-row border-b border-border transition-colors"
-                style={{ background: rowBg, '--row-index': i } as React.CSSProperties}
+                className={`leaderboard-row border-b border-border transition-colors ${p.playerId === highlightPlayerId ? 'ring-2 ring-inset ring-accent' : ''}`}
+                style={{ background: p.playerId === highlightPlayerId ? `${accent}18` : rowBg, '--row-index': i } as React.CSSProperties}
               >
                 <td
                   className="sticky left-0 z-10 px-2 sm:px-3.5 py-3 text-center w-12 sm:w-14"

@@ -1,6 +1,6 @@
 # Stratonas Guild Leaderboard
 
-A self-hosted, dark-themed gaming leaderboard web app for Stratonas guild raid scores, player profiles, clubs, birthdays, and Blue Archive student media.
+A self-hosted, dark-themed Blue Archive guild hub for raid scores, player profiles, clubs, recruitment planning, news, music, and student media.
 
 **Stack:** Next.js 16 · React 18 · TypeScript 5 · PostgreSQL 16 · Prisma 7 · NextAuth v5 beta · Tailwind CSS 3 · Docker Compose
 
@@ -8,11 +8,19 @@ The application stores its primary data in PostgreSQL and can run entirely on yo
 
 ## What This App Includes
 
-- Public leaderboard, raid detail, player profile, club profile, community, stats, and birthday views.
+- Public current/history leaderboards with Global/JP filtering, detailed raid results, aggregate statistics, and club/community views.
+- Player profiles with performance summaries, ranking-history charts, category strengths, and per-raid participation details.
+- Recruitment and birthday calendars with upcoming banner details and fullscreen calendar browsing.
+- Imported Plana raid analytics with raid summaries, rankings, team compositions, student/build filters, and advanced formation filters.
+- Official Global/JP Blue Archive news browsing, article views, JP translation, and AI-assisted article summaries.
+- Blue Archive OST radio with a persistent mini-player, track library, artwork, and background playback across pages.
+- Optional Kei/MomoTalk assistant for site questions and news summaries, with greeting volume and floating-icon preferences.
+- Installable PWA metadata and icons for standalone use on supported devices.
 - Raid-card PNG/ZIP downloads from raid leaderboard pages, including custom watermarked raid-card creation.
-- Admin-only CRUD for players, clubs, raids, raid entries, students, raid bosses, and lookup data.
+- Admin-only CRUD for players, clubs, raids, raid entries, students, raid bosses, recruitments, and lookup data, plus an activity log.
 - XLSX import for raid score submissions, using `exceljs`.
 - Database-configurable favorite-student matching and XLSX review tools with PFP previews.
+- Scheduled and manual sync workflows for students, raid bosses, Plana raid data, radio tracks, and memorial media.
 - Local memorial video/poster serving from `Development_data`.
 - Prisma migrations, seed/admin scripts, and Docker-based PostgreSQL.
 - Security headers, CSP, same-origin write protection, and cache controls.
@@ -520,12 +528,25 @@ src/
 │   ├── players/[id]/        # Public player profile page
 │   ├── clubs/[id]/          # Public club profile page
 │   ├── leaderboard/[id]/    # Raid leaderboard page
+│   ├── calendar/            # Recruitment and birthday calendars
+│   ├── raiddata/            # Imported Plana raid analytics
+│   ├── news/                # Global/JP official news browser
+│   ├── radio/               # Blue Archive OST player
+│   ├── community/           # Club and member directory
+│   ├── statistic/           # Aggregate leaderboard statistics
+│   ├── custom-card/         # Custom raid-card creator
+│   ├── admin/               # Session-protected admin panel
 │   └── api/                 # API routes
 │       ├── raids/           # Public raid endpoints
 │       ├── players/         # Public player endpoints
 │       ├── clubs/           # Public club endpoints
 │       ├── birthdays/       # Birthday widgets/data
 │       ├── community/       # Community hub data
+│       ├── recruitments/    # Upcoming recruitment data
+│       ├── news/            # Official news, articles, and translations
+│       ├── radio/           # Track catalog, audio, and artwork
+│       ├── plana/           # Imported raid catalog and analytics
+│       ├── chat/            # Kei/MomoTalk assistant
 │       ├── memorial-*       # Local media routes
 │       ├── stats/           # Aggregated stats
 │       ├── health/          # Health check
@@ -581,9 +602,19 @@ Other important folders:
 | GET | `/api/clubs/[id]` | Club roster and stats |
 | GET | `/api/community` | Community hub data |
 | GET | `/api/stats` | Aggregated stats |
+| GET | `/api/recruitments/future` | Upcoming recruitment schedule and banner data |
 | GET | `/api/birthdays/today` | Students with birthdays today |
 | GET | `/api/birthdays/upcoming` | Upcoming student birthdays |
 | POST | `/api/birthdays/accent` | Birthday accent/theme data |
+| GET | `/api/plana/raids` | Imported Plana raid catalog |
+| GET | `/api/plana/raid` | Raid overview, rankings, and filtered team usage |
+| GET | `/api/news` | Paginated Global/JP official news |
+| GET | `/api/news/article` | Full official news article |
+| POST | `/api/news/translate` | Translate supported JP news content |
+| GET | `/api/radio/tracks` | Ready OST track catalog |
+| GET | `/api/radio/audio/[id]` | Stream a radio track |
+| GET | `/api/radio/thumbnail/[id]` | Serve radio track artwork |
+| POST | `/api/chat` | Kei/MomoTalk assistant and news summaries |
 | GET | `/api/memorial-video` | Streams local memorial MP4 files |
 | GET | `/api/memorial-poster` | Serves local memorial poster images |
 | GET | `/api/image-proxy` | HTTPS image proxy with an allowlist |
@@ -607,6 +638,17 @@ Other important folders:
 | GET | `/api/admin/students/import/status` | Student import progress |
 | POST | `/api/admin/raid-bosses/import` | Import/update raid bosses |
 | GET | `/api/admin/raid-bosses/import/status` | Raid boss import progress |
+| POST/PUT/DELETE | `/api/admin/recruitments` `/api/admin/recruitments/[id]` | Create, update, or delete recruitment banners |
+| POST/PUT/DELETE | `/api/admin/upcoming-recruitments` `/api/admin/upcoming-recruitments/[id]` | Create, update, or delete upcoming recruitment dates |
+| POST | `/api/admin/plana/sync` | Start a Plana raid-data sync |
+| GET | `/api/admin/plana/sync/status` | Plana sync progress |
+| PUT/DELETE | `/api/admin/plana/emerging` | Set or clear emerging Plana raid overrides |
+| POST | `/api/admin/radio/sync` | Start a radio OST sync |
+| GET | `/api/admin/radio/sync/status` | Radio sync progress |
+| GET | `/api/admin/radio/tracks` | List synced radio tracks and their statuses |
+| POST | `/api/admin/memorial-media/sync` | Start a memorial-media sync |
+| GET | `/api/admin/memorial-media/sync/status` | Memorial-media sync progress |
+| GET | `/api/admin/dashboard` | Dashboard totals and paginated admin activity log |
 
 ### XLSX Import Filenames
 

@@ -1,17 +1,14 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
-import { RankBadge } from '@/components/ui/RankBadge'
-import { ServerBadge } from '@/components/ui/ServerBadge'
 import { PublicHeader } from '@/components/PublicHeader'
 import { PlayerBackLink } from '@/components/PlayerBackLink'
+import { PlayerRankChart } from '@/components/PlayerRankChart'
+import { PlayerParticipation } from '@/components/PlayerParticipation'
 import { fmtDate, imageSrc, memorialPosterSrc } from '@/lib/utils'
 import { getPublicPlayerProfile } from '@/lib/public-data'
 
 export const dynamic = 'force-dynamic'
-
-type PlayerProfileData = NonNullable<Awaited<ReturnType<typeof getPublicPlayerProfile>>>
-type PlayerEntry = PlayerProfileData['entries'][number]
 
 function fmtNum(value: number | null | undefined) {
   return typeof value === 'number' ? value.toLocaleString('en-US') : '-'
@@ -23,6 +20,10 @@ function fmtCompactScore(value: number | null | undefined) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace('.', ',')}M`
   if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace('.', ',')}K`
   return value.toLocaleString('en-US')
+}
+
+function fmtRank(value: number | null | undefined) {
+  return value ? `#${value.toLocaleString('en-US')}` : '-'
 }
 
 export default async function PlayerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,8 +38,15 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const accent = player.clubData?.color || '#4f8ef7'
   const cover = memorialPosterSrc(player.favouriteStudentData?.memorial, imageSrc(player.favouriteStudentData?.image))
   const journey = player.journey
-  const mostRecent = player.entries[0] || null
-  const history = player.entries.slice(1)
+  const rankChange = journey?.rankChange
+  const rankChangeLabel = rankChange === null || rankChange === undefined
+    ? '-'
+    : rankChange === 0
+      ? 'No change'
+      : `${rankChange > 0 ? 'Up' : 'Down'} ${Math.abs(rankChange).toLocaleString('en-US')}`
+  const rankRange = journey?.bestRank && journey?.worstRank
+    ? `${fmtRank(journey.bestRank)} – ${fmtRank(journey.worstRank)}`
+    : '-'
 
   return (
     <main className="min-h-screen bg-bg pb-16">
@@ -90,76 +98,96 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-3 sm:p-6">
+          <div className="p-5 sm:p-6">
+            <div className="mb-3">
+              <h2 className="text-sm font-bold text-text">Performance snapshot</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {[
+                ['Average Score', fmtNum(journey?.averageScore)],
+                ['Average Rank', fmtRank(journey?.averageRank)],
+                ['Median Rank', fmtRank(journey?.medianRank)],
+                ['Rank Range', rankRange],
+                ['Podium Rate', `${journey?.podiumRate ?? 0}%`],
+                ['Top 10 Rate', `${journey?.top10Rate ?? 0}%`],
+                ['Top 50 Rate', `${journey?.top50Rate ?? 0}%`],
+                ['Participation', `${journey?.participationRate ?? 0}%`],
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0 rounded-xl border border-border bg-card2 px-4 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">{label}</div>
+                  <div className="mt-1 truncate font-mono text-base font-bold text-muted2">{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-5 overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="border-b border-border bg-card2/35 px-4 py-4 sm:px-5">
+            <h2 className="text-base font-bold text-text">Recent form</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 sm:p-5">
             {[
-              ['Average Score', fmtNum(journey?.averageScore)],
-              ['Average Rank', journey?.averageRank ? `#${journey.averageRank}` : '-'],
-              ['Top 10 Finishes', fmtNum(journey?.top10s)],
-              ['Top 50 Finishes', fmtNum(journey?.top50s)],
-              ['Best Score', journey?.bestScore ? fmtNum(journey.bestScore) : '-'],
-              ['Participation Rate', `${journey?.participationRate ?? 0}%`],
+              ['Latest Rank', fmtRank(journey?.latestRank)],
+              ['Latest Percentile', journey?.latestPercentile ? `Top ${journey.latestPercentile}%` : '-'],
+              ['Rank Change', rankChangeLabel],
+              ['Last 5 Average', fmtRank(journey?.lastFiveAverageRank)],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-border bg-card2 px-4 py-3">
+              <div key={label} className="min-w-0 rounded-xl border border-border bg-card2 px-4 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">{label}</div>
-                <div className="mt-1 truncate text-sm font-semibold text-muted2">{value}</div>
+                <div className="mt-1 truncate font-mono text-lg font-bold" style={{ color: label === 'Rank Change' && rankChange ? (rankChange > 0 ? 'var(--green)' : '#f87171') : accent }}>{value}</div>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-          <h2 className="mb-1 text-base font-bold">Participation</h2>
-          <div className="mb-4 text-xs text-muted">Most recent result first, followed by historical participation.</div>
-          {!mostRecent ? (
-            <div className="py-10 text-center text-sm text-muted">No raid participation found.</div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <ParticipationRow entry={mostRecent} accent={accent} featured />
-              {history.length > 0 && (
-                <div className="mt-1 flex flex-col gap-2">
-                  {history.map((entry) => (
-                    <ParticipationRow key={entry.id} entry={entry} accent={accent} />
-                  ))}
+        <section className="mb-5 overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="border-b border-border bg-card2/35 px-4 py-4 sm:px-5">
+            <h2 className="text-base font-bold text-text">Performance strengths</h2>
+            <p className="mt-1 text-xs text-muted">Best average placements by raid category.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3 sm:p-5">
+            {[
+              ['Best Raid Type', journey?.bestRaidType],
+              ['Best Terrain', journey?.bestTerrain],
+              ['Best Boss', journey?.bestBoss],
+            ].map(([label, breakdown]) => {
+              const value = typeof breakdown === 'object' && breakdown ? breakdown : null
+              return (
+                <div key={label as string} className="min-w-0 rounded-xl border border-border bg-card2 px-4 py-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">{label as string}</div>
+                  <div className="mt-1 truncate text-sm font-bold text-text" title={value?.name}>{value?.name || '-'}</div>
+                  <div className="mt-1 font-mono text-xs text-muted2">{value ? `${fmtRank(value.averageRank)} average · ${value.entries} ${value.entries === 1 ? 'entry' : 'entries'}` : 'No ranked entries'}</div>
                 </div>
-              )}
-            </div>
-          )}
+              )
+            })}
+          </div>
         </section>
+
+        <PlayerRankChart
+          accent={accent}
+          points={player.entries
+            .filter((entry) => entry.rank > 0 && entry.raid.startDate)
+            .map((entry) => ({
+              id: entry.id,
+              rank: entry.rank,
+              date: new Date(String(entry.raid.startDate)).toISOString(),
+              raidType: entry.raid.type.name,
+              label: `${entry.raid.raidBoss.name} S${entry.raid.season}`,
+            }))}
+        />
+
+        <PlayerParticipation
+          playerId={player.id}
+          accent={accent}
+          entries={player.entries.map((entry) => ({
+            id: entry.id,
+            rank: entry.rank,
+            score: entry.score,
+            raid: entry.raid,
+          }))}
+        />
       </div>
     </main>
-  )
-}
-
-function ParticipationRow({
-  entry,
-  accent,
-  featured = false,
-}: {
-  entry: PlayerEntry
-  accent: string
-  featured?: boolean
-}) {
-  return (
-    <Link
-      href={`/leaderboard/${entry.raid.id}`}
-      className={`rounded-xl border no-underline hover:border-border2 ${featured ? 'bg-bg/55 px-4 py-4' : 'bg-bg/30 px-4 py-3'}`}
-      style={{ borderColor: featured ? `${accent}45` : undefined }}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="mb-1 flex flex-wrap items-center gap-2">
-            {featured && <span className="rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ background: `${accent}18`, color: accent }}>Most Recent</span>}
-            <span className="font-semibold text-text">{entry.raid.raidBoss.name}</span>
-            <span className="text-xs text-muted">S{entry.raid.season} · {entry.raid.terrain.name}</span>
-            <ServerBadge server={entry.raid.server.name} />
-          </div>
-          <div className="text-[11px] font-mono text-muted">{fmtDate(entry.raid.startDate)} - {fmtDate(entry.raid.endDate)}</div>
-        </div>
-        <div className="flex items-center justify-between gap-3 sm:justify-end">
-          <RankBadge rank={entry.rank} size={featured ? undefined : 'sm'} />
-          <span className="font-mono text-sm font-bold" style={{ color: accent }}>{fmtNum(entry.score)}</span>
-        </div>
-      </div>
-    </Link>
   )
 }

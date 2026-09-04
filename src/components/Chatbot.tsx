@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { RefreshCw } from 'lucide-react'
 import { PLANA_NEWS_SUMMARY_EVENT, type PlanaNewsSummaryRequest } from '@/lib/plana-events'
 import type { NewsServer } from '@/lib/blue-archive-news'
+import { isMomotalkIconVisible, MOMOTALK_ICON_VISIBLE_EVENT } from '@/lib/momotalk-settings'
 
 type ChatRole = 'user' | 'assistant'
 type PlanaExpression =
@@ -265,6 +266,7 @@ function PlanaTypingBubble() {
 
 export function Chatbot() {
   const [open, setOpen] = useState(false)
+  const [iconVisible, setIconVisible] = useState(() => isMomotalkIconVisible())
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
   const [pending, setPending] = useState(false)
@@ -280,12 +282,21 @@ export function Chatbot() {
   const chatSessionRef = useRef(0)
 
   useEffect(() => {
+    function handleIconVisibility(event: Event) {
+      if (event instanceof CustomEvent && typeof event.detail === 'boolean') setIconVisible(event.detail)
+    }
+
+    window.addEventListener(MOMOTALK_ICON_VISIBLE_EVENT, handleIconVisibility)
+    return () => window.removeEventListener(MOMOTALK_ICON_VISIBLE_EVENT, handleIconVisibility)
+  }, [])
+
+  useEffect(() => {
     function handleNewsSummary(event: Event) {
       if (!(event instanceof CustomEvent)) return
       const detail = event.detail as Partial<PlanaNewsSummaryRequest> | null
       if (!detail || typeof detail.threadId !== 'string' || !/^\d{1,20}$/.test(detail.threadId)) return
       if (typeof detail.title !== 'string' || !detail.title.trim()) return
-      if (detail.server !== 'global' && detail.server !== 'jp' && detail.server !== 'global-x' && detail.server !== 'jp-x') return
+      if (detail.server !== 'global' && detail.server !== 'jp') return
       setNewsSummaryRequest({ threadId: detail.threadId, title: detail.title.trim().slice(0, 220), server: detail.server })
       setOpen(true)
     }
@@ -676,7 +687,7 @@ export function Chatbot() {
         </div>
       )}
 
-      {!open && (
+      {!open && iconVisible && (
         <div className="fixed bottom-5 left-4 z-30 sm:left-5">
           <button
             type="button"

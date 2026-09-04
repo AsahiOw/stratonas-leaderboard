@@ -136,7 +136,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json() as { id?: unknown; server?: unknown }
     id = typeof body.id === 'string' ? body.id : ''
-    server = body.server === 'jp-x' ? 'jp-x' : 'jp'
+    server = 'jp'
   } catch {
     return jsonWithNoStore({ error: 'Invalid translation request.' }, { status: 400 })
   }
