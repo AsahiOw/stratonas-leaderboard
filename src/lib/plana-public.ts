@@ -100,6 +100,12 @@ export type PlanaFormationFilter = {
   }>
 }
 
+export type PlanaStudentGroupFilter = {
+  ids: number[]
+  usage: 'default' | 'self' | 'assist' | 'assistOnly'
+  count: number
+}
+
 export interface PlanaUsedTeam {
   armor: string | null
   uses: number
@@ -465,11 +471,71 @@ function grandStudentFilter(armors: string[], filters: PlanaStudentFilter[]) {
   }).join('')
 }
 
+function groupUsageCondition(alias: string, usage: PlanaStudentGroupFilter['usage']) {
+  if (usage === 'self') return ` AND NOT ${alias}.assist`
+  if (usage === 'assist' || usage === 'assistOnly') return ` AND ${alias}.assist`
+  return ''
+}
+
+function totalStudentGroupFilter(filters: PlanaStudentGroupFilter[]) {
+  return filters.map((filter, index) => {
+    const ids = filter.ids.map((_, studentIndex) => `$group${index}Student${studentIndex}`).join(', ')
+    const countSelected = `(
+      SELECT COUNT(DISTINCT group_students.sid)
+      FROM runs group_runs
+      JOIN students group_students USING (runid)
+      WHERE group_runs.crunid = c.crunid
+        AND group_students.sid IN (${ids})
+    ) = $group${index}Count`
+    if (filter.usage === 'default') return ` AND ${countSelected}`
+    const countSelectedWithUsage = `(
+      SELECT COUNT(DISTINCT group_students.sid)
+      FROM runs group_runs
+      JOIN students group_students USING (runid)
+      WHERE group_runs.crunid = c.crunid
+        AND group_students.sid IN (${ids})${groupUsageCondition('group_students', filter.usage)}
+    ) = $group${index}Count`
+    if (filter.usage === 'assist') return ` AND ${countSelectedWithUsage}`
+    const oppositeUsage = filter.usage === 'assistOnly' ? 'self' : 'assist'
+    const excludesOppositeUsage = `NOT EXISTS (
+      SELECT 1
+      FROM runs group_runs
+      JOIN students group_students USING (runid)
+      WHERE group_runs.crunid = c.crunid
+        AND group_students.sid IN (${ids})${groupUsageCondition('group_students', oppositeUsage)}
+    )`
+    return ` AND ${countSelected} AND ${countSelectedWithUsage} AND ${excludesOppositeUsage}`
+  }).join('')
+}
+
+function grandStudentGroupFilter(armors: string[], filters: PlanaStudentGroupFilter[]) {
+  return filters.map((filter, index) => {
+    const rows = armors.map((armor) => `SELECT group_students.sid, group_students.assist
+        FROM ${safeIdentifier(`runs_${armor}`)} group_runs
+        JOIN ${safeIdentifier(`students_${armor}`)} group_students USING (runid)
+        WHERE group_runs.crunid = c.crunid
+          AND group_students.sid IN (${filter.ids.map((_, studentIndex) => `$group${index}Student${studentIndex}`).join(', ')})`)
+    if (!rows.length) return ''
+    const members = `(${rows.join(' UNION ALL ')}) group_member`
+    const countSelected = `(SELECT COUNT(DISTINCT group_member.sid) FROM ${members}) = $group${index}Count`
+    if (filter.usage === 'default') return ` AND ${countSelected}`
+    const scopedCondition = filter.usage === 'assist' || filter.usage === 'assistOnly'
+      ? 'group_member.assist'
+      : 'NOT group_member.assist'
+    const oppositeCondition = filter.usage === 'assistOnly' ? 'NOT group_member.assist' : 'group_member.assist'
+    const countSelectedWithUsage = `(SELECT COUNT(DISTINCT CASE WHEN ${scopedCondition} THEN group_member.sid END) FROM ${members}) = $group${index}Count`
+    if (filter.usage === 'assist') return ` AND ${countSelectedWithUsage}`
+    const excludesOppositeUsage = `NOT EXISTS (SELECT 1 FROM ${members} WHERE ${oppositeCondition})`
+    return ` AND ${countSelected} AND ${countSelectedWithUsage} AND ${excludesOppositeUsage}`
+  }).join('')
+}
+
 function rankWhere(
   raidType: PlanaRaidType,
   armors: string[],
   studentFilters: PlanaStudentFilter[],
   formationFilters: PlanaFormationFilter[],
+  studentGroupFilters: PlanaStudentGroupFilter[],
   minRank: number,
   maxRank: number,
 ) {
@@ -479,7 +545,10 @@ function rankWhere(
   const formationFilter = raidType === 'Total Assault'
     ? totalFormationFilter(formationFilters)
     : grandFormationFilter(armors, formationFilters)
-  return `c.rank >= $minRank AND c.rank <= $maxRank${studentFilter}${formationFilter}`
+  const studentGroupFilter = raidType === 'Total Assault'
+    ? totalStudentGroupFilter(studentGroupFilters)
+    : grandStudentGroupFilter(armors, studentGroupFilters)
+  return `c.rank >= $minRank AND c.rank <= $maxRank${studentFilter}${formationFilter}${studentGroupFilter}`
 }
 
 function formationStudentConditions(
@@ -669,6 +738,7 @@ type PlanaRankingsInput = {
   pageSize?: number
   studentFilters?: PlanaStudentFilter[]
   formationFilters?: PlanaFormationFilter[]
+  studentGroupFilters?: PlanaStudentGroupFilter[]
   minRank?: number
   maxRank?: number
 }
@@ -677,7 +747,7 @@ export async function getPlanaRankings(input: PlanaRankingsInput): Promise<Plana
   const dataset = await readyDataset(input.region, input.raidType, input.raidDate)
   const page = Math.max(1, Math.floor(input.page || 1))
   const pageSize = Math.min(25, Math.max(5, Math.floor(input.pageSize || 10)))
-  const cacheable = !(input.studentFilters?.length || input.formationFilters?.length)
+  const cacheable = !(input.studentFilters?.length || input.formationFilters?.length || input.studentGroupFilters?.length)
     && (input.minRank === undefined || input.minRank <= 1)
     && input.maxRank === undefined
   if (!cacheable) return computePlanaRankings(dataset, input)
@@ -727,6 +797,7 @@ function rankingQueryFilters(
   input: {
     studentFilters?: PlanaStudentFilter[]
     formationFilters?: PlanaFormationFilter[]
+    studentGroupFilters?: PlanaStudentGroupFilter[]
     minRank?: number
     maxRank?: number
   },
@@ -741,7 +812,10 @@ function rankingQueryFilters(
   const formationFilters = (input.formationFilters || [])
     .filter((formation) => formation.students.length > 0)
     .slice(0, 100)
-  const where = rankWhere(raidType, armors, studentFilters, formationFilters, minRank, maxRank)
+  const studentGroupFilters = (input.studentGroupFilters || [])
+    .filter((filter) => filter.ids.length >= 2 && filter.ids.length <= 12 && filter.count >= 1 && filter.count <= filter.ids.length)
+    .slice(0, 12)
+  const where = rankWhere(raidType, armors, studentFilters, formationFilters, studentGroupFilters, minRank, maxRank)
   const buildRanks = new Map([
     ['one', 1], ['two', 2], ['three', 3], ['four', 4], ['five', 5],
     ['UE30', 6], ['UE40', 7], ['UE50', 8], ['UE60', 9],
@@ -758,6 +832,10 @@ function rankingQueryFilters(
         values[`formation${formationIndex}Start${studentIndex}`] = Number(student.startOrder)
       }
     })
+  })
+  studentGroupFilters.forEach((filter, groupIndex) => {
+    filter.ids.forEach((id, studentIndex) => { values[`group${groupIndex}Student${studentIndex}`] = id })
+    values[`group${groupIndex}Count`] = filter.count
   })
   return { where, values }
 }
@@ -850,6 +928,7 @@ type PlanaUsedTeamsInput = {
   pageSize?: number
   studentFilters?: PlanaStudentFilter[]
   formationFilters?: PlanaFormationFilter[]
+  studentGroupFilters?: PlanaStudentGroupFilter[]
   minRank?: number
   maxRank?: number
   armor?: string
@@ -862,7 +941,7 @@ export async function getPlanaUsedTeams(input: PlanaUsedTeamsInput): Promise<Pla
   const armor = raidType === 'Grand Assault' && armors.includes(input.armor || '') ? input.armor || '' : ''
   const page = Math.max(1, Math.floor(input.page || 1))
   const pageSize = Math.min(25, Math.max(5, Math.floor(input.pageSize || 10)))
-  const cacheable = !(input.studentFilters?.length || input.formationFilters?.length)
+  const cacheable = !(input.studentFilters?.length || input.formationFilters?.length || input.studentGroupFilters?.length)
     && (input.minRank === undefined || input.minRank <= 1)
     && input.maxRank === undefined
   if (!cacheable) return computePlanaUsedTeams(dataset, input)

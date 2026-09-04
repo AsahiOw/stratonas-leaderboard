@@ -183,6 +183,13 @@ type FormationFilterRule = {
   }>
 }
 
+type StudentGroupFilterRule = {
+  key: number
+  ids: number[]
+  usage: 'default' | 'self' | 'assist' | 'assistOnly'
+  count: number
+}
+
 function raidDateValue(value: string) {
   return /^\d{8}$/.test(value)
     ? `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`
@@ -638,6 +645,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
   const [page, setPage] = useState(1)
   const [studentFilters, setStudentFilters] = useState<StudentFilterRule[]>([])
   const [studentSearch, setStudentSearch] = useState('')
+  const [studentSearchIndex, setStudentSearchIndex] = useState(-1)
+  const [studentGroupFilters, setStudentGroupFilters] = useState<StudentGroupFilterRule[]>([])
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [formationFilters, setFormationFilters] = useState<FormationFilterRule[]>([])
   const [draggedStudent, setDraggedStudent] = useState<{ formationKey: number; slot: number } | null>(null)
@@ -666,6 +675,7 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
   const [appliedFilters, setAppliedFilters] = useState({
     studentFilters: [] as StudentFilterRule[],
     formationFilters: [] as FormationFilterRule[],
+    studentGroupFilters: [] as StudentGroupFilterRule[],
     minRank: '1',
     maxRank: '',
     armor: '',
@@ -748,6 +758,9 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
         students: formation.students,
       })))
     }
+    if (appliedFilters.studentGroupFilters.length) {
+      values.studentGroupFilters = JSON.stringify(appliedFilters.studentGroupFilters.map(({ ids, usage, count }) => ({ ids, usage, count })))
+    }
     if (appliedFilters.minRank) values.minRank = appliedFilters.minRank
     if (appliedFilters.maxRank) values.maxRank = appliedFilters.maxRank
 
@@ -828,12 +841,93 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
       : filtered
   }, [raids, region, raidType, search, highlightEmerging])
 
+  const matchingStudentOptions = useMemo(() => {
+    const query = studentSearch.trim().toLowerCase()
+    if (!query) return []
+    return (meta?.students || [])
+      .filter((student) => (
+        !studentFilters.some((filter) => filter.id === student.id)
+        && !studentGroupFilters.some((group) => group.ids.includes(student.id))
+        && student.name.toLowerCase().includes(query)
+      ))
+      .slice(0, 8)
+  }, [meta?.students, studentFilters, studentGroupFilters, studentSearch])
+
+  useEffect(() => {
+    if (studentSearchIndex < 0) return
+    const option = matchingStudentOptions[studentSearchIndex]
+    if (option) document.getElementById(`student-filter-option-${option.id}`)?.scrollIntoView({ block: 'nearest' })
+  }, [matchingStudentOptions, studentSearchIndex])
+
+  function addStudentFilter(student: StudentOption) {
+    setStudentFilters((current) => [...current, {
+      id: student.id,
+      mode: 'include',
+      build: '',
+      buildComparison: 'eq',
+      usage: 'default',
+    }])
+    setStudentSearch('')
+    setStudentSearchIndex(-1)
+  }
+
+  function groupSelectedStudents() {
+    if (studentFilters.length < 2) return
+    setStudentGroupFilters((current) => [...current, {
+      key: Date.now(),
+      ids: studentFilters.map((filter) => filter.id),
+      usage: 'default',
+      count: 1,
+    }])
+    setStudentFilters([])
+  }
+
+  function ungroupStudents(group: StudentGroupFilterRule) {
+    setStudentFilters((current) => [...current, ...group.ids.map((id) => ({
+      id,
+      mode: 'include' as const,
+      build: '',
+      buildComparison: 'eq' as const,
+      usage: 'default' as const,
+    }))])
+    setStudentGroupFilters((current) => current.filter((item) => item.key !== group.key))
+  }
+
+  function moveStudentFilterToGroup(filterIndex: number, groupKey: number) {
+    const filter = studentFilters[filterIndex]
+    const group = studentGroupFilters.find((item) => item.key === groupKey)
+    if (!filter || !group || group.ids.length >= 12) return
+    setStudentGroupFilters((current) => current.map((item) => (
+      item.key === groupKey ? { ...item, ids: [...item.ids, filter.id] } : item
+    )))
+    setStudentFilters((current) => current.filter((_, index) => index !== filterIndex))
+  }
+
+  function moveGroupedStudentToFilters(groupKey: number, studentId: number) {
+    const group = studentGroupFilters.find((item) => item.key === groupKey)
+    if (!group || group.ids.length <= 2) return
+    setStudentGroupFilters((current) => current.map((item) => {
+      if (item.key !== groupKey) return item
+      const ids = item.ids.filter((id) => id !== studentId)
+      return { ...item, ids, count: Math.min(item.count, ids.length) }
+    }))
+    setStudentFilters((current) => [...current, {
+      id: studentId,
+      mode: 'include',
+      build: '',
+      buildComparison: 'eq',
+      usage: 'default',
+    }])
+  }
+
   function openRaid(raid: PlanaRaid) {
     router.push(`/raiddata/${encodeURIComponent(raid.id)}`)
     setView('overview')
     setPage(1)
     setStudentFilters([])
     setStudentSearch('')
+    setStudentSearchIndex(-1)
+    setStudentGroupFilters([])
     setFormationFilters([])
     setAdvancedOpen(false)
     setActiveFormationSlot(null)
@@ -842,7 +936,7 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
     setSelectedRangePreset('')
     setArmorFilter('')
     setRankIntervalError(null)
-    setAppliedFilters({ studentFilters: [], formationFilters: [], minRank: '1', maxRank: '', armor: '' })
+    setAppliedFilters({ studentFilters: [], formationFilters: [], studentGroupFilters: [], minRank: '1', maxRank: '', armor: '' })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -881,6 +975,9 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
           search: '',
           students: formation.students.map((student) => ({ ...student })),
         })),
+      studentGroupFilters: view === 'usage' ? [] : studentGroupFilters
+        .filter((group) => group.ids.length >= 2)
+        .map((group) => ({ ...group, ids: [...group.ids], count: Math.min(group.count, group.ids.length) })),
       minRank,
       maxRank,
       armor: armorFilter,
@@ -891,6 +988,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
   function resetFilters() {
     setStudentFilters([])
     setStudentSearch('')
+    setStudentSearchIndex(-1)
+    setStudentGroupFilters([])
     setFormationFilters([])
     setActiveFormationSlot(null)
     setMinRank('1')
@@ -899,7 +998,7 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
     setArmorFilter('')
     setRankIntervalError(null)
     setPage(1)
-    setAppliedFilters({ studentFilters: [], formationFilters: [], minRank: '1', maxRank: '', armor: '' })
+    setAppliedFilters({ studentFilters: [], formationFilters: [], studentGroupFilters: [], minRank: '1', maxRank: '', armor: '' })
   }
 
   if (catalogLoading) return <div className="pt-7"><LoadingPanel label="Loading imported raid data..." /></div>
@@ -1191,34 +1290,43 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                 <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.1em] text-muted">Students</span>
                 <input
                   value={studentSearch}
-                  onChange={(event) => setStudentSearch(event.target.value)}
+                  onChange={(event) => { setStudentSearch(event.target.value); setStudentSearchIndex(-1) }}
+                  onKeyDown={(event) => {
+                    if (!matchingStudentOptions.length) return
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault()
+                      setStudentSearchIndex((current) => (current + 1) % matchingStudentOptions.length)
+                    } else if (event.key === 'ArrowUp') {
+                      event.preventDefault()
+                      setStudentSearchIndex((current) => current <= 0 ? matchingStudentOptions.length - 1 : current - 1)
+                    } else if (event.key === 'Enter' && studentSearchIndex >= 0) {
+                      event.preventDefault()
+                      addStudentFilter(matchingStudentOptions[studentSearchIndex])
+                    } else if (event.key === 'Escape') {
+                      setStudentSearch('')
+                      setStudentSearchIndex(-1)
+                    }
+                  }}
                   placeholder={studentFilters.length ? 'Add another student...' : 'Search by student name'}
                   aria-label="Search students to filter rankings"
+                  role="combobox"
+                  aria-expanded={matchingStudentOptions.length > 0}
+                  aria-controls="student-filter-options"
+                  aria-activedescendant={studentSearchIndex >= 0 ? `student-filter-option-${matchingStudentOptions[studentSearchIndex]?.id}` : undefined}
                   className="h-10 w-full rounded-lg border border-border2 bg-bg px-3 text-sm text-text outline-none focus:border-accent"
                 />
                 {studentSearch.trim() && (
-                  <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-border2 bg-bg p-1">
-                    {meta?.students
-                      .filter((student) => (
-                        !studentFilters.some((filter) => filter.id === student.id)
-                        && student.name.toLowerCase().includes(studentSearch.trim().toLowerCase())
-                      ))
-                      .slice(0, 8)
-                      .map((student) => (
+                  <div id="student-filter-options" role="listbox" className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-border2 bg-bg p-1">
+                    {matchingStudentOptions.map((student, index) => (
                         <button
+                          id={`student-filter-option-${student.id}`}
                           key={student.id}
                           type="button"
-                          onClick={() => {
-                            setStudentFilters((current) => [...current, {
-                              id: student.id,
-                              mode: 'include',
-                              build: '',
-                              buildComparison: 'eq',
-                              usage: 'default',
-                            }])
-                            setStudentSearch('')
-                          }}
-                          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-text transition hover:bg-card2"
+                          role="option"
+                          aria-selected={index === studentSearchIndex}
+                          onMouseEnter={() => setStudentSearchIndex(index)}
+                          onClick={() => addStudentFilter(student)}
+                          className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-text transition ${index === studentSearchIndex ? 'bg-card2' : 'hover:bg-card2'}`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -1255,14 +1363,6 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                       }
                       return (
                         <div key={filter.id} className="relative flex gap-3 rounded-xl border border-border2 bg-bg p-3">
-                          <button
-                            type="button"
-                            onClick={() => setStudentFilters((current) => current.filter((_, index) => index !== filterIndex))}
-                            aria-label={`Remove ${student?.name || 'student'} filter`}
-                            className="absolute right-2 top-2 z-10 rounded-md bg-black/55 p-1 text-white/70 transition hover:text-white"
-                          >
-                            <X size={13} aria-hidden />
-                          </button>
                           <div className="w-[72px] shrink-0">
                             <div className="aspect-square overflow-hidden rounded-xl border-2 border-white/80 bg-[#e8f1fb]">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1276,26 +1376,36 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                               {student?.name || `Student ${filter.id}`}
                             </div>
                           </div>
-                          <div className="min-w-0 flex-1 space-y-2 pr-4">
-                            <div className="grid grid-cols-2 rounded-lg border border-border2 bg-card p-0.5 text-xs font-bold">
-                              {(['include', 'exclude'] as const).map((mode) => (
-                                <button
-                                  key={mode}
-                                  type="button"
-                                  onClick={() => updateFilter({
-                                    mode,
-                                    usage: ['single', 'twice'].includes(filter.usage) && mode === 'exclude'
-                                      ? 'default'
-                                      : filter.usage,
-                                  })}
-                                  className={`rounded-md px-2 py-1.5 capitalize transition ${filter.mode === mode
-                                    ? mode === 'include' ? 'bg-blue-500 text-white' : 'bg-red text-white'
-                                    : 'text-muted hover:text-text'
-                                    }`}
-                                >
-                                  {mode}
-                                </button>
-                              ))}
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex w-full items-stretch gap-2">
+                              <div className="grid min-w-0 flex-1 grid-cols-2 rounded-lg border border-border2 bg-card p-0.5 text-xs font-bold">
+                                {(['include', 'exclude'] as const).map((mode) => (
+                                  <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => updateFilter({
+                                      mode,
+                                      usage: ['single', 'twice'].includes(filter.usage) && mode === 'exclude'
+                                        ? 'default'
+                                        : filter.usage,
+                                    })}
+                                    className={`rounded-md px-2 py-1.5 capitalize transition ${filter.mode === mode
+                                      ? mode === 'include' ? 'bg-blue-500 text-white' : 'bg-red text-white'
+                                      : 'text-muted hover:text-text'
+                                      }`}
+                                  >
+                                    {mode}
+                                  </button>
+                                ))}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setStudentFilters((current) => current.filter((_, index) => index !== filterIndex))}
+                                aria-label={`Remove ${student?.name || 'student'} filter`}
+                                className="inline-flex w-8 shrink-0 items-center justify-center rounded-lg border border-border2 bg-card text-muted2 shadow-sm transition hover:border-red/50 hover:bg-red/10 hover:text-red focus:outline-none focus:ring-2 focus:ring-red/40"
+                              >
+                                <X size={15} strokeWidth={2} aria-hidden />
+                              </button>
                             </div>
                             {view === 'rankings' && (
                               <div className="relative">
@@ -1350,10 +1460,144 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                                 <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted2" aria-hidden />
                               </div>
                             )}
+                            {view === 'rankings' && studentGroupFilters.length > 0 && (
+                              <div className="relative">
+                                <select
+                                  value=""
+                                  onChange={(event) => {
+                                    const groupKey = Number(event.target.value)
+                                    if (Number.isFinite(groupKey)) moveStudentFilterToGroup(filterIndex, groupKey)
+                                  }}
+                                  aria-label={`Add ${student?.name || 'student'} to group`}
+                                  className="h-9 w-full appearance-none rounded-lg border border-accent/50 bg-card pl-3 pr-9 text-xs font-semibold text-accent outline-none focus:border-accent"
+                                >
+                                  <option value="">Add to group…</option>
+                                  {studentGroupFilters.map((group, groupIndex) => (
+                                    <option key={group.key} value={group.key} disabled={group.ids.length >= 12}>
+                                      Group {groupIndex + 1} ({group.ids.length})
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted2" aria-hidden />
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
                     })}
+                  </div>
+                )}
+                {view === 'rankings' && (
+                  <div className="mt-4 rounded-xl border border-border2 bg-bg/45 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-black text-text">Student group filters</div>
+                        <p className="mt-0.5 text-[11px] text-muted">Group the students selected above under one shared controller.</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={studentFilters.length < 2 || studentFilters.length > 12 || studentGroupFilters.length >= 12}
+                        onClick={groupSelectedStudents}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-accent/50 px-2.5 text-[11px] font-bold text-accent transition hover:bg-accent/10 disabled:opacity-40"
+                      >
+                        <Plus size={13} aria-hidden /> Group selected ({studentFilters.length})
+                      </button>
+                    </div>
+                    {studentGroupFilters.length > 0 && (
+                      <div className="mt-3 space-y-3">
+                        {studentGroupFilters.map((group) => {
+                          const groupStudents = group.ids.map((id) => meta?.students.find((student) => student.id === id)).filter(Boolean) as StudentOption[]
+                          const updateGroup = (changes: Partial<StudentGroupFilterRule>) => setStudentGroupFilters((current) => current.map((item) => (
+                            item.key === group.key ? { ...item, ...changes } : item
+                          )))
+                          return (
+                            <div key={group.key} className="rounded-xl border-2 border-accent/45 bg-bg p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="text-[11px] font-black uppercase tracking-[0.08em] text-muted">Group · {group.ids.length} students</div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => ungroupStudents(group)}
+                                    className="rounded-md px-2 py-1 text-[10px] font-bold text-accent transition hover:bg-accent/10"
+                                  >
+                                    Ungroup
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setStudentGroupFilters((current) => current.filter((item) => item.key !== group.key))}
+                                    aria-label="Remove student group filter"
+                                    className="rounded-md p-2 text-muted transition hover:text-red"
+                                  >
+                                    <Trash2 size={15} aria-hidden />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                                {groupStudents.length > 0 && (
+                                  <div className="grid min-w-0 flex-1 grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                                    {groupStudents.map((student) => (
+                                      <div key={student.id} className="min-w-0">
+                                        <div className="relative aspect-square overflow-hidden rounded-xl border-2 border-white/80 bg-[#e8f1fb]">
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img
+                                            src={imageSrc(student.image)}
+                                            alt=""
+                                            className="h-full w-full object-cover object-top"
+                                          />
+                                          <button
+                                            type="button"
+                                            disabled={group.ids.length <= 2}
+                                            onClick={() => moveGroupedStudentToFilters(group.key, student.id)}
+                                            aria-label={`Move ${student.name} to normal filters`}
+                                            title={group.ids.length <= 2 ? 'A group must keep at least 2 students.' : 'Move to normal filters'}
+                                            className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-md bg-black/70 text-white transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-35"
+                                          >
+                                            <ArrowLeft size={12} aria-hidden />
+                                          </button>
+                                        </div>
+                                        <div className="mt-1 truncate text-center text-[10px] font-bold text-muted2" title={student.name}>
+                                          {student.name}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="grid shrink-0 grid-cols-2 gap-2 rounded-xl border border-border2 bg-card p-2 sm:w-[210px] sm:grid-cols-1">
+                                  <div className="relative">
+                                    <select
+                                      value={group.usage}
+                                      onChange={(event) => updateGroup({ usage: event.target.value as StudentGroupFilterRule['usage'] })}
+                                      aria-label="Student group ownership"
+                                      className="h-9 w-full appearance-none rounded-lg border border-blue-500/60 bg-bg pl-3 pr-8 text-xs font-semibold text-text outline-none focus:border-blue-400"
+                                    >
+                                      <option value="default">Any ownership</option>
+                                      <option value="self">Self only</option>
+                                      <option value="assist">Assist</option>
+                                      <option value="assistOnly">Assist only</option>
+                                    </select>
+                                    <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted2" aria-hidden />
+                                  </div>
+                                  <div className="relative">
+                                    <select
+                                      value={Math.min(group.count, Math.max(1, group.ids.length))}
+                                      disabled={group.ids.length === 0}
+                                      onChange={(event) => updateGroup({ count: Number(event.target.value) })}
+                                      aria-label="Exact number of group students"
+                                      className="h-9 w-full appearance-none rounded-lg border border-blue-500/60 bg-bg pl-3 pr-8 text-xs font-semibold text-text outline-none focus:border-blue-400 disabled:opacity-50"
+                                    >
+                                      {Array.from({ length: Math.max(1, group.ids.length) }, (_, index) => index + 1).map((count) => (
+                                        <option key={count} value={count}>Exactly {count}</option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted2" aria-hidden />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
                 {view === 'rankings' && (

@@ -1,11 +1,11 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { StModal } from '@/components/ui/StModal'
 import { LeaderboardTable, type TableEntry } from '@/components/LeaderboardTable'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { fmtDate } from '@/lib/utils'
 
-interface Raid {
+export interface RaidDetailData {
   id: string
   raidBoss: { name: string; description: string; image?: string | null }
   season: number
@@ -18,18 +18,23 @@ interface Raid {
 }
 
 interface Props {
-  raid: Raid
+  raid: RaidDetailData
   onClose: () => void
   onPlayerClick?: (playerId: string) => void
   hideGuests: boolean
   onToggleGuests: () => void
   initialEntries?: TableEntry[]
   returnTab?: string
+  focusPlayerId?: string
 }
 
-export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onToggleGuests, initialEntries = [], returnTab = 'leaderboard' }: Props) {
+const EMPTY_ENTRIES: TableEntry[] = []
+
+export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onToggleGuests, initialEntries = EMPTY_ENTRIES, returnTab = 'leaderboard', focusPlayerId }: Props) {
   const [full, setFull] = useState<TableEntry[]>(initialEntries)
   const [search, setSearch] = useState('')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const tableScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (initialEntries.length > 0) {
@@ -38,9 +43,21 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onTo
     }
 
     fetch(`/api/raids/${raid.id}/entries`)
-      .then((r) => r.json())
-      .then((data: TableEntry[]) => setFull(data))
-      .catch(() => undefined)
+      .then(async (response) => {
+        const data: unknown = await response.json()
+        const entries = Array.isArray(data)
+          ? data
+          : data && typeof data === 'object' && Array.isArray((data as { entries?: unknown }).entries)
+            ? (data as { entries: TableEntry[] }).entries
+            : null
+        if (!response.ok || !entries) throw new Error('Could not load raid entries.')
+        return entries as TableEntry[]
+      })
+      .then((data) => { setFull(data); setLoadError(null) })
+      .catch((error: unknown) => {
+        setFull([])
+        setLoadError(error instanceof Error ? error.message : 'Could not load raid entries.')
+      })
   }, [initialEntries, raid.id])
 
   const filteredFull = (hideGuests
@@ -51,6 +68,15 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onTo
   const searchedFull = searchTerm
     ? filteredFull.filter((e) => e.name.toLowerCase().includes(searchTerm))
     : filteredFull
+
+  useEffect(() => {
+    if (!focusPlayerId || !full.some((entry) => entry.playerId === focusPlayerId)) return
+    const frame = window.requestAnimationFrame(() => {
+      const row = tableScrollRef.current?.querySelector<HTMLElement>(`[data-player-id="${CSS.escape(focusPlayerId)}"]`)
+      row?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [focusPlayerId, full, hideGuests, search])
 
   return (
     <StModal
@@ -89,10 +115,14 @@ export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onTo
           </button>
         </div>
       </div>
-      <div className="scrollbar-hidden flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-border">
+      <div ref={tableScrollRef} className="scrollbar-hidden flex-1 min-h-0 overflow-y-auto overscroll-contain rounded-lg border border-border">
         <div key={hideGuests ? 'guild-only' : 'all-players'} className="leaderboard-filter-transition">
-          {searchedFull.length > 0 ? (
-            <LeaderboardTable players={searchedFull} accent={raid.color} onPlayerClick={onPlayerClick} returnTab={returnTab} />
+          {loadError ? (
+            <div className="flex min-h-[180px] items-center justify-center px-4 text-center text-sm text-red">
+              {loadError}
+            </div>
+          ) : searchedFull.length > 0 ? (
+            <LeaderboardTable players={searchedFull} accent={raid.color} onPlayerClick={onPlayerClick} returnTab={returnTab} highlightPlayerId={focusPlayerId} />
           ) : (
             <div className="flex min-h-[180px] items-center justify-center px-4 text-center text-sm text-muted">
               No players found for &quot;{search.trim()}&quot;.

@@ -7,6 +7,7 @@ import type { NewsPageResult, NewsPost, NewsServer, OfficialNewsArticle } from '
 import { requestPlanaNewsSummary } from '@/lib/plana-events'
 
 const NEWS_SESSION_CACHE_PREFIX = 'stratonas:news:v12:'
+const LATEST_NEWS_CACHE_KEY = 'stratonas:news:latest:v1'
 const NEWS_CLIENT_FRESH_MS = 5 * 60 * 1000
 
 type CachedNewsPage = {
@@ -37,6 +38,20 @@ function writeSessionPage(server: NewsServer, category: string, page: number, ca
     window.sessionStorage.setItem(sessionCacheKey(server, category, page), JSON.stringify(cached))
   } catch {
     // Memory caching still works when session storage is unavailable or full.
+  }
+}
+
+function includeLatestHomePost(data: NewsPageResult, server: NewsServer, category: string, page: number): NewsPageResult {
+  if (server !== 'global' || category !== 'all' || page !== 1) return data
+  try {
+    const raw = window.sessionStorage.getItem(LATEST_NEWS_CACHE_KEY)
+    if (!raw) return data
+    const cached = JSON.parse(raw) as { post?: NewsPost }
+    const latest = cached.post
+    if (!latest || latest.server !== server || data.posts.some((post) => post.id === latest.id && post.server === latest.server)) return data
+    return { ...data, posts: [latest, ...data.posts] }
+  } catch {
+    return data
   }
 }
 
@@ -403,7 +418,7 @@ export function NewsPage() {
 
     if (cached) {
       pageCacheRef.current.set(cacheKey, cached)
-      applyPage(cached.data, append)
+      applyPage(includeLatestHomePost(cached.data, nextServer, nextCategory, nextPage), append)
       setLoading(false)
       setLoadingMore(false)
       setError(null)
@@ -426,7 +441,7 @@ export function NewsPage() {
         pageCacheRef.current.set(cacheKey, nextCached)
         writeSessionPage(nextServer, nextCategory, nextPage, nextCached)
       }
-      applyPage(data, append)
+      applyPage(includeLatestHomePost(data, nextServer, nextCategory, nextPage), append)
     } catch (reason) {
       if (requestId === requestIdRef.current) setError(reason instanceof Error ? reason.message : 'Official news is temporarily unavailable.')
     } finally {

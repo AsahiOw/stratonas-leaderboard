@@ -3,10 +3,12 @@
 import { useRef, useState } from 'react'
 import { StModal } from '@/components/ui/StModal'
 import { getKeiVolume, isKeiGreetingEnabled, setKeiGreetingEnabled, setKeiVolume } from '@/lib/kei-volume'
+import { isMomotalkIconVisible, setMomotalkIconVisible } from '@/lib/momotalk-settings'
 
 export function SettingsModal({ onClose }: { onClose: () => void }) {
   const [volume, setVolume] = useState(() => Math.round(getKeiVolume() * 100))
   const [greetingEnabled, setGreetingEnabled] = useState(() => isKeiGreetingEnabled())
+  const [momotalkIconVisible, setMomotalkIconVisibleState] = useState(() => isMomotalkIconVisible())
   const previewRef = useRef<HTMLAudioElement | null>(null)
 
   function handleChange(value: number) {
@@ -17,6 +19,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   function handleGreetingEnabledChange(enabled: boolean) {
     setGreetingEnabled(enabled)
     setKeiGreetingEnabled(enabled)
+  }
+
+  function handleMomotalkIconVisibleChange(visible: boolean) {
+    setMomotalkIconVisibleState(visible)
+    setMomotalkIconVisible(visible)
   }
 
   function handlePreview() {
@@ -54,6 +61,34 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               aria-hidden
               className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-text shadow-sm transition-transform ${
                 greetingEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <label htmlFor="momotalk-icon-visible" className="text-sm font-semibold text-text">
+              MomoTalk icon
+            </label>
+            <p className="mt-1 text-xs leading-5 text-muted2">
+              Show the floating MomoTalk button.
+            </p>
+          </div>
+          <button
+            id="momotalk-icon-visible"
+            type="button"
+            role="switch"
+            aria-checked={momotalkIconVisible}
+            aria-label="Toggle MomoTalk icon"
+            onClick={() => handleMomotalkIconVisibleChange(!momotalkIconVisible)}
+            className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50 focus:ring-offset-2 focus:ring-offset-card2 ${
+              momotalkIconVisible ? 'border-accent/40 bg-accent' : 'border-border2 bg-card'
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-text shadow-sm transition-transform ${
+                momotalkIconVisible ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
           </button>
