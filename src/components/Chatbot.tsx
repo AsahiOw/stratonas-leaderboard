@@ -266,7 +266,7 @@ function PlanaTypingBubble() {
 
 export function Chatbot() {
   const [open, setOpen] = useState(false)
-  const [iconVisible, setIconVisible] = useState(() => isMomotalkIconVisible())
+  const [iconVisible, setIconVisible] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
   const [pending, setPending] = useState(false)
@@ -286,6 +286,7 @@ export function Chatbot() {
       if (event instanceof CustomEvent && typeof event.detail === 'boolean') setIconVisible(event.detail)
     }
 
+    setIconVisible(isMomotalkIconVisible())
     window.addEventListener(MOMOTALK_ICON_VISIBLE_EVENT, handleIconVisibility)
     return () => window.removeEventListener(MOMOTALK_ICON_VISIBLE_EVENT, handleIconVisibility)
   }, [])
