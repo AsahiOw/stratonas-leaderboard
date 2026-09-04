@@ -296,7 +296,7 @@ export function Chatbot() {
       const detail = event.detail as Partial<PlanaNewsSummaryRequest> | null
       if (!detail || typeof detail.threadId !== 'string' || !/^\d{1,20}$/.test(detail.threadId)) return
       if (typeof detail.title !== 'string' || !detail.title.trim()) return
-      if (detail.server !== 'global' && detail.server !== 'jp' && detail.server !== 'global-x' && detail.server !== 'jp-x') return
+      if (detail.server !== 'global' && detail.server !== 'jp') return
       setNewsSummaryRequest({ threadId: detail.threadId, title: detail.title.trim().slice(0, 220), server: detail.server })
       setOpen(true)
     }

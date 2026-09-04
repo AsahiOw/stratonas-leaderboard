@@ -100,7 +100,7 @@ function rateLimitRule(pathname: string, method: string) {
   }
   if (pathname === '/api/chat') return { bucket: 'chat', limit: 20, windowMs: 60_000 }
   if (pathname === '/api/news/translate') return { bucket: 'translation', limit: 10, windowMs: 60_000 }
-  if (pathname === '/api/image-proxy' || pathname === '/api/x-video-proxy') {
+  if (pathname === '/api/image-proxy') {
     return { bucket: 'media-proxy', limit: 120, windowMs: 60_000 }
   }
   if (pathname.startsWith('/api/admin/recruitments')) return { bucket: 'recruitment-upload', limit: 10, windowMs: 60_000 }
