@@ -1,4 +1,5 @@
 import { ServerBadge } from '@/components/ui/ServerBadge'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { fmtDate, proxyImage } from '@/lib/utils'
 
 const patternMap: Record<string, string> = {
@@ -49,10 +50,11 @@ export function RaidBanner({ raid, topPlayer, standalone = false }: Props) {
           className="absolute inset-y-0 right-0 w-4/5 sm:w-3/5 pointer-events-none"
           style={{ maskImage: 'linear-gradient(to right, transparent 0%, black 55%)', WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 55%)' }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ProgressiveImage
             src={proxyImage(raid.raidBoss.image)}
             alt=""
+            fill
+            sizes="(min-width: 640px) 60vw, 80vw"
             className="absolute inset-0 w-full h-full object-cover object-center opacity-40"
           />
         </div>

@@ -1,4 +1,6 @@
 'use client'
+
+import DeferredVideo from '@/components/ui/DeferredVideo'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { flushSync } from 'react-dom'
 import { useSession, signOut } from 'next-auth/react'
@@ -318,18 +320,16 @@ export function LeaderboardApp({
             <div
               className="relative mt-5 mb-5 flex min-h-[180px] items-end justify-center overflow-hidden rounded-2xl border border-border text-center sm:min-h-[220px]"
             >
-              <video
+              <DeferredVideo
+                src="/assets/images/banner.mp4"
                 className="absolute inset-0 h-full w-full object-cover"
                 autoPlay
                 muted
                 loop
                 playsInline
-                preload="auto"
                 poster="/assets/images/banner-poster.webp"
                 aria-hidden="true"
-              >
-                <source src="/assets/images/banner.mp4" type="video/mp4" />
-              </video>
+              />
               <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.18),rgba(13,13,19,0.82))]" />
               <div className="relative px-4 pb-3 sm:pb-4">
                 <h1 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-[-0.03em] leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.75)]">
@@ -343,6 +343,10 @@ export function LeaderboardApp({
             </div>
             <LatestNewsSection onOpenNews={() => handleTabChange('news')} />
             <FutureRecruitmentSection schedule={futureRecruitment} />
+            <div className="mb-3 mt-5 flex items-center gap-3">
+              <h2 className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-muted2">Leaderboard</h2>
+              <div className="h-px flex-1 bg-border" />
+            </div>
             {latestRaids.length === 0 ? (
               <div className="text-center text-muted py-16 text-sm">No completed raid results for this server filter.</div>
             ) : (

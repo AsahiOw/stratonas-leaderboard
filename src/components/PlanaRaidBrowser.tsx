@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
@@ -302,8 +303,8 @@ function StudentTile({ student, orderedSkills }: { student: StudentBuild; ordere
           ? 'border-cyan-300 shadow-[0_0_0_1px_rgba(103,232,249,0.45),0_0_16px_rgba(103,232,249,0.12)]'
           : 'border-white/20'
         } transition group-hover:-translate-y-0.5 group-hover:border-accent`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+
+        <ProgressiveImage
           src={imageSrc(student.image)}
           alt={student.name}
           className="h-full w-full object-cover object-top"
@@ -311,8 +312,8 @@ function StudentTile({ student, orderedSkills }: { student: StudentBuild; ordere
         />
         <div className="absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-black/80 to-transparent" />
         <div className="absolute bottom-1 left-1 inline-flex items-center gap-0.5 rounded bg-black/65 px-1 py-0.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageSrc(stars.src)} alt="" className="h-3.5 w-3.5 object-contain" />
+
+          <ProgressiveImage src={imageSrc(stars.src)} alt="" className="h-3.5 w-3.5 object-contain" />
           <span className={`text-[10px] font-black ${stars.color === 'blue' ? 'text-cyan-200' : 'text-amber-200'}`}>
             {stars.count}
           </span>
@@ -471,8 +472,8 @@ function RaidCatalogCard({ raid, onOpen }: { raid: PlanaRaid; onOpen: () => void
             WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 55%)',
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+
+          <ProgressiveImage
             src={imageSrc(raid.boss.image)}
             alt=""
             className="h-full w-full object-cover object-center opacity-45 transition-transform duration-300 group-hover:scale-[1.04]"
@@ -601,8 +602,8 @@ function StudentRankingGrid({
                     <div className="flex w-8 shrink-0 justify-center">
                       <RankBadge rank={rank} size="sm" />
                     </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+
+                    <ProgressiveImage
                       src={imageSrc(student.image)}
                       alt=""
                       className="h-10 w-10 shrink-0 rounded-lg border border-white/20 bg-[#e8f1fb] object-cover object-top"
@@ -1328,8 +1329,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                           onClick={() => addStudentFilter(student)}
                           className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-text transition ${index === studentSearchIndex ? 'bg-card2' : 'hover:bg-card2'}`}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+
+                          <ProgressiveImage
                             src={imageSrc(student.image)}
                             alt=""
                             className="h-10 w-10 rounded-lg border border-white/20 bg-[#e8f1fb] object-cover object-top"
@@ -1365,8 +1366,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                         <div key={filter.id} className="relative flex gap-3 rounded-xl border border-border2 bg-bg p-3">
                           <div className="w-[72px] shrink-0">
                             <div className="aspect-square overflow-hidden rounded-xl border-2 border-white/80 bg-[#e8f1fb]">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
+
+                              <ProgressiveImage
                                 src={imageSrc(student?.image || '')}
                                 alt={student?.name || `Student ${filter.id}`}
                                 className="h-full w-full object-cover object-top"
@@ -1538,8 +1539,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                                     {groupStudents.map((student) => (
                                       <div key={student.id} className="min-w-0">
                                         <div className="relative aspect-square overflow-hidden rounded-xl border-2 border-white/80 bg-[#e8f1fb]">
-                                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                                          <img
+
+                                          <ProgressiveImage
                                             src={imageSrc(student.image)}
                                             alt=""
                                             className="h-full w-full object-cover object-top"
@@ -1838,8 +1839,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                                             </span>
                                           ) : (
                                             <>
-                                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                                              <img
+
+                                              <ProgressiveImage
                                                 src={imageSrc(student?.image || '')}
                                                 alt={student?.name || `Student ${entry.id}`}
                                                 draggable={false}
@@ -1949,8 +1950,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                                           className="group overflow-hidden rounded-xl border border-border2 bg-card text-left transition hover:border-accent hover:bg-card2"
                                         >
                                           <div className="aspect-[1/0.78] overflow-hidden bg-[#e8f1fb]">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
+
+                                            <ProgressiveImage
                                               src={imageSrc(student.image)}
                                               alt=""
                                               className="h-full w-full object-cover object-top transition group-hover:scale-[1.03]"
@@ -1976,8 +1977,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                                 >
                                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                                     <div className="flex min-w-0 items-center gap-3">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
+
+                                      <ProgressiveImage
                                         src={imageSrc(activeStudent?.image || '')}
                                         alt={activeStudent?.name || `Student ${activeEntry.id}`}
                                         className="h-14 w-14 rounded-xl border border-white/30 bg-[#e8f1fb] object-cover object-top"
@@ -2059,8 +2060,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                                 >
                                   <div className="w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border-2 border-cyan-200 bg-[#e8f1fb] opacity-100 shadow-[0_18px_45px_rgba(0,0,0,0.55),0_0_0_3px_rgba(103,232,249,0.2)]">
                                     <div className="relative aspect-[1/1.08]">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
+
+                                      <ProgressiveImage
                                         src={imageSrc(draggedOption?.image || '')}
                                         alt=""
                                         draggable={false}
@@ -2309,8 +2310,8 @@ export function PlanaRaidBrowser({ initialRaidId }: { initialRaidId?: string }) 
                         className="group min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
                       >
                         <div className="aspect-square overflow-hidden rounded-lg border border-border2 bg-[#e8f1fb] transition group-hover:-translate-y-0.5 group-hover:border-accent">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={imageSrc(student.image)} alt={student.name} className="h-full w-full object-cover object-top" loading="lazy" />
+
+                          <ProgressiveImage src={imageSrc(student.image)} alt={student.name} className="h-full w-full object-cover object-top" loading="lazy" />
                         </div>
                         <div className="mt-1 truncate text-center text-[10px] font-semibold text-muted2 transition-colors group-hover:text-accent" title={student.name}>
                           {student.name}

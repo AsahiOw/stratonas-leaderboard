@@ -1,0 +1,1669 @@
+{
+  "version": 1,
+  "source": {
+    "file": "src/lib/student-import.ts",
+    "url": "https://schaledb.com/data/en/students.min.json",
+    "capturedAt": "2026-09-16T12:00:09.123Z",
+    "sha256": "e6dc21d9b7dca86c44a6b40e4b4d4576470669ad3def68c0333d1b3566973ac1",
+    "normalization": "JSON object values; trim Name/PathName/DevName; retain nonempty Name and Student.id 10000..99999; sort by id ascending"
+  },
+  "comparison": {
+    "mappedRosterBaselineCount": 274,
+    "eligibleMinusMappedRoster": 1,
+    "note": "The 274 baseline is the live-pilot mapped-roster count supplied by the acceptance audit; no current database or report was read to build this snapshot."
+  },
+  "eligibleCount": 275,
+  "snapshotChecksum": "f4b364bf6b0d35f41bc74c7e4bbe1aa48ded5d6c192393c910e71946211c7209",
+  "students": [
+    {
+      "id": 10000,
+      "name": "Aru",
+      "pathName": "aru",
+      "devName": "Aru"
+    },
+    {
+      "id": 10001,
+      "name": "Eimi",
+      "pathName": "eimi",
+      "devName": "Eimi"
+    },
+    {
+      "id": 10002,
+      "name": "Haruna",
+      "pathName": "haruna",
+      "devName": "Haruna"
+    },
+    {
+      "id": 10003,
+      "name": "Hifumi",
+      "pathName": "hifumi",
+      "devName": "Hihumi"
+    },
+    {
+      "id": 10004,
+      "name": "Hina",
+      "pathName": "hina",
+      "devName": "Hina"
+    },
+    {
+      "id": 10005,
+      "name": "Hoshino",
+      "pathName": "hoshino",
+      "devName": "Hoshino"
+    },
+    {
+      "id": 10006,
+      "name": "Iori",
+      "pathName": "iori",
+      "devName": "Iori"
+    },
+    {
+      "id": 10007,
+      "name": "Maki",
+      "pathName": "maki",
+      "devName": "Maki"
+    },
+    {
+      "id": 10008,
+      "name": "Neru",
+      "pathName": "neru",
+      "devName": "Neru"
+    },
+    {
+      "id": 10009,
+      "name": "Izumi",
+      "pathName": "izumi",
+      "devName": "Izumi"
+    },
+    {
+      "id": 10010,
+      "name": "Shiroko",
+      "pathName": "shiroko",
+      "devName": "Shiroko"
+    },
+    {
+      "id": 10011,
+      "name": "Shun",
+      "pathName": "shun",
+      "devName": "Shun"
+    },
+    {
+      "id": 10012,
+      "name": "Sumire",
+      "pathName": "sumire",
+      "devName": "Sumire"
+    },
+    {
+      "id": 10013,
+      "name": "Tsurugi",
+      "pathName": "tsurugi",
+      "devName": "Tsurugi"
+    },
+    {
+      "id": 10014,
+      "name": "Izuna",
+      "pathName": "izuna",
+      "devName": "Izuna"
+    },
+    {
+      "id": 10015,
+      "name": "Aris",
+      "pathName": "aris",
+      "devName": "Aris"
+    },
+    {
+      "id": 10016,
+      "name": "Midori",
+      "pathName": "midori",
+      "devName": "Midori"
+    },
+    {
+      "id": 10017,
+      "name": "Cherino",
+      "pathName": "cherino",
+      "devName": "Cherino"
+    },
+    {
+      "id": 10018,
+      "name": "Yuzu",
+      "pathName": "yuzu",
+      "devName": "Yuzu"
+    },
+    {
+      "id": 10019,
+      "name": "Azusa",
+      "pathName": "azusa",
+      "devName": "CH0056"
+    },
+    {
+      "id": 10020,
+      "name": "Koharu",
+      "pathName": "koharu",
+      "devName": "CH0057"
+    },
+    {
+      "id": 10021,
+      "name": "Azusa (Swimsuit)",
+      "pathName": "azusa_swimsuit",
+      "devName": "CH0059"
+    },
+    {
+      "id": 10022,
+      "name": "Hina (Swimsuit)",
+      "pathName": "hina_swimsuit",
+      "devName": "CH0063"
+    },
+    {
+      "id": 10023,
+      "name": "Iori (Swimsuit)",
+      "pathName": "iori_swimsuit",
+      "devName": "CH0064"
+    },
+    {
+      "id": 10024,
+      "name": "Shiroko (Cycling)",
+      "pathName": "shiroko_cycling",
+      "devName": "CH0065"
+    },
+    {
+      "id": 10025,
+      "name": "Shun (Small)",
+      "pathName": "shun_small",
+      "devName": "CH0066"
+    },
+    {
+      "id": 10026,
+      "name": "Neru (Bunny)",
+      "pathName": "neru_bunnygirl",
+      "devName": "CH0101"
+    },
+    {
+      "id": 10027,
+      "name": "Karin (Bunny)",
+      "pathName": "karin_bunnygirl",
+      "devName": "CH0100"
+    },
+    {
+      "id": 10028,
+      "name": "Asuna (Bunny)",
+      "pathName": "asuna_bunnygirl",
+      "devName": "CH0098"
+    },
+    {
+      "id": 10029,
+      "name": "Natsu",
+      "pathName": "natsu",
+      "devName": "CH0155"
+    },
+    {
+      "id": 10030,
+      "name": "Chinatsu (Hot Spring)",
+      "pathName": "chinatsu_onsen",
+      "devName": "CH0163"
+    },
+    {
+      "id": 10031,
+      "name": "Aru (New Year)",
+      "pathName": "aru_newyear",
+      "devName": "CH0084"
+    },
+    {
+      "id": 10032,
+      "name": "Mutsuki (New Year)",
+      "pathName": "mutsuki_newyear",
+      "devName": "CH0085"
+    },
+    {
+      "id": 10033,
+      "name": "Wakamo",
+      "pathName": "wakamo",
+      "devName": "CH0111"
+    },
+    {
+      "id": 10034,
+      "name": "Mimori",
+      "pathName": "mimori",
+      "devName": "CH0115"
+    },
+    {
+      "id": 10035,
+      "name": "Ui",
+      "pathName": "ui",
+      "devName": "CH0169"
+    },
+    {
+      "id": 10036,
+      "name": "Hinata",
+      "pathName": "hinata",
+      "devName": "CH0073"
+    },
+    {
+      "id": 10037,
+      "name": "Marina",
+      "pathName": "marina",
+      "devName": "CH0119"
+    },
+    {
+      "id": 10038,
+      "name": "Miyako",
+      "pathName": "miyako",
+      "devName": "CH0142"
+    },
+    {
+      "id": 10039,
+      "name": "Miyu",
+      "pathName": "miyu",
+      "devName": "CH0145"
+    },
+    {
+      "id": 10040,
+      "name": "Tsukuyo",
+      "pathName": "tsukuyo",
+      "devName": "CH0114"
+    },
+    {
+      "id": 10041,
+      "name": "Misaki",
+      "pathName": "misaki",
+      "devName": "CH0105"
+    },
+    {
+      "id": 10042,
+      "name": "Atsuko",
+      "pathName": "atsuko",
+      "devName": "CH0104"
+    },
+    {
+      "id": 10043,
+      "name": "Wakamo (Swimsuit)",
+      "pathName": "wakamo_swimsuit",
+      "devName": "CH0175"
+    },
+    {
+      "id": 10044,
+      "name": "Nonomi (Swimsuit)",
+      "pathName": "nonomi_swimsuit",
+      "devName": "CH0092"
+    },
+    {
+      "id": 10045,
+      "name": "Hoshino (Swimsuit)",
+      "pathName": "hoshino_swimsuit",
+      "devName": "CH0091"
+    },
+    {
+      "id": 10046,
+      "name": "Izuna (Swimsuit)",
+      "pathName": "izuna_swimsuit",
+      "devName": "CH0179"
+    },
+    {
+      "id": 10047,
+      "name": "Chise (Swimsuit)",
+      "pathName": "chise_swimsuit",
+      "devName": "CH0178"
+    },
+    {
+      "id": 10048,
+      "name": "Saori",
+      "pathName": "saori",
+      "devName": "CH0103"
+    },
+    {
+      "id": 10049,
+      "name": "Kazusa",
+      "pathName": "kazusa",
+      "devName": "CH0075"
+    },
+    {
+      "id": 10050,
+      "name": "Kokona",
+      "pathName": "kokona",
+      "devName": "CH0137"
+    },
+    {
+      "id": 10051,
+      "name": "Utaha (Cheer Squad)",
+      "pathName": "utaha_cheerleader",
+      "devName": "CH0182"
+    },
+    {
+      "id": 10052,
+      "name": "Noa",
+      "pathName": "noa",
+      "devName": "CH0095"
+    },
+    {
+      "id": 10053,
+      "name": "Yuuka (Track)",
+      "pathName": "yuuka_track",
+      "devName": "CH0184"
+    },
+    {
+      "id": 10054,
+      "name": "Mari (Track)",
+      "pathName": "mari_track",
+      "devName": "CH0186"
+    },
+    {
+      "id": 10055,
+      "name": "Shigure",
+      "pathName": "shigure",
+      "devName": "CH0122"
+    },
+    {
+      "id": 10056,
+      "name": "Serina (Christmas)",
+      "pathName": "serina_christmas",
+      "devName": "CH0194"
+    },
+    {
+      "id": 10057,
+      "name": "Haruna (New Year)",
+      "pathName": "haruna_newyear",
+      "devName": "CH0191"
+    },
+    {
+      "id": 10058,
+      "name": "Mine",
+      "pathName": "mine",
+      "devName": "CH0152"
+    },
+    {
+      "id": 10059,
+      "name": "Mika",
+      "pathName": "mika",
+      "devName": "CH0069"
+    },
+    {
+      "id": 10060,
+      "name": "Megu",
+      "pathName": "megu",
+      "devName": "CH0088"
+    },
+    {
+      "id": 10061,
+      "name": "Sakurako",
+      "pathName": "sakurako",
+      "devName": "CH0067"
+    },
+    {
+      "id": 10062,
+      "name": "Toki",
+      "pathName": "toki",
+      "devName": "CH0187"
+    },
+    {
+      "id": 10063,
+      "name": "Koyuki",
+      "pathName": "koyuki",
+      "devName": "CH0198"
+    },
+    {
+      "id": 10064,
+      "name": "Kayoko (New Year)",
+      "pathName": "kayoko_newyear",
+      "devName": "CH0086"
+    },
+    {
+      "id": 10065,
+      "name": "Kaho",
+      "pathName": "kaho",
+      "devName": "CH0107"
+    },
+    {
+      "id": 10066,
+      "name": "Aris (Maid)",
+      "pathName": "aris_maid",
+      "devName": "CH0200"
+    },
+    {
+      "id": 10067,
+      "name": "Toki (Bunny)",
+      "pathName": "toki_bunnygirl",
+      "devName": "CH0211"
+    },
+    {
+      "id": 10068,
+      "name": "Reisa",
+      "pathName": "reisa",
+      "devName": "CH0167"
+    },
+    {
+      "id": 10069,
+      "name": "Rumi",
+      "pathName": "rumi",
+      "devName": "CH0135"
+    },
+    {
+      "id": 10070,
+      "name": "Mina",
+      "pathName": "mina",
+      "devName": "CH0138"
+    },
+    {
+      "id": 10071,
+      "name": "Miyako (Swimsuit)",
+      "pathName": "miyako_swimsuit",
+      "devName": "CH0215"
+    },
+    {
+      "id": 10072,
+      "name": "Saki (Swimsuit)",
+      "pathName": "saki_swimsuit",
+      "devName": "CH0217"
+    },
+    {
+      "id": 10073,
+      "name": "Ui (Swimsuit)",
+      "pathName": "ui_swimsuit",
+      "devName": "CH0204"
+    },
+    {
+      "id": 10074,
+      "name": "Hanako (Swimsuit)",
+      "pathName": "hanako_swimsuit",
+      "devName": "CH0209"
+    },
+    {
+      "id": 10075,
+      "name": "Meru",
+      "pathName": "meru",
+      "devName": "CH0124"
+    },
+    {
+      "id": 10076,
+      "name": "Kotori (Cheer Squad)",
+      "pathName": "kotori_cheerleader",
+      "devName": "CH0185"
+    },
+    {
+      "id": 10077,
+      "name": "Ichika",
+      "pathName": "ichika",
+      "devName": "CH0071"
+    },
+    {
+      "id": 10078,
+      "name": "Kasumi",
+      "pathName": "kasumi",
+      "devName": "CH0089"
+    },
+    {
+      "id": 10079,
+      "name": "Misaka Mikoto",
+      "pathName": "misaka_mikoto",
+      "devName": "CH9998"
+    },
+    {
+      "id": 10080,
+      "name": "Shokuhou Misaki",
+      "pathName": "shokuhou_misaki",
+      "devName": "CH9997"
+    },
+    {
+      "id": 10081,
+      "name": "Yukari",
+      "pathName": "yukari",
+      "devName": "CH0161"
+    },
+    {
+      "id": 10082,
+      "name": "Renge",
+      "pathName": "renge",
+      "devName": "CH0224"
+    },
+    {
+      "id": 10083,
+      "name": "Kikyou",
+      "pathName": "kikyou",
+      "devName": "CH0225"
+    },
+    {
+      "id": 10084,
+      "name": "Kotama (Camp)",
+      "pathName": "kotama_camp",
+      "devName": "CH0232"
+    },
+    {
+      "id": 10085,
+      "name": "Hare (Camp)",
+      "pathName": "hare_camp",
+      "devName": "CH0233"
+    },
+    {
+      "id": 10086,
+      "name": "Hina (Dress)",
+      "pathName": "hina_dress",
+      "devName": "CH0230"
+    },
+    {
+      "id": 10087,
+      "name": "Ako (Dress)",
+      "pathName": "ako_dress",
+      "devName": "CH0231"
+    },
+    {
+      "id": 10088,
+      "name": "Kayoko (Dress)",
+      "pathName": "kayoko_dress",
+      "devName": "CH0239"
+    },
+    {
+      "id": 10089,
+      "name": "Aru (Dress)",
+      "pathName": "aru_dress",
+      "devName": "CH0240"
+    },
+    {
+      "id": 10090,
+      "name": "Umika",
+      "pathName": "umika",
+      "devName": "CH0110"
+    },
+    {
+      "id": 10091,
+      "name": "Kazusa (Band)",
+      "pathName": "kazusa_band",
+      "devName": "CH0250"
+    },
+    {
+      "id": 10092,
+      "name": "Yoshimi (Band)",
+      "pathName": "yoshimi_band",
+      "devName": "CH0220"
+    },
+    {
+      "id": 10093,
+      "name": "Kirara",
+      "pathName": "kirara",
+      "devName": "CH0136"
+    },
+    {
+      "id": 10094,
+      "name": "Momoi (Maid)",
+      "pathName": "momoi_maid",
+      "devName": "CH0201"
+    },
+    {
+      "id": 10095,
+      "name": "Midori (Maid)",
+      "pathName": "midori_maid",
+      "devName": "CH0202"
+    },
+    {
+      "id": 10096,
+      "name": "Kanna (Swimsuit)",
+      "pathName": "kanna_swimsuit",
+      "devName": "CH0260"
+    },
+    {
+      "id": 10097,
+      "name": "Moe (Swimsuit)",
+      "pathName": "moe_swimsuit",
+      "devName": "CH0216"
+    },
+    {
+      "id": 10098,
+      "name": "Hoshino (Armed)",
+      "pathName": "hoshino_battle_tank",
+      "devName": "CH0258_02"
+    },
+    {
+      "id": 10099,
+      "name": "Hoshino (Armed)",
+      "pathName": "hoshino_battle_dealer",
+      "devName": "CH0258_01"
+    },
+    {
+      "id": 10100,
+      "name": "Shiroko*Terror",
+      "pathName": "shiroko_terror",
+      "devName": "CH0263"
+    },
+    {
+      "id": 10101,
+      "name": "Saori (Swimsuit)",
+      "pathName": "saori_swimsuit",
+      "devName": "CH0266"
+    },
+    {
+      "id": 10102,
+      "name": "Hiyori (Swimsuit)",
+      "pathName": "hiyori_swimsuit",
+      "devName": "CH0269"
+    },
+    {
+      "id": 10103,
+      "name": "Marina (Qipao)",
+      "pathName": "marina_qipao",
+      "devName": "CH0270"
+    },
+    {
+      "id": 10104,
+      "name": "Reijo",
+      "pathName": "reijo",
+      "devName": "CH0134"
+    },
+    {
+      "id": 10105,
+      "name": "Mari (Pop Idol)",
+      "pathName": "mari_idol",
+      "devName": "CH0273"
+    },
+    {
+      "id": 10106,
+      "name": "Sakurako (Pop Idol)",
+      "pathName": "sakurako_idol",
+      "devName": "CH0274"
+    },
+    {
+      "id": 10107,
+      "name": "Chiaki",
+      "pathName": "chiaki",
+      "devName": "CH0238"
+    },
+    {
+      "id": 10108,
+      "name": "Yuuka (Pajamas)",
+      "pathName": "yuuka_pajama",
+      "devName": "CH0284"
+    },
+    {
+      "id": 10109,
+      "name": "Noa (Pajamas)",
+      "pathName": "noa_pajama",
+      "devName": "CH0285"
+    },
+    {
+      "id": 10110,
+      "name": "Seia",
+      "pathName": "seia",
+      "devName": "CH0070"
+    },
+    {
+      "id": 10111,
+      "name": "Neru (School)",
+      "pathName": "neru_uniform",
+      "devName": "CH0280"
+    },
+    {
+      "id": 10112,
+      "name": "Asuna (School)",
+      "pathName": "asuna_uniform",
+      "devName": "CH0281"
+    },
+    {
+      "id": 10113,
+      "name": "Sena (Casual)",
+      "pathName": "sena_casual",
+      "devName": "CH0082"
+    },
+    {
+      "id": 10114,
+      "name": "Juri (Part-Timer)",
+      "pathName": "juri_parttime",
+      "devName": "CH0286"
+    },
+    {
+      "id": 10115,
+      "name": "Rei",
+      "pathName": "rei",
+      "devName": "CH0245"
+    },
+    {
+      "id": 10116,
+      "name": "Saori (Dress)",
+      "pathName": "saori_dress",
+      "devName": "CH0259"
+    },
+    {
+      "id": 10117,
+      "name": "Hikari",
+      "pathName": "hikari",
+      "devName": "CH0242"
+    },
+    {
+      "id": 10118,
+      "name": "Nozomi",
+      "pathName": "nozomi",
+      "devName": "CH0243"
+    },
+    {
+      "id": 10119,
+      "name": "Nagusa",
+      "pathName": "nagusa",
+      "devName": "CH0222"
+    },
+    {
+      "id": 10120,
+      "name": "Natsu (Band)",
+      "pathName": "natsu_band",
+      "devName": "CH0221"
+    },
+    {
+      "id": 10121,
+      "name": "Yukari (Swimsuit)",
+      "pathName": "yukari_swimsuit",
+      "devName": "CH0301"
+    },
+    {
+      "id": 10122,
+      "name": "Mika (Swimsuit)",
+      "pathName": "mika_swimsuit",
+      "devName": "CH0294"
+    },
+    {
+      "id": 10123,
+      "name": "Seia (Swimsuit)",
+      "pathName": "seia_swimsuit",
+      "devName": "CH0295"
+    },
+    {
+      "id": 10124,
+      "name": "Hasumi (Swimsuit)",
+      "pathName": "hasumi_swimsuit",
+      "devName": "CH0291"
+    },
+    {
+      "id": 10125,
+      "name": "Eri",
+      "pathName": "eri",
+      "devName": "CH0304"
+    },
+    {
+      "id": 10126,
+      "name": "Kanoe",
+      "pathName": "kanoe",
+      "devName": "CH0306"
+    },
+    {
+      "id": 10127,
+      "name": "Miyo",
+      "pathName": "miyo",
+      "devName": "CH0317"
+    },
+    {
+      "id": 10128,
+      "name": "Fuyu",
+      "pathName": "fuyu",
+      "devName": "CH0318"
+    },
+    {
+      "id": 10129,
+      "name": "Suzumi (Magical)",
+      "pathName": "suzumi_magical",
+      "devName": "CH0325"
+    },
+    {
+      "id": 10130,
+      "name": "Subaru",
+      "pathName": "subaru",
+      "devName": "CH0309"
+    },
+    {
+      "id": 10131,
+      "name": "Takane",
+      "pathName": "takane",
+      "devName": "CH0229"
+    },
+    {
+      "id": 10132,
+      "name": "Tsukuyo (Dress)",
+      "pathName": "tsukuyo_dress",
+      "devName": "CH0297"
+    },
+    {
+      "id": 10133,
+      "name": "Rio (Armed)",
+      "pathName": "rio_battle",
+      "devName": "CH0331"
+    },
+    {
+      "id": 10134,
+      "name": "Aris (Armed)",
+      "pathName": "aris_battle",
+      "devName": "CH0334"
+    },
+    {
+      "id": 10135,
+      "name": "Kei",
+      "pathName": "kei",
+      "devName": "CH0335"
+    },
+    {
+      "id": 10136,
+      "name": "Eimi (Armed)",
+      "pathName": "eimi_battle",
+      "devName": "CH0337"
+    },
+    {
+      "id": 10137,
+      "name": "Konoka",
+      "pathName": "konoka",
+      "devName": "CH0264"
+    },
+    {
+      "id": 10138,
+      "name": "Rena",
+      "pathName": "rena",
+      "devName": "CH0305"
+    },
+    {
+      "id": 10139,
+      "name": "Niko",
+      "pathName": "niko",
+      "devName": "CH0172"
+    },
+    {
+      "id": 10140,
+      "name": "Kurumi",
+      "pathName": "kurumi",
+      "devName": "CH0173"
+    },
+    {
+      "id": 10141,
+      "name": "Haruka (Dress)",
+      "pathName": "haruka_dress",
+      "devName": "CH0247"
+    },
+    {
+      "id": 10142,
+      "name": "Nagusa (Swimsuit)",
+      "pathName": "nagusa_swimsuit",
+      "devName": "CH0303"
+    },
+    {
+      "id": 10143,
+      "name": "Shun (Swimsuit)",
+      "pathName": "shun_swimsuit",
+      "devName": "CH0355_01"
+    },
+    {
+      "id": 10144,
+      "name": "Shun (Swimsuit)",
+      "pathName": "shunling_swimsuit",
+      "devName": "CH0355_02"
+    },
+    {
+      "id": 10145,
+      "name": "Kisaki (Swimsuit)",
+      "pathName": "kisaki_swimsuit",
+      "devName": "CH0356"
+    },
+    {
+      "id": 10146,
+      "name": "Makoto (Swimsuit)",
+      "pathName": "makoto_swimsuit",
+      "devName": "CH0344"
+    },
+    {
+      "id": 10147,
+      "name": "Satsuki (Swimsuit)",
+      "pathName": "satsuki_swimsuit",
+      "devName": "CH0345"
+    },
+    {
+      "id": 10148,
+      "name": "Iroha (Swimsuit)",
+      "pathName": "iroha_swimsuit",
+      "devName": "CH0346"
+    },
+    {
+      "id": 10149,
+      "name": "Kokoro",
+      "pathName": "kokoro",
+      "devName": "CH0368"
+    },
+    {
+      "id": 10150,
+      "name": "Kotone",
+      "pathName": "kotone",
+      "devName": "CH0369"
+    },
+    {
+      "id": 13000,
+      "name": "Akane",
+      "pathName": "akane",
+      "devName": "Akane"
+    },
+    {
+      "id": 13001,
+      "name": "Chise",
+      "pathName": "chise",
+      "devName": "Chise"
+    },
+    {
+      "id": 13002,
+      "name": "Akari",
+      "pathName": "akari",
+      "devName": "Akari"
+    },
+    {
+      "id": 13003,
+      "name": "Hasumi",
+      "pathName": "hasumi",
+      "devName": "Hasumi"
+    },
+    {
+      "id": 13004,
+      "name": "Nonomi",
+      "pathName": "nonomi",
+      "devName": "Nonomi"
+    },
+    {
+      "id": 13005,
+      "name": "Kayoko",
+      "pathName": "kayoko",
+      "devName": "Kayoko"
+    },
+    {
+      "id": 13006,
+      "name": "Mutsuki",
+      "pathName": "mutsuki",
+      "devName": "Mutsuki"
+    },
+    {
+      "id": 13007,
+      "name": "Junko",
+      "pathName": "junko",
+      "devName": "Zunko"
+    },
+    {
+      "id": 13008,
+      "name": "Serika",
+      "pathName": "serika",
+      "devName": "Serika"
+    },
+    {
+      "id": 13009,
+      "name": "Tsubaki",
+      "pathName": "tsubaki",
+      "devName": "Tsubaki"
+    },
+    {
+      "id": 13010,
+      "name": "Yuuka",
+      "pathName": "yuuka",
+      "devName": "Yuuka"
+    },
+    {
+      "id": 13011,
+      "name": "Momoi",
+      "pathName": "momoi",
+      "devName": "Momoi"
+    },
+    {
+      "id": 13012,
+      "name": "Kirino",
+      "pathName": "kirino",
+      "devName": "CH0140"
+    },
+    {
+      "id": 13013,
+      "name": "Momiji",
+      "pathName": "momiji",
+      "devName": "CH0126"
+    },
+    {
+      "id": 13014,
+      "name": "Renge (Swimsuit)",
+      "pathName": "renge_swimsuit",
+      "devName": "CH0302"
+    },
+    {
+      "id": 16000,
+      "name": "Haruka",
+      "pathName": "haruka",
+      "devName": "Haruka"
+    },
+    {
+      "id": 16001,
+      "name": "Asuna",
+      "pathName": "asuna",
+      "devName": "Asuna"
+    },
+    {
+      "id": 16002,
+      "name": "Kotori",
+      "pathName": "kotori",
+      "devName": "Kotori"
+    },
+    {
+      "id": 16003,
+      "name": "Suzumi",
+      "pathName": "suzumi",
+      "devName": "Suzumi"
+    },
+    {
+      "id": 16004,
+      "name": "Pina",
+      "pathName": "pina",
+      "devName": "Pina"
+    },
+    {
+      "id": 16005,
+      "name": "Tsurugi (Swimsuit)",
+      "pathName": "tsurugi_swimsuit",
+      "devName": "CH0060"
+    },
+    {
+      "id": 16006,
+      "name": "Izumi (Swimsuit)",
+      "pathName": "izumi_swimsuit",
+      "devName": "CH0062"
+    },
+    {
+      "id": 16007,
+      "name": "Tomoe",
+      "pathName": "tomoe",
+      "devName": "CH0120"
+    },
+    {
+      "id": 16008,
+      "name": "Fubuki",
+      "pathName": "fubuki",
+      "devName": "CH0141"
+    },
+    {
+      "id": 16009,
+      "name": "Michiru",
+      "pathName": "michiru",
+      "devName": "CH0113"
+    },
+    {
+      "id": 16010,
+      "name": "Hibiki (Cheer Squad)",
+      "pathName": "hibiki_cheerleader",
+      "devName": "CH0181"
+    },
+    {
+      "id": 16011,
+      "name": "Hasumi (Track)",
+      "pathName": "hasumi_track",
+      "devName": "CH0190"
+    },
+    {
+      "id": 16012,
+      "name": "Junko (New Year)",
+      "pathName": "junko_newyear",
+      "devName": "CH0192"
+    },
+    {
+      "id": 16013,
+      "name": "Koharu (Swimsuit)",
+      "pathName": "koharu_swimsuit",
+      "devName": "CH0205"
+    },
+    {
+      "id": 16014,
+      "name": "Ibuki",
+      "pathName": "ibuki",
+      "devName": "CH0077"
+    },
+    {
+      "id": 16015,
+      "name": "Airi (Band)",
+      "pathName": "airi_band",
+      "devName": "CH0251"
+    },
+    {
+      "id": 16016,
+      "name": "Mine (Pop Idol)",
+      "pathName": "mine_idol",
+      "devName": "CH0275"
+    },
+    {
+      "id": 16017,
+      "name": "Aoba",
+      "pathName": "aoba",
+      "devName": "CH0288"
+    },
+    {
+      "id": 16018,
+      "name": "Rabu",
+      "pathName": "rabu",
+      "devName": "CH0166"
+    },
+    {
+      "id": 16019,
+      "name": "Toki (Armed)",
+      "pathName": "toki_battle",
+      "devName": "CH0333"
+    },
+    {
+      "id": 16020,
+      "name": "Otogi",
+      "pathName": "otogi",
+      "devName": "CH0174"
+    },
+    {
+      "id": 20000,
+      "name": "Hibiki",
+      "pathName": "hibiki",
+      "devName": "Hibiki"
+    },
+    {
+      "id": 20001,
+      "name": "Karin",
+      "pathName": "karin",
+      "devName": "Karin"
+    },
+    {
+      "id": 20002,
+      "name": "Saya",
+      "pathName": "saya",
+      "devName": "Saya"
+    },
+    {
+      "id": 20003,
+      "name": "Mashiro",
+      "pathName": "mashiro",
+      "devName": "Mashiro"
+    },
+    {
+      "id": 20004,
+      "name": "Mashiro (Swimsuit)",
+      "pathName": "mashiro_swimsuit",
+      "devName": "CH0061"
+    },
+    {
+      "id": 20005,
+      "name": "Hifumi (Swimsuit)",
+      "pathName": "hifumi_swimsuit",
+      "devName": "CH0058"
+    },
+    {
+      "id": 20006,
+      "name": "Saya (Casual)",
+      "pathName": "saya_casual",
+      "devName": "CH0133"
+    },
+    {
+      "id": 20007,
+      "name": "Hatsune Miku",
+      "pathName": "hatsune_miku",
+      "devName": "CH9999"
+    },
+    {
+      "id": 20008,
+      "name": "Ako",
+      "pathName": "ako",
+      "devName": "CH0083"
+    },
+    {
+      "id": 20009,
+      "name": "Cherino (Hot Spring)",
+      "pathName": "cherino_onsen",
+      "devName": "CH0164"
+    },
+    {
+      "id": 20010,
+      "name": "Nodoka (Hot Spring)",
+      "pathName": "nodoka_onsen",
+      "devName": "CH0165"
+    },
+    {
+      "id": 20011,
+      "name": "Serika (New Year)",
+      "pathName": "serika_newyear",
+      "devName": "CH0090"
+    },
+    {
+      "id": 20012,
+      "name": "Sena",
+      "pathName": "sena",
+      "devName": "CH0081"
+    },
+    {
+      "id": 20013,
+      "name": "Chihiro",
+      "pathName": "chihiro",
+      "devName": "CH0160"
+    },
+    {
+      "id": 20014,
+      "name": "Saki",
+      "pathName": "saki",
+      "devName": "CH0144"
+    },
+    {
+      "id": 20015,
+      "name": "Kaede",
+      "pathName": "kaede",
+      "devName": "CH0116"
+    },
+    {
+      "id": 20016,
+      "name": "Iroha",
+      "pathName": "iroha",
+      "devName": "CH0156"
+    },
+    {
+      "id": 20017,
+      "name": "Hiyori",
+      "pathName": "hiyori",
+      "devName": "CH0106"
+    },
+    {
+      "id": 20018,
+      "name": "Moe",
+      "pathName": "moe",
+      "devName": "CH0143"
+    },
+    {
+      "id": 20019,
+      "name": "Akane (Bunny)",
+      "pathName": "akane_bunnygirl",
+      "devName": "CH0099"
+    },
+    {
+      "id": 20020,
+      "name": "Himari",
+      "pathName": "himari",
+      "devName": "CH0159"
+    },
+    {
+      "id": 20021,
+      "name": "Hanae (Christmas)",
+      "pathName": "hanae_christmas",
+      "devName": "CH0195"
+    },
+    {
+      "id": 20022,
+      "name": "Fuuka (New Year)",
+      "pathName": "fuuka_newyear",
+      "devName": "CH0177"
+    },
+    {
+      "id": 20023,
+      "name": "Kanna",
+      "pathName": "kanna",
+      "devName": "CH0170"
+    },
+    {
+      "id": 20024,
+      "name": "Nagisa",
+      "pathName": "nagisa",
+      "devName": "CH0068"
+    },
+    {
+      "id": 20025,
+      "name": "Haruka (New Year)",
+      "pathName": "haruka_newyear",
+      "devName": "CH0087"
+    },
+    {
+      "id": 20026,
+      "name": "Minori",
+      "pathName": "minori",
+      "devName": "CH0214"
+    },
+    {
+      "id": 20027,
+      "name": "Shiroko (Swimsuit)",
+      "pathName": "shiroko_swimsuit",
+      "devName": "CH0188"
+    },
+    {
+      "id": 20028,
+      "name": "Hinata (Swimsuit)",
+      "pathName": "hinata_swimsuit",
+      "devName": "CH0210"
+    },
+    {
+      "id": 20029,
+      "name": "Mimori (Swimsuit)",
+      "pathName": "mimori_swimsuit",
+      "devName": "CH0183"
+    },
+    {
+      "id": 20030,
+      "name": "Haruna (Track)",
+      "pathName": "haruna_track",
+      "devName": "CH0193"
+    },
+    {
+      "id": 20031,
+      "name": "Shigure (Hot Spring)",
+      "pathName": "shigure_onsen",
+      "devName": "CH0123"
+    },
+    {
+      "id": 20032,
+      "name": "Eimi (Swimsuit)",
+      "pathName": "eimi_swimsuit",
+      "devName": "CH0219"
+    },
+    {
+      "id": 20033,
+      "name": "Makoto",
+      "pathName": "makoto",
+      "devName": "CH0079"
+    },
+    {
+      "id": 20034,
+      "name": "Akari (New Year)",
+      "pathName": "akari_newyear",
+      "devName": "CH0196"
+    },
+    {
+      "id": 20035,
+      "name": "Tsubaki (Guide)",
+      "pathName": "tsubaki_guide",
+      "devName": "CH0255"
+    },
+    {
+      "id": 20036,
+      "name": "Serika (Swimsuit)",
+      "pathName": "serika_swimsuit",
+      "devName": "CH0189"
+    },
+    {
+      "id": 20037,
+      "name": "Fubuki (Swimsuit)",
+      "pathName": "fubuki_swimsuit",
+      "devName": "CH0261"
+    },
+    {
+      "id": 20038,
+      "name": "Tomoe (Qipao)",
+      "pathName": "tomoe_qipao",
+      "devName": "CH0271"
+    },
+    {
+      "id": 20039,
+      "name": "Kisaki",
+      "pathName": "kisaki",
+      "devName": "CH0139"
+    },
+    {
+      "id": 20040,
+      "name": "Satsuki",
+      "pathName": "satsuki",
+      "devName": "CH0080"
+    },
+    {
+      "id": 20041,
+      "name": "Rio",
+      "pathName": "rio",
+      "devName": "CH0158"
+    },
+    {
+      "id": 20042,
+      "name": "Maki (Camp)",
+      "pathName": "maki_camp",
+      "devName": "CH0235"
+    },
+    {
+      "id": 20043,
+      "name": "Izumi (New Year)",
+      "pathName": "izumi_newyear",
+      "devName": "CH0197"
+    },
+    {
+      "id": 20044,
+      "name": "Sumire (Part-Timer)",
+      "pathName": "sumire_parttime",
+      "devName": "CH0287"
+    },
+    {
+      "id": 20045,
+      "name": "Pina (Guide)",
+      "pathName": "pina_guide",
+      "devName": "CH0257"
+    },
+    {
+      "id": 20046,
+      "name": "Niya",
+      "pathName": "niya",
+      "devName": "CH0109"
+    },
+    {
+      "id": 20047,
+      "name": "Kikyou (Swimsuit)",
+      "pathName": "kikyou_swimsuit",
+      "devName": "CH0300"
+    },
+    {
+      "id": 20048,
+      "name": "Nagisa (Swimsuit)",
+      "pathName": "nagisa_swimsuit",
+      "devName": "CH0293"
+    },
+    {
+      "id": 20049,
+      "name": "Misaki (Swimsuit)",
+      "pathName": "misaki_swimsuit",
+      "devName": "CH0268"
+    },
+    {
+      "id": 20050,
+      "name": "Ritsu",
+      "pathName": "ritsu",
+      "devName": "CH0319"
+    },
+    {
+      "id": 20051,
+      "name": "Reisa (Magical)",
+      "pathName": "reisa_magical",
+      "devName": "CH0326"
+    },
+    {
+      "id": 20052,
+      "name": "Yakumo",
+      "pathName": "yakumo",
+      "devName": "CH0228"
+    },
+    {
+      "id": 20053,
+      "name": "Michiru (Dress)",
+      "pathName": "michiru_dress",
+      "devName": "CH0296"
+    },
+    {
+      "id": 20054,
+      "name": "Himari (Armed)",
+      "pathName": "himari_battle",
+      "devName": "CH0332"
+    },
+    {
+      "id": 20055,
+      "name": "Yuzu (Armed)",
+      "pathName": "yuzu_battle",
+      "devName": "CH0336"
+    },
+    {
+      "id": 20056,
+      "name": "Koyuki (Pajamas)",
+      "pathName": "koyuki_pajama",
+      "devName": "CH0310"
+    },
+    {
+      "id": 20057,
+      "name": "Akane (School)",
+      "pathName": "akane_uniform",
+      "devName": "CH0307"
+    },
+    {
+      "id": 20058,
+      "name": "Erika",
+      "pathName": "erika",
+      "devName": "CH0076"
+    },
+    {
+      "id": 20059,
+      "name": "Mutsuki (Dress)",
+      "pathName": "mutsuki_dress",
+      "devName": "CH0246"
+    },
+    {
+      "id": 20060,
+      "name": "Ibuki (Swimsuit)",
+      "pathName": "ibuki_swimsuit",
+      "devName": "CH0347"
+    },
+    {
+      "id": 20061,
+      "name": "Kasumi (Swimsuit)",
+      "pathName": "kasumi_swimsuit",
+      "devName": "CH0328"
+    },
+    {
+      "id": 23000,
+      "name": "Airi",
+      "pathName": "airi",
+      "devName": "Airi"
+    },
+    {
+      "id": 23001,
+      "name": "Fuuka",
+      "pathName": "fuuka",
+      "devName": "Fuuka"
+    },
+    {
+      "id": 23002,
+      "name": "Hanae",
+      "pathName": "hanae",
+      "devName": "Hanae"
+    },
+    {
+      "id": 23003,
+      "name": "Hare",
+      "pathName": "hare",
+      "devName": "Hare"
+    },
+    {
+      "id": 23004,
+      "name": "Utaha",
+      "pathName": "utaha",
+      "devName": "Utaha"
+    },
+    {
+      "id": 23005,
+      "name": "Ayane",
+      "pathName": "ayane",
+      "devName": "Ayane"
+    },
+    {
+      "id": 23006,
+      "name": "Shizuko",
+      "pathName": "shizuko",
+      "devName": "Shizuko"
+    },
+    {
+      "id": 23007,
+      "name": "Hanako",
+      "pathName": "hanako",
+      "devName": "CH0055"
+    },
+    {
+      "id": 23008,
+      "name": "Mari",
+      "pathName": "mari",
+      "devName": "CH0072"
+    },
+    {
+      "id": 26000,
+      "name": "Chinatsu",
+      "pathName": "chinatsu",
+      "devName": "Chinatsu"
+    },
+    {
+      "id": 26001,
+      "name": "Kotama",
+      "pathName": "kotama",
+      "devName": "Kotama"
+    },
+    {
+      "id": 26002,
+      "name": "Juri",
+      "pathName": "juri",
+      "devName": "Juri"
+    },
+    {
+      "id": 26003,
+      "name": "Serina",
+      "pathName": "serina",
+      "devName": "Serina"
+    },
+    {
+      "id": 26004,
+      "name": "Shimiko",
+      "pathName": "shimiko",
+      "devName": "Shimiko"
+    },
+    {
+      "id": 26005,
+      "name": "Yoshimi",
+      "pathName": "yoshimi",
+      "devName": "Yoshimi"
+    },
+    {
+      "id": 26006,
+      "name": "Nodoka",
+      "pathName": "nodoka",
+      "devName": "Nodoka"
+    },
+    {
+      "id": 26007,
+      "name": "Ayane (Swimsuit)",
+      "pathName": "ayane_swimsuit",
+      "devName": "CH0176"
+    },
+    {
+      "id": 26008,
+      "name": "Shizuko (Swimsuit)",
+      "pathName": "shizuko_swimsuit",
+      "devName": "CH0180"
+    },
+    {
+      "id": 26009,
+      "name": "Yuzu (Maid)",
+      "pathName": "yuzu_maid",
+      "devName": "CH0203"
+    },
+    {
+      "id": 26010,
+      "name": "Miyu (Swimsuit)",
+      "pathName": "miyu_swimsuit",
+      "devName": "CH0218"
+    },
+    {
+      "id": 26011,
+      "name": "Saten Ruiko",
+      "pathName": "saten_ruiko",
+      "devName": "CH9996"
+    },
+    {
+      "id": 26012,
+      "name": "Kirino (Swimsuit)",
+      "pathName": "kirino_swimsuit",
+      "devName": "CH0262"
+    },
+    {
+      "id": 26013,
+      "name": "Atsuko (Swimsuit)",
+      "pathName": "atsuko_swimsuit",
+      "devName": "CH0267"
+    },
+    {
+      "id": 26014,
+      "name": "Karin (School)",
+      "pathName": "karin_uniform",
+      "devName": "CH0282"
+    },
+    {
+      "id": 26015,
+      "name": "Ichika (Swimsuit)",
+      "pathName": "ichika_swimsuit",
+      "devName": "CH0292"
+    },
+    {
+      "id": 26016,
+      "name": "Chiaki (Swimsuit)",
+      "pathName": "chiaki_swimsuit",
+      "devName": "CH0348"
+    }
+  ]
+}

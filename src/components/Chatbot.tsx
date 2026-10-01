@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { RefreshCw } from 'lucide-react'
 import { PLANA_NEWS_SUMMARY_EVENT, type PlanaNewsSummaryRequest } from '@/lib/plana-events'
 import type { NewsServer } from '@/lib/blue-archive-news'
@@ -168,8 +168,7 @@ function SendIcon() {
 }
 
 function MomoTalkIcon({ className }: { className: string }) {
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={MOMOTALK_ICON} alt="" className={className} draggable={false} />
+  return <ProgressiveImage src={MOMOTALK_ICON} alt="" className={className} draggable={false} />
 }
 
 function PlanaAvatar({
@@ -182,7 +181,7 @@ function PlanaAvatar({
   className?: string
 }) {
   return (
-    <Image
+    <ProgressiveImage
       src={expressionImage(expression)}
       alt="Plana"
       width={96}

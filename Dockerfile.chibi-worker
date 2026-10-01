@@ -1,0 +1,117 @@
+# syntax=docker/dockerfile:1
+# The conversion worker is intentionally pinned to Debian linux/amd64. The
+# Compose service repeats the platform so the same image is selected on ARM
+# developer machines and on x64 production hosts.
+
+FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:9.0-bookworm-slim AS dotnet-sdk
+
+FROM --platform=linux/amd64 python:3.12-slim-bookworm AS chibi-tools
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CHIBI_TOOLS_DIR=/opt/chibi-tools
+ENV DOTNET_ROOT=/usr/share/dotnet
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates curl libicu72 unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# AssetStudio is a net9 portable build. The SDK is also needed by the final
+# worker's preflight before it accepts an import job.
+COPY --from=dotnet-sdk /usr/share/dotnet /usr/share/dotnet
+COPY --from=dotnet-sdk /usr/bin/dotnet /usr/bin/dotnet
+COPY scripts/chibi-tools/requirements.txt /tmp/chibi-requirements.txt
+COPY scripts/chibi-tools/AssetStudioPatch /tmp/AssetStudioPatch
+
+RUN python -m venv /opt/chibi-tools/python \
+    && /opt/chibi-tools/python/bin/python -m pip install --disable-pip-version-check --require-hashes -r /tmp/chibi-requirements.txt
+
+ARG ASSETSTUDIO_URL=https://github.com/aelurum/AssetStudioMod/releases/download/v0.19.0/AssetStudioModCLI_net9_portable.zip
+ARG ASSETSTUDIO_SHA256=4ee4befc2316885dcb4c2dc0a07c01967a6fba23fdfd1b44e0285799de6ac662
+ARG ASSETSTUDIO_SOURCE_SHA256=e719d05143f0b72afc4a6a648e416d47a1ac0cceb97b2a7ad16a2c2231a5b541
+ARG ASSETSTUDIO_PATCHED_SHA256=2b96a91a94f4ca5933afcad6f3c991bdb7469a762479909db7189382b02fce1e
+ARG FBX2GLTF_URL=https://github.com/godotengine/FBX2glTF/releases/download/v0.13.1/FBX2glTF-linux-x86_64.zip
+ARG FBX2GLTF_SHA256=52243ec1bf25c4501bdd4977057b6782702fe3ae1b79e2ac13039d2207870bec
+
+RUN mkdir -p /opt/chibi-tools/archives /opt/chibi-tools/assetstudio /opt/chibi-tools/fbx2gltf \
+    && curl --fail --location --retry 3 --retry-delay 2 "$ASSETSTUDIO_URL" -o /tmp/assetstudio.zip \
+    && echo "$ASSETSTUDIO_SHA256  /tmp/assetstudio.zip" | sha256sum -c - \
+    && unzip -q /tmp/assetstudio.zip -d /tmp/assetstudio-unpacked \
+    && test -d /tmp/assetstudio-unpacked/AssetStudioModCLI_net9_portable \
+    && cp -a /tmp/assetstudio-unpacked/AssetStudioModCLI_net9_portable/. /opt/chibi-tools/assetstudio/ \
+    && curl --fail --location --retry 3 --retry-delay 2 "$FBX2GLTF_URL" -o /tmp/fbx2gltf.zip \
+    && echo "$FBX2GLTF_SHA256  /tmp/fbx2gltf.zip" | sha256sum -c - \
+    && unzip -q /tmp/fbx2gltf.zip -d /tmp/fbx2gltf-unpacked \
+    && test -f /tmp/fbx2gltf-unpacked/FBX2glTF-linux-x86_64/FBX2glTF-linux-x86_64 \
+    && cp /tmp/fbx2gltf-unpacked/FBX2glTF-linux-x86_64/FBX2glTF-linux-x86_64 /opt/chibi-tools/fbx2gltf/FBX2glTF-linux-x86_64 \
+    && chmod +x /opt/chibi-tools/fbx2gltf/FBX2glTF-linux-x86_64
+
+RUN /usr/share/dotnet/dotnet build /tmp/AssetStudioPatch/AssetStudioPatch.csproj \
+      --nologo --configuration Release --output /opt/chibi-tools/patcher \
+      -p:AssetStudioDir=/opt/chibi-tools/assetstudio \
+      -p:BaseIntermediateOutputPath=/tmp/assetstudio-patch-build/ \
+    && /usr/share/dotnet/dotnet /opt/chibi-tools/patcher/AssetStudioPatch.dll \
+      /opt/chibi-tools/assetstudio/AssetStudioModCLI.dll \
+      "$ASSETSTUDIO_SOURCE_SHA256" "$ASSETSTUDIO_PATCHED_SHA256" \
+    && test "$(sha256sum /opt/chibi-tools/assetstudio/AssetStudioModCLI.dll | cut -d' ' -f1)" = "$ASSETSTUDIO_PATCHED_SHA256"
+
+RUN printf '%s\n' '{"schemaVersion":1,"platform":"linux-x64","assetStudioModCli":{"version":"0.19.0","directory":"/opt/chibi-tools/assetstudio","assembly":"/opt/chibi-tools/assetstudio/AssetStudioModCLI.dll","launcher":"/opt/chibi-tools/assetstudio/AssetStudioModCLI.dll","archive":"/opt/chibi-tools/archives/AssetStudioModCLI_net9_portable.zip","patchedSha256":"2b96a91a94f4ca5933afcad6f3c991bdb7469a762479909db7189382b02fce1e"},"fbx2gltf":{"version":"0.13.1","executable":"/opt/chibi-tools/fbx2gltf/FBX2glTF-linux-x86_64"},"unityPy":{"version":"1.25.3","python":"/opt/chibi-tools/python/bin/python"},"dotnet":{"sdk":"9.0.318","command":"/usr/share/dotnet/dotnet"},"animationPatch":{"id":"assetstudio-animation-assets-74-95","sha256":"2b96a91a94f4ca5933afcad6f3c991bdb7469a762479909db7189382b02fce1e"}}' > /opt/chibi-tools/install.json \
+    && rm -rf /tmp/assetstudio.zip /tmp/fbx2gltf.zip /tmp/assetstudio-unpacked /tmp/fbx2gltf-unpacked /tmp/AssetStudioPatch /tmp/assetstudio-patch-build /tmp/chibi-requirements.txt
+
+FROM --platform=linux/amd64 node:22-bookworm-slim AS node-deps
+WORKDIR /app
+ENV DATABASE_URL=postgresql://chibi:chibi@localhost:5432/chibi
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y openssl \
+    && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts --omit=optional \
+    && npm install --no-save --package-lock=false --ignore-scripts --omit=optional \
+      @esbuild/linux-x64@0.28.2 \
+      @img/sharp-linux-x64@0.35.3 \
+      @img/sharp-libvips-linux-x64@1.3.2
+COPY prisma ./prisma
+COPY prisma.config.ts ./prisma.config.ts
+RUN ./node_modules/.bin/prisma generate
+
+FROM node-deps AS worker-build
+COPY tsconfig.json ./tsconfig.json
+COPY src/lib/prisma.ts ./src/lib/prisma.ts
+COPY src/lib/chibi ./src/lib/chibi
+COPY scripts/chibi-worker.ts ./scripts/chibi-worker.ts
+COPY scripts/chibi-runtime.ts scripts/chibi-preflight.ts ./scripts/
+COPY scripts/chibi-tools/manifest.json ./scripts/chibi-tools/manifest.json
+COPY scripts/chibi ./scripts/chibi
+COPY scripts/chibi-postprocess.mjs ./scripts/chibi-postprocess.mjs
+RUN ./node_modules/.bin/esbuild scripts/chibi-worker.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/chibi-worker.mjs
+
+FROM --platform=linux/amd64 python:3.12-slim-bookworm AS worker
+WORKDIR /app
+ENV NODE_ENV=production
+ENV CHIBI_SOURCE_DIR=/data/BAAD
+ENV CHIBI_DATA_DIR=/data/chibi
+ENV CHIBI_TOOLS_DIR=/opt/chibi-tools
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates libfontconfig1 libfreetype6 libglib2.0-0 libicu72 libstdc++6 libx11-6 libxext6 libxml2 libxrender1 openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=dotnet-sdk /usr/share/dotnet /usr/share/dotnet
+COPY --from=dotnet-sdk /usr/bin/dotnet /usr/bin/dotnet
+COPY --from=chibi-tools /opt/chibi-tools /opt/chibi-tools
+COPY --from=node-deps /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-deps /app/node_modules ./node_modules
+COPY package.json package-lock.json tsconfig.json prisma.config.ts ./
+COPY prisma ./prisma
+COPY --from=worker-build /app/dist/chibi-worker.mjs ./dist/chibi-worker.mjs
+COPY scripts/chibi ./scripts/chibi
+COPY scripts/chibi-postprocess.mjs ./scripts/chibi-postprocess.mjs
+COPY scripts/chibi-worker.ts ./scripts/chibi-worker.ts
+COPY scripts/chibi-runtime.ts scripts/chibi-preflight.ts ./scripts/
+COPY scripts/chibi-tools/manifest.json ./scripts/chibi-tools/manifest.json
+
+RUN addgroup --system --gid 1001 chibi \
+    && adduser --system --uid 1001 --ingroup chibi chibi \
+    && mkdir -p /data/BAAD /data/chibi \
+    && chown -R chibi:chibi /app /data/chibi
+
+USER chibi
+CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy && node ./dist/chibi-worker.mjs"]

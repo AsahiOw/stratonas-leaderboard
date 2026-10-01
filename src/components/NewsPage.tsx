@@ -1,5 +1,7 @@
 'use client'
 
+import ProgressiveArticle from '@/components/ui/ProgressiveArticle'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowUpRight, BadgeCheck, Globe2, Languages, Newspaper, SlidersHorizontal, Sparkles, X } from 'lucide-react'
@@ -87,8 +89,7 @@ function NewsSkeleton() {
 function OfficialAvatar({ post }: { post: NewsPost }) {
   const avatar = imageSource(post.authorAvatarUrl)
   return avatar ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={avatar} alt="" className="h-11 w-11 rounded-full border border-border2 bg-white object-cover" />
+    <ProgressiveImage src={avatar} alt="" width={44} height={44} sizes="44px" className="h-11 w-11 rounded-full border border-border2 bg-white object-cover" />
   ) : (
     <div className="flex h-11 w-11 items-center justify-center rounded-full border border-accent/30 bg-accent/15 text-accent"><Newspaper size={20} aria-hidden /></div>
   )
@@ -124,8 +125,7 @@ function PostMedia({ post, onOpen }: { post: NewsPost; onOpen: () => void }) {
             className={`group relative min-h-0 overflow-hidden bg-black/20 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${tileClass}`}
             aria-label={`Open full post for ${post.title}, image ${index + 1}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageSource(url) || undefined} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
+            <ProgressiveImage src={imageSource(url)!} alt="" fill sizes="(min-width: 768px) 480px, 100vw" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]" />
             {index === visibleMedia.length - 1 && extraCount > 0 && (
               <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-3xl font-bold text-white backdrop-blur-[1px] sm:text-4xl">
                 +{extraCount}
@@ -205,7 +205,7 @@ function NewsPostModal({
             (showingTranslation ? translatedHtml : article.contentHtml) ? (
               <>
                 {showingTranslation && <div className="mx-4 mb-4 rounded-xl border border-accent/20 bg-accent/10 px-3 py-2 text-xs text-muted2 sm:mx-6">AI translation · Check the official Japanese post for exact wording.</div>}
-                <div className="official-news-content px-4 pb-7 sm:px-6" dangerouslySetInnerHTML={{ __html: showingTranslation ? translatedHtml || '' : article.contentHtml }} />
+                <ProgressiveArticle className="official-news-content px-4 pb-7 sm:px-6" html={showingTranslation ? translatedHtml || '' : article.contentHtml} />
               </>
             ) : (
               <>
@@ -213,8 +213,7 @@ function NewsPostModal({
                 {mediaUrls.length > 0 && (
                   <div className="space-y-2 border-t border-border bg-bg p-2 sm:p-4">
                     {mediaUrls.map((url, index) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={`${url}:${index}`} src={imageSource(url) || undefined} alt={`Official post image ${index + 1}`} className="mx-auto max-h-[780px] w-auto max-w-full rounded-xl bg-black/15 object-contain" />
+                      <ProgressiveImage key={`${url}:${index}`} src={imageSource(url) || undefined} alt={`Official post image ${index + 1}`} className="mx-auto max-h-[780px] w-full max-w-full rounded-xl bg-black/15 object-contain" />
                     ))}
                   </div>
                 )}

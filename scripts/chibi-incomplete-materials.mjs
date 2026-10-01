@@ -1,0 +1,79 @@
+import fs from 'node:fs';
+
+// An incomplete import is explicitly not a source-parity claim. Preserve the
+// exporter geometry and apply only unambiguous, resolved material information.
+export function applyIncompleteMaterials(json, config, appendView, nodePaths) {
+  const warnings = [...config.incompleteImport.warnings];
+  const slots = config.incompleteImport.materialSlots;
+  json.images ??= [];
+  json.textures ??= [];
+  for (const renderer of config.incompleteImport.renderers ?? []) {
+    const matches = (json.nodes ?? []).filter((node, index) => Number.isInteger(node.mesh) && nodePaths[index] === renderer.hierarchyPath);
+    if (!renderer.sourceReference || !renderer.hierarchyPath || matches.length !== 1 || typeof renderer.defaultVisible !== 'boolean'
+      || config.incompleteImport.renderers.filter(item => item.hierarchyPath === renderer.hierarchyPath).length !== 1) {
+      warnings.push(`Renderer ${renderer.hierarchyPath} retains exported visibility; no unique source hierarchy binding.`);
+      continue;
+    }
+    const node = matches[0];
+    node.extras = { ...node.extras, chibi: { ...node.extras?.chibi,
+      sourceDefaultVisible: renderer.defaultVisible, sourceReference: renderer.sourceReference,
+    } };
+  }
+  for (const [index, material] of (json.materials ?? []).entries()) {
+    const matches = slots.filter(slot => slot.sourceMaterialName === material.name);
+    const identities = new Set(matches.map(slot => JSON.stringify(slot.sourceMaterialReference)));
+    if (!matches.length || !matches[0].sourceMaterialReference || identities.size !== 1) {
+      warnings.push(`Material ${material.name} retains exported appearance; no unique source material binding.`);
+      continue;
+    }
+    const slot = matches[0];
+    // Preserve the resolved face adapter even when unrelated source evidence
+    // is incomplete, so the shared postprocess can neutralize mask RGB.
+    if (slot.adapterId === 'mx-character-face'
+      && /^(?:mx\/c-face(?:\/|$)|mxcharacterface)/i.test(slot.sourceShaderParsedName || slot.sourceShaderName || '')) {
+      material.extras = { ...material.extras, chibi: { ...material.extras?.chibi, adapterId: slot.adapterId } };
+    }
+    const textures = (config.sourceTextureExports ?? []).filter(binding => binding.sourceMaterialName === material.name && binding.textureProperty === '_MainTex');
+    if (textures.length === 1) {
+      const image = json.images.push({ mimeType: 'image/png', bufferView: appendView(fs.readFileSync(textures[0].path)) }) - 1;
+      const texture = json.textures.push({ source: image }) - 1;
+      material.pbrMetallicRoughness ??= {};
+      material.pbrMetallicRoughness.baseColorTexture = { index: texture };
+    }
+    const state = slot.renderState;
+    if (state?.alphaMode && typeof state.depthTest === 'boolean' && typeof state.depthWrite === 'boolean') {
+      material.alphaMode = state.alphaMode;
+      if (state.alphaMode !== 'MASK') delete material.alphaCutoff;
+      material.doubleSided = state.doubleSided ?? false;
+      material.extras = { ...material.extras, chibi: {
+        ...material.extras?.chibi, depthTest: state.depthTest, depthWrite: state.depthWrite,
+        polygonOffsetFactor: state.polygonOffsetFactor ?? 0, polygonOffsetUnits: state.polygonOffsetUnits ?? 0,
+      } };
+    }
+    // MX/C-Hair shaders ignore vertex RGB and use alpha only for rim lighting.
+    // The unlit fallback keeps texture color/alpha without that lighting mask.
+    const hairLightingMask = slot.adapterId === 'mx-character-hair'
+      && ['mx/c-hair', 'mx/c-hair-transparent'].includes((slot.sourceShaderParsedName || slot.sourceShaderName || '').toLowerCase());
+    // Layer4 likewise uses only vertex alpha for rim lighting; its RGB is not
+    // a surface tint. Standard GLB vertex-color multiplication creates stains.
+    const bodyLightingMask = slot.adapterId === 'mx-character-general'
+      && (slot.sourceShaderParsedName || slot.sourceShaderName || '').toLowerCase() === 'mx/c-general/layer4';
+    // These transparent shaders output texture/tint alpha; vertex alpha controls
+    // rim lighting. glTF would multiply both and erase zero-mask fabric.
+    const transparentRimMask = slot.adapterId === 'mx-character-general'
+      && ['mx/c-simple-transparent', 'mx/c-general/transparent'].includes((slot.sourceShaderParsedName || slot.sourceShaderName || '').toLowerCase());
+    if (slot.adapterId === 'mx-character-eyemouth' || hairLightingMask || bodyLightingMask || transparentRimMask) {
+      for (const mesh of json.meshes ?? []) for (const primitive of mesh.primitives ?? []) {
+        if (primitive.material === index) delete primitive.attributes.COLOR_0;
+      }
+    }
+  }
+  const scene = json.scenes[json.scene ?? 0];
+  scene.extras ??= {};
+  scene.extras.chibi ??= {};
+  // Drop stale mappings. The separate alternate-face pass may build a new,
+  // explicitly inferred mapping after checking its supported convention.
+  delete scene.extras.chibi.rendererSlots;
+  delete scene.extras.chibi.rendererEvents;
+  scene.extras.chibi.incompleteImport = { sourceComplete: false, warnings: [...new Set(warnings)] };
+}

@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { StField, inputClass } from '@/components/ui/StField'
@@ -496,8 +497,8 @@ export function AdminRecruitmentSection({ students }: Props) {
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                       {schedule.items.map((item) => (
                         <div key={item.recruitment.id} className="overflow-hidden rounded-lg border border-border2 bg-card2">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+
+                          <ProgressiveImage
                             src={imageSrc(item.recruitment.bannerPath)}
                             alt=""
                             className="aspect-[16/6] w-full object-cover"
@@ -558,8 +559,8 @@ export function AdminRecruitmentSection({ students }: Props) {
               {visibleRecruitments.map((recruitment) => (
                 <div key={recruitment.id} className="overflow-hidden rounded-xl border border-border bg-bg">
                   <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+
+                    <ProgressiveImage
                       src={imageSrc(recruitment.bannerPath)}
                       alt={recruitment.student.name}
                       className="aspect-[16/6] w-full object-cover"
@@ -572,8 +573,8 @@ export function AdminRecruitmentSection({ students }: Props) {
                         <div className="truncate text-sm font-bold">{recruitment.student.name}</div>
                         <div className="truncate text-[11px] text-muted">CV: {recruitment.student.characterVoice || '—'}</div>
                       </div>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+
+                      <ProgressiveImage
                         src={proxyImage(recruitment.student.image)}
                         alt=""
                         className="h-10 w-10 shrink-0 rounded-lg border border-border object-cover"
@@ -746,8 +747,8 @@ export function AdminRecruitmentSection({ students }: Props) {
                   {(bannerPreview || recruitmentForm.bannerPath) && (
                     <div>
                       <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">Banner preview</div>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+
+                      <ProgressiveImage
                         src={bannerPreview || imageSrc(recruitmentForm.bannerPath)}
                         alt="Banner preview"
                         className="h-28 w-full rounded-xl border border-border object-cover"
@@ -758,7 +759,7 @@ export function AdminRecruitmentSection({ students }: Props) {
                   {(animationPreview || recruitmentForm.animationPath) && (
                     <div>
                       <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">Animation preview</div>
-                      <video
+                      <video preload="none"
                         src={animationPreview || imageSrc(recruitmentForm.animationPath)}
                         className="h-28 w-full rounded-xl border border-border object-cover"
                         muted
@@ -831,8 +832,8 @@ export function AdminRecruitmentSection({ students }: Props) {
                         onChange={() => toggleScheduleRecruitment(recruitment.id)}
                         className="h-4 w-4 accent-[var(--accent)]"
                       />
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+
+                      <ProgressiveImage
                         src={imageSrc(recruitment.bannerPath)}
                         alt=""
                         className="h-10 w-16 rounded-md object-cover"

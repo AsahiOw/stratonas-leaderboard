@@ -8,31 +8,31 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  emailVerified DateTime?
-  name          String?
-  image         String?
-  passwordHash  String
-  role          Role      @default(VIEWER)
-  sessions      Session[]
-  accounts      Account[]
+  id              String          @id @default(cuid())
+  email           String          @unique
+  emailVerified   DateTime?
+  name            String?
+  image           String?
+  passwordHash    String
+  role            Role            @default(VIEWER)
+  sessions        Session[]
+  accounts        Account[]
   adminActivities AdminActivity[]
 }
 
 model AdminActivity {
-  id          String   @id @default(cuid())
-  actorType   String
-  actorId     String?
-  actorEmail  String?
-  action      String
-  entityType  String
-  entityId    String?
-  summary     String
-  status      String   @default("success")
-  details     Json?
-  createdAt   DateTime @default(now())
-  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  id         String   @id @default(cuid())
+  actorType  String
+  actorId    String?
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?
+  summary    String
+  status     String   @default("success")
+  details    Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([actorId, createdAt])
@@ -45,21 +45,21 @@ enum Role {
 }
 
 model Player {
-  id               String       @id @default(cuid())
-  ign              String
-  username         String       @unique
-  isGuildMember    Boolean      @default(true)
-  favouriteStudent String?
-  favouriteStudentId Int?
-  favouriteStudentData Student? @relation(fields: [favouriteStudentId], references: [id], onDelete: SetNull)
-  joinedDate       DateTime     @default(now())
-  club             String?
-  clubID           String?
-  clubId           String?
-  clubData         Club?        @relation(fields: [clubId], references: [id], onDelete: SetNull)
-  userID           String?      @unique
-  entries          RaidEntry[]
-  xlsxReviewItems  XlsxImportReviewItem[]
+  id                   String                 @id @default(cuid())
+  ign                  String
+  username             String                 @unique
+  isGuildMember        Boolean                @default(true)
+  favouriteStudent     String?
+  favouriteStudentId   Int?
+  favouriteStudentData Student?               @relation(fields: [favouriteStudentId], references: [id], onDelete: SetNull)
+  joinedDate           DateTime               @default(now())
+  club                 String?
+  clubID               String?
+  clubId               String?
+  clubData             Club?                  @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  userID               String?                @unique
+  entries              RaidEntry[]
+  xlsxReviewItems      XlsxImportReviewItem[]
 
   @@index([ign])
   @@index([favouriteStudentId])
@@ -78,53 +78,56 @@ model Club {
 }
 
 model Student {
-  id              Int      @id
-  name            String
-  pathName        String?
-  image           String
-  portrait        String?
-  memorial        String?
-  familyName      String?
-  personalName    String?
-  school          String?
-  club            String?
-  schoolYear      String?
-  characterAge    String?
-  characterVoice  String?
-  birthday        String?
-  birthDay        String?
-  hobby           String?
-  heightMetric    String?
-  weaponType      String?
-  tacticRole      String?
-  position        String?
-  weaponName      String?
-  accentColor     String?
-  memorialOffsetX Float    @default(-7.6)
-  memorialOffsetY Float    @default(0)
-  memorialScale   Float    @default(0.5)
-  portraitOffsetX Float    @default(0)
-  portraitOffsetY Float    @default(0)
-  portraitScale   Float    @default(1)
-  favoritedBy     Player[]
-  recruitments    Recruitment[]
-  aliases         StudentAlias[]
+  id                   Int                    @id
+  name                 String
+  pathName             String?
+  devName              String?
+  image                String
+  portrait             String?
+  memorial             String?
+  familyName           String?
+  personalName         String?
+  school               String?
+  club                 String?
+  schoolYear           String?
+  characterAge         String?
+  characterVoice       String?
+  birthday             String?
+  birthDay             String?
+  hobby                String?
+  heightMetric         String?
+  weaponType           String?
+  tacticRole           String?
+  position             String?
+  weaponName           String?
+  accentColor          String?
+  memorialOffsetX      Float                  @default(-7.6)
+  memorialOffsetY      Float                  @default(0)
+  memorialScale        Float                  @default(0.5)
+  portraitOffsetX      Float                  @default(0)
+  portraitOffsetY      Float                  @default(0)
+  portraitScale        Float                  @default(1)
+  favoritedBy          Player[]
+  recruitments         Recruitment[]
+  aliases              StudentAlias[]
   suggestedReviewItems XlsxImportReviewItem[] @relation("SuggestedStudentReview")
   resolvedReviewItems  XlsxImportReviewItem[] @relation("ResolvedStudentReview")
+  chibiBinding         StudentChibiBinding?
+  chibiImportItems     ChibiImportItem[]
 
   @@index([name])
   @@index([birthDay])
 }
 
 model Recruitment {
-  id             String                    @id @default(cuid())
-  studentId      Int
-  student        Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  bannerPath     String
-  animationPath  String
-  upcomingItems  UpcomingRecruitmentItem[]
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
+  id            String                    @id @default(cuid())
+  studentId     Int
+  student       Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  bannerPath    String
+  animationPath String
+  upcomingItems UpcomingRecruitmentItem[]
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
 
   @@unique([studentId])
 }
@@ -339,25 +342,25 @@ model RadioTrack {
 }
 
 model RadioSyncState {
-  id            String    @id @default("bluearchive-global-radio")
-  status        String    @default("idle")
-  stage         String    @default("idle")
-  total         Int       @default(0)
-  processed     Int       @default(0)
-  discovered    Int       @default(0)
-  matched       Int       @default(0)
-  newTracks     Int       @default(0)
-  downloaded    Int       @default(0)
-  thumbnails    Int       @default(0)
-  skipped       Int       @default(0)
-  failed        Int       @default(0)
-  currentItem   String?
-  message       String?
-  error         String?
-  startedAt     DateTime?
-  completedAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String    @id @default("bluearchive-global-radio")
+  status      String    @default("idle")
+  stage       String    @default("idle")
+  total       Int       @default(0)
+  processed   Int       @default(0)
+  discovered  Int       @default(0)
+  matched     Int       @default(0)
+  newTracks   Int       @default(0)
+  downloaded  Int       @default(0)
+  thumbnails  Int       @default(0)
+  skipped     Int       @default(0)
+  failed      Int       @default(0)
+  currentItem String?
+  message     String?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model MaintenanceJobRun {
@@ -385,15 +388,15 @@ model MaintenanceSchedulerLock {
 }
 
 model NewsTranslation {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   server            String
   postId            String
   sourceFingerprint String
   translatedTitle   String
-  translatedHtml    String   @db.Text
+  translatedHtml    String    @db.Text
   sourceModifiedAt  DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@unique([server, postId])
 }
@@ -444,22 +447,22 @@ model RaidTerrain {
 }
 
 model Raid {
-  id         String     @id @default(cuid())
-  raidBoss   RaidBoss   @relation(fields: [raidBossId], references: [id])
-  raidBossId String
-  season     Int
-  type       RaidType   @relation(fields: [typeId], references: [id])
-  typeId     String
-  server     RaidServer @relation(fields: [serverId], references: [id])
-  serverId   String
-  terrain    RaidTerrain @relation(fields: [terrainId], references: [id])
-  terrainId  String
-  color      String     @default("#4f8ef7")
-  color2     String     @default("#7c3aed")
-  pattern    String     @default("hex")
-  startDate  DateTime?
-  endDate    DateTime?
-  entries    RaidEntry[]
+  id              String                 @id @default(cuid())
+  raidBoss        RaidBoss               @relation(fields: [raidBossId], references: [id])
+  raidBossId      String
+  season          Int
+  type            RaidType               @relation(fields: [typeId], references: [id])
+  typeId          String
+  server          RaidServer             @relation(fields: [serverId], references: [id])
+  serverId        String
+  terrain         RaidTerrain            @relation(fields: [terrainId], references: [id])
+  terrainId       String
+  color           String                 @default("#4f8ef7")
+  color2          String                 @default("#7c3aed")
+  pattern         String                 @default("hex")
+  startDate       DateTime?
+  endDate         DateTime?
+  entries         RaidEntry[]
   xlsxReviewItems XlsxImportReviewItem[]
 }
 
@@ -477,23 +480,23 @@ model RaidEntry {
 }
 
 model XlsxImportReviewItem {
-  id                           String   @id @default(cuid())
+  id                           String    @id @default(cuid())
   raidId                       String
-  raid                         Raid     @relation(fields: [raidId], references: [id], onDelete: Cascade)
+  raid                         Raid      @relation(fields: [raidId], references: [id], onDelete: Cascade)
   playerId                     String
-  player                       Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player                       Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
   rawFavoriteStudent           String?
-  normalizedRawFavoriteStudent String   @default("")
+  normalizedRawFavoriteStudent String    @default("")
   pfpUrl                       String?
   suggestedStudentId           Int?
-  suggestedStudent             Student? @relation("SuggestedStudentReview", fields: [suggestedStudentId], references: [id], onDelete: SetNull)
+  suggestedStudent             Student?  @relation("SuggestedStudentReview", fields: [suggestedStudentId], references: [id], onDelete: SetNull)
   suggestedConfidence          Float?
-  status                       String   @default("pending")
+  status                       String    @default("pending")
   resolvedStudentId            Int?
-  resolvedStudent              Student? @relation("ResolvedStudentReview", fields: [resolvedStudentId], references: [id], onDelete: SetNull)
+  resolvedStudent              Student?  @relation("ResolvedStudentReview", fields: [resolvedStudentId], references: [id], onDelete: SetNull)
   resolvedAt                   DateTime?
-  createdAt                    DateTime @default(now())
-  updatedAt                    DateTime @updatedAt
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
 
   @@index([status, createdAt])
   @@index([raidId])
@@ -535,4 +538,123 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model ChibiAsset {
+  id                    String                @id @default(cuid())
+  sourceIdentity        String
+  /** Classification/diagnostic identity. It does not identify reusable converted geometry. */
+  fingerprint           String
+  /** Converted-model identity; null only on legacy assets that have not passed cache proof. */
+  coreFingerprint       String?
+  coreFingerprintSchemaVersion Int?
+  dependencyFingerprint String
+  exporterVersion       String
+  checksum              String
+  fileKey               String
+  clips                 Json                  @default("[]")
+  materials             Json                  @default("{}")
+  validation            Json                  @default("{}")
+  /** Immutable imported arrangement baseline for this asset revision. */
+  arrangementDefault    Json                  @default("{}")
+  published             Boolean               @default(false)
+  createdAt             DateTime              @default(now())
+  bindings              StudentChibiBinding[]
+  importItems           ChibiImportItem[]
+
+  @@index([sourceIdentity])
+  @@index([fingerprint, createdAt])
+  @@index([coreFingerprint, coreFingerprintSchemaVersion, createdAt])
+}
+
+model StudentChibiBinding {
+  studentId      Int         @id
+  student        Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assetId        String?
+  asset          ChibiAsset? @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  sourceIdentity String?
+  identityPath   String?
+  profile        Json        @default("{}")
+  provenance     String      @default("automatic")
+  overrides      Json        @default("{}")
+  /** Admin-authored runtime arrangement delta; never mutates the imported default. */
+  arrangementOverride Json      @default("{}")
+  /** Hidden characters remain stored and editable but are omitted from the public catalog. */
+  catalogVisible Boolean       @default(true)
+  status         String      @default("unavailable")
+  diagnostic     String?
+  updatedAt      DateTime    @updatedAt
+
+  @@index([assetId])
+  @@index([status])
+}
+
+model ChibiImportJob {
+  id             String            @id @default(cuid())
+  mode           String
+  requesterId    String?
+  status         String            @default("queued")
+  stage          String            @default("queued")
+  total          Int               @default(0)
+  processed      Int               @default(0)
+  imported       Int               @default(0)
+  updated        Int               @default(0)
+  reused         Int               @default(0)
+  skipped        Int               @default(0)
+  unavailable    Int               @default(0)
+  reviewRequired Int               @default(0)
+  failed         Int               @default(0)
+  selection      Json              @default("[]")
+  candidate      Json?
+  leaseToken     String?
+  workerId       String?
+  heartbeatAt    DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  error          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  items          ChibiImportItem[]
+
+  @@index([status, createdAt])
+}
+
+model ChibiImportItem {
+  id             String         @id @default(cuid())
+  jobId          String
+  job            ChibiImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  studentId      Int
+  student        Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  stage          String         @default("queued")
+  status         String         @default("pending")
+  sourceIdentity String?
+  candidates     Json           @default("[]")
+  fingerprint    String?
+  processingTiming Json?
+  diagnostic     String?
+  assetId        String?
+  asset          ChibiAsset?    @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  attempts       Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([jobId, studentId])
+  @@index([studentId, status])
+}
+
+model ChibiWorkerState {
+  id            String   @id
+  platform      String
+  lastHeartbeat DateTime
+  ready         Boolean  @default(false)
+  details       Json     @default("{}")
+}
+
+model ChibiSourceCandidate {
+  id             String   @id @default(cuid())
+  sourceIdentity String   @unique
+  fingerprint    String
+  metadata       Json     @default("{}")
+  conflict       Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
 }

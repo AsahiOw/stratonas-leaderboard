@@ -1,5 +1,8 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
+import { imageThumbnail } from '@/lib/progressive-image'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { consumeKeiGreetingSuppression, getKeiVolume, isKeiGreetingEnabled, KEI_GREETING_ENABLED_EVENT, KEI_GREETING_REQUEST_EVENT } from '@/lib/kei-volume'
 
@@ -136,8 +139,6 @@ const TYPE_SPEED_MS = 38
 const CALL_TRANSITION_MS = 400
 const KEI_CALLER_IMAGE_URL = '/assets/images/kei-avatar.jpg'
 
-const KEI_VIDEOS: KeiVideo[] = [1, 2, 3, 4, 5]
-
 function getGreetingContent(): GreetingContent {
   const now = new Date()
   const candidates: Phrase[] = [
@@ -156,6 +157,7 @@ export function GreetingToast() {
   const animationFrameRef = useRef<number | null>(null)
   const [greetingEnabled, setGreetingEnabled] = useState(() => isKeiGreetingEnabled())
   const [content, setContent] = useState<GreetingContent | null>(null)
+  const [media, setMedia] = useState<{ video: string; voice: string } | null>(null)
   const [ready, setReady] = useState(false)
   const [started, setStarted] = useState(false)
   const [render, setRender] = useState(true)
@@ -233,40 +235,45 @@ export function GreetingToast() {
     setVisible(false)
   }, [greetingEnabled])
 
-  // Warm the browser cache for all five clips and the selected voice before
-  // showing the prompt.
+  // Download only this greeting after page loading, before offering the call.
   useEffect(() => {
-    if (!content) return
-
-    let cancelled = false
-    const voiceUrl = `/assets/voice/kei/${content.voice}.mp3`
-
-    Promise.all(
-      [
-        fetch(KEI_CALLER_IMAGE_URL)
-          .then((res) => res.blob())
-          .catch(() => null),
-        ...KEI_VIDEOS.map((n) =>
-          fetch(`/assets/greeting/Kei${n}.mp4`)
-            .then((res) => res.blob())
-            .catch(() => null)
-        ),
-        fetch(voiceUrl)
-          .then((res) => res.blob())
-          .catch(() => null),
-      ]
-    ).then(() => {
-      if (!cancelled) setReady(true)
-    })
-
+    if (!content || !greetingEnabled || !render) return
+    setReady(false)
+    setMedia(null)
+    const controller = new AbortController()
+    const objectUrls: string[] = []
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const download = async (url: string) => {
+      const response = await fetch(url, { signal: controller.signal })
+      if (!response.ok) throw new Error('Greeting media could not be downloaded')
+      return response.blob()
+    }
+    const afterLoad = () => {
+      timer = setTimeout(() => {
+        Promise.all([
+          download(`/assets/greeting/Kei${content.video}.mp4`),
+          download(`/assets/voice/kei/${content.voice}.mp3`),
+        ]).then(([video, voice]) => {
+          if (controller.signal.aborted) return
+          objectUrls.push(URL.createObjectURL(video), URL.createObjectURL(voice))
+          setMedia({ video: objectUrls[0], voice: objectUrls[1] })
+          setReady(true)
+        }).catch(() => { controller.abort() })
+      }, 1200)
+    }
+    if (document.readyState === 'complete') afterLoad()
+    else window.addEventListener('load', afterLoad, { once: true })
     return () => {
-      cancelled = true
+      clearTimeout(timer)
+      window.removeEventListener('load', afterLoad)
+      controller.abort()
+      objectUrls.forEach(url => URL.revokeObjectURL(url))
       speechCleanupRef.current?.()
       speechCleanupRef.current = null
       if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current)
       if (animationFrameRef.current !== null) window.cancelAnimationFrame(animationFrameRef.current)
     }
-  }, [content])
+  }, [content, greetingEnabled, render])
 
   function clearTransitionWork() {
     if (transitionTimerRef.current) {
@@ -280,10 +287,10 @@ export function GreetingToast() {
   }
 
   function handlePlayKei() {
-    if (!content || !ready || callBusy) return
+    if (!content || !media || !ready || callBusy) return
 
     setCallBusy(true)
-    const audio = new Audio(`/assets/voice/kei/${content.voice}.mp3`)
+    const audio = new Audio(media.voice)
     speechCleanupRef.current?.()
     audio.volume = getKeiVolume()
     audio.currentTime = 0
@@ -404,7 +411,7 @@ export function GreetingToast() {
     }
   }, [speechDone])
 
-  if (!greetingEnabled || !render || !content || !ready) return null
+  if (!greetingEnabled || !render || !content || !media || !ready) return null
 
   if (!started) {
     return (
@@ -415,21 +422,21 @@ export function GreetingToast() {
           }`}
       >
         <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-card">
-          <div
+          <ProgressiveImage src={KEI_CALLER_IMAGE_URL} alt=""
             aria-hidden="true"
-            className={`absolute inset-0 bg-cover bg-center transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${answering ? 'scale-100 opacity-0' : 'scale-105 opacity-100'
+            className={`absolute inset-0 h-full w-full object-cover object-center transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${answering ? 'scale-100 opacity-0' : 'scale-105 opacity-100'
               }`}
-            style={{ backgroundImage: `url(${KEI_CALLER_IMAGE_URL})` }}
           />
           <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.08),rgba(13,13,19,0.74))]" />
           <video
             key={content.video}
-            src={`/assets/greeting/Kei${content.video}.mp4`}
+            src={media.video}
+            poster={imageThumbnail(KEI_CALLER_IMAGE_URL, 132)}
             autoPlay
             muted
             loop
             playsInline
-            preload="auto"
+            preload="none"
             className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transform-none ${answering ? 'scale-100 opacity-100' : 'scale-110 opacity-0'
               }`}
           />
@@ -480,12 +487,13 @@ export function GreetingToast() {
       <div className="relative aspect-square w-full bg-white">
         <video
           key={content.video}
-          src={`/assets/greeting/Kei${content.video}.mp4`}
+          src={media.video}
+          poster={imageThumbnail(KEI_CALLER_IMAGE_URL, 132)}
           autoPlay
           muted
           loop
           playsInline
-          preload="auto"
+          preload="none"
           className="h-full w-full object-cover"
         />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-card2" />

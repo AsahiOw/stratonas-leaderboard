@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
@@ -261,8 +262,8 @@ export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: 
         <div className="relative min-h-[150px] overflow-hidden border-b border-border bg-bg">
           {cover && (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+
+              <ProgressiveImage src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
               <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.18),rgba(13,13,19,0.9))]" />
             </>
           )}

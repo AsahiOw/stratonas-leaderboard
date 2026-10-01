@@ -1,3 +1,4 @@
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { SITE_CONTENT } from '@/lib/site-content'
 
 const featureItems = SITE_CONTENT.homeIntro.features
@@ -19,8 +20,9 @@ export function HomeIntro({ open, onClose }: HomeIntroProps) {
       <div className="overflow-hidden">
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_18px_45px_rgba(0,0,0,0.18)]">
           <div className="relative min-h-[112px] border-b border-border bg-bg">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <ProgressiveImage
+              fill
+              sizes="(min-width: 1280px) 1200px, 100vw"
               src="/assets/images/banner-poster.webp"
               alt=""
               className="absolute inset-0 h-full w-full object-cover opacity-55"
@@ -37,8 +39,10 @@ export function HomeIntro({ open, onClose }: HomeIntroProps) {
               >
                 x
               </button>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ProgressiveImage
+                width={56}
+                height={56}
+                sizes="56px"
                 src="/assets/icons/icon.webp"
                 alt=""
                 className="hidden h-14 w-14 shrink-0 rounded-full border border-accent/30 object-cover shadow-[0_0_24px_rgba(79,142,247,0.18)] sm:block"

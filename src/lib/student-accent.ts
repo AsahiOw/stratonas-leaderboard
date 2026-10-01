@@ -1,5 +1,6 @@
 'use client'
 
+import { getImageProps } from 'next/image'
 import { useEffect, useState } from 'react'
 
 export const FALLBACK_STUDENT_ACCENT = 'oklch(0.55 0.10 250)'
@@ -60,7 +61,7 @@ function loadImage(url: string) {
     image.crossOrigin = 'anonymous'
     image.onload = () => resolve(image)
     image.onerror = reject
-    image.src = url
+    image.src = getImageProps({ src: url, alt: '', width: 32, height: 32 }).props.src
   })
 }
 

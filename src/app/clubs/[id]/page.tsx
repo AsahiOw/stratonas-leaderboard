@@ -1,3 +1,4 @@
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { notFound } from 'next/navigation'
 import { ClubRoster } from '@/components/ClubRoster'
 import { ReturnBackLink } from '@/components/PlayerBackLink'
@@ -50,8 +51,7 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-4">
                 {club.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imageSrc(club.logo)} alt="" className="h-20 w-20 shrink-0 object-contain" />
+                  <ProgressiveImage src={imageSrc(club.logo)} alt="" className="h-20 w-20 shrink-0 object-contain" />
                 ) : (
                   <div className="h-16 w-3 rounded-full" style={{ background: club.color }} />
                 )}

@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "toolchainVersion": "2026-09-10",
+  "assetStudioModCli": {
+    "version": "0.19.0",
+    "archive": {
+      "url": "https://github.com/aelurum/AssetStudioMod/releases/download/v0.19.0/AssetStudioModCLI_net9_portable.zip",
+      "sha256": "4ee4befc2316885dcb4c2dc0a07c01967a6fba23fdfd1b44e0285799de6ac662",
+      "directory": "AssetStudioModCLI_net9_portable"
+    },
+    "entrypoint": "AssetStudioModCLI.dll",
+    "launcher": "dotnet",
+    "runtime": "Microsoft.NETCore.App 9",
+    "assembly": "AssetStudioModCLI.dll",
+    "cecilAssembly": "Mono.Cecil.dll"
+  },
+  "dotnetSdk": {
+    "version": "9.0.318",
+    "runtimeVersion": "9.0.20",
+    "platforms": {
+      "win32-x64": {
+        "url": "https://dotnetcli.azureedge.net/dotnet/Sdk/9.0.318/dotnet-sdk-9.0.318-win-x64.zip",
+        "sha512": "d961a84ebcbc316f06c98d16958422f7bb1b3a1f29b5d6011cabf59984390690ff669c3dd9b739554ad00771d6393dbbde6bdb14da81faa7fe499f59501864b6",
+        "archiveType": "zip"
+      },
+      "darwin-x64": {
+        "url": "https://dotnetcli.azureedge.net/dotnet/Sdk/9.0.318/dotnet-sdk-9.0.318-osx-x64.tar.gz",
+        "sha512": "08b45e82b7bd7b0804c14e6229b3703fb8f98cabac8bec3b05d9d5ecc41033801e455c45f4b5a8a6bac0d0405b64946a65614a611017b7596a825cfd8a74ae1f",
+        "archiveType": "tar.gz"
+      },
+      "linux-x64": {
+        "url": "https://dotnetcli.azureedge.net/dotnet/Sdk/9.0.318/dotnet-sdk-9.0.318-linux-x64.tar.gz",
+        "sha512": "e8685293a3512178e0de1bb3c1663e31fdf9d761af705094bf833cc1ff6b9a18c543aa4141f0216503c98039c719585a6d32905b0bbb3279e93b7e7616e047c3",
+        "archiveType": "tar.gz"
+      }
+    }
+  },
+  "fbx2gltf": {
+    "version": "0.13.1",
+    "platforms": {
+      "win32-x64": {
+        "url": "https://github.com/godotengine/FBX2glTF/releases/download/v0.13.1/FBX2glTF-windows-x86_64.zip",
+        "sha256": "effef95553afd4951e92c7330c0ab3152974544d30a7fc8e46c4d57d4332f378",
+        "directory": "FBX2glTF-windows-x86_64",
+        "entrypoint": "FBX2glTF-windows-x86_64.exe"
+      },
+      "darwin-x64": {
+        "url": "https://github.com/godotengine/FBX2glTF/releases/download/v0.13.1/FBX2glTF-macos-x86_64.zip",
+        "sha256": "863bd62a3d289218b19642b39b1170411df3f0448370a809ed47f1e386b77ac5",
+        "directory": "FBX2glTF-macos-x86_64",
+        "entrypoint": "FBX2glTF-macos-x86_64"
+      },
+      "linux-x64": {
+        "url": "https://github.com/godotengine/FBX2glTF/releases/download/v0.13.1/FBX2glTF-linux-x86_64.zip",
+        "sha256": "52243ec1bf25c4501bdd4977057b6782702fe3ae1b79e2ac13039d2207870bec",
+        "directory": "FBX2glTF-linux-x86_64",
+        "entrypoint": "FBX2glTF-linux-x86_64"
+      }
+    }
+  },
+  "unityPy": {
+    "package": "UnityPy",
+    "version": "1.25.3",
+    "requirementsFile": "requirements.txt",
+    "wheel": {
+      "win32-x64": {
+        "url": "https://files.pythonhosted.org/packages/70/b2/d35920055001e7603a36bab5e25ff58bd2a31cab9b05ec626d780f22d16f/unitypy-1.25.3-cp312-cp312-win_amd64.whl",
+        "sha256": "e48098837c067833083e7be0fc96f7af39ac68a589e328b4ead656e6350d9ce1"
+      },
+      "darwin-x64": {
+        "url": "https://files.pythonhosted.org/packages/5e/aa/848f274b7dd88a1e6980606a1b3319c2309b1ab60174000d2df5e92b2728/unitypy-1.25.3-cp312-cp312-macosx_10_13_x86_64.whl",
+        "sha256": "e82bf30ee40d598771d691e69019078256fbdb2d7db09d6d17689fdce81b75cb"
+      },
+      "linux-x64": {
+        "url": "https://files.pythonhosted.org/packages/83/57/81610a99d62dcc05c1b1e9bbe62444384ea31f3c1b7b699e249d48f48258/unitypy-1.25.3-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+        "sha256": "96d68dc0f0aeac5758f97296cb2681b300f17792b8f26bade569925d55a8581c"
+      }
+    }
+  },
+  "animationPatch": {
+    "id": "assetstudio-animation-assets-74-95",
+    "sourceAssemblySha256": "e719d05143f0b72afc4a6a648e416d47a1ac0cceb97b2a7ad16a2c2231a5b541",
+    "patchedAssemblySha256": "2b96a91a94f4ca5933afcad6f3c991bdb7469a762479909db7189382b02fce1e",
+    "type": "AssetStudioCLI.Options.CLIOptions",
+    "method": "ParseArgs",
+    "requiredAssetTypes": [74, 95]
+  },
+  "paths": {
+    "assetStudio": "assetstudio",
+    "fbx2gltf": "fbx2gltf",
+    "python": "python",
+    "archives": "archives",
+    "patcher": "patcher",
+    "installRecord": "install.json"
+  }
+}

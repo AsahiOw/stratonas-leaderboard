@@ -1,15 +1,38 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // Docker builds run on Linux and use the minimal standalone server. Native
+  // Windows builds use the regular `.next` output so Next's Windows file
+  // tracing cannot copy mounted BAAD/chibi storage into a multi-gigabyte
+  // standalone directory; `npm start` remains the supported native command.
+  output: process.platform === 'win32' ? undefined : 'standalone',
   serverExternalPackages: ['@duckdb/node-api'],
-  allowedDevOrigins: ['192.168.1.*'],
+  allowedDevOrigins: ['localhost', '127.0.0.1', '192.168.1.*'],
+  images: {
+    qualities: [75, 90],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'schaledb.com', port: '', pathname: '/images/student/**', search: '' },
+    ],
+    localPatterns: [
+      { pathname: '/assets/**' },
+      { pathname: '/api/image-proxy' },
+      { pathname: '/api/memorial-poster' },
+      { pathname: '/api/radio/thumbnail/**' },
+    ],
+  },
   experimental: {
     proxyClientMaxBodySize: '250mb',
   },
   outputFileTracingExcludes: {
-    '*': [
-      'Development_data/**/*',
-      'Production_data/**/*',
+    '/*': [
+      './Development_data/**/*',
+      './Production_data/**/*',
+    ],
+    // The standalone server has a shared `next-server` trace in addition to
+    // per-route traces. Keep mounted source/tool storage out of that trace;
+    // the worker and app receive it through Compose volumes at runtime.
+    'next-server': [
+      './Development_data/**/*',
+      './Production_data/**/*',
     ],
   },
   async headers() {
@@ -90,7 +113,7 @@ const nextConfig = {
         ],
       },
       {
-        source: '/assets/:path*',
+        source: '/assets/:path((?!chibi/).*)',
         headers: [
           {
             key: 'Cache-Control',

@@ -1,3 +1,4 @@
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicRaid, getPublicRaidEntries } from '@/lib/public-data'
@@ -87,12 +88,9 @@ export default async function RaidLeaderboardPage({ params }: { params: Promise<
           }}
         >
           {raid.raidBoss.image && (
-            <div
-              className="absolute inset-y-0 right-0 w-full sm:w-3/5 opacity-30 pointer-events-none"
+            <ProgressiveImage src={imageSrc(raid.raidBoss.image)} alt=""
+              className="absolute inset-y-0 right-0 h-full w-full sm:w-3/5 opacity-30 pointer-events-none object-cover"
               style={{
-                backgroundImage: `url("${imageSrc(raid.raidBoss.image)}")`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
                 maskImage: 'linear-gradient(to right, transparent, black 60%)',
                 WebkitMaskImage: 'linear-gradient(to right, transparent, black 60%)',
               }}

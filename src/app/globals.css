@@ -1606,7 +1606,7 @@ button {
 .official-news-content th,
 .official-news-content td { border: 1px solid var(--border2); min-width: 7rem; padding: 0.65rem 0.75rem; text-align: center; vertical-align: middle; }
 .official-news-content th { background: color-mix(in srgb, var(--accent) 16%, var(--card)); color: var(--text); font-weight: 800; }
-.official-news-content img { background: rgba(0, 0, 0, 0.12); border-radius: 0.75rem; display: block; height: auto; margin: 1.1rem auto; max-height: 780px; max-width: 100%; object-fit: contain; }
+.official-news-content img { background: rgba(0, 0, 0, 0.12); border-radius: 0.75rem; display: block; height: auto; margin: 1.1rem auto; max-width: 100%; object-fit: contain; }
 
 @media (max-width: 640px) {
   .official-news-content { font-size: 0.9rem; line-height: 1.68; }

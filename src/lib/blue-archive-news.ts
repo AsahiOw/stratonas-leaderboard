@@ -305,14 +305,15 @@ export async function getOfficialNewsArticle(threadId: string, server: NewsServe
   const detail = await fetchThreadDetail(threadId)
   if (detail.threadId !== threadId || typeof detail.title !== 'string') throw new NewsUpstreamError()
   const content = plainTextFromHtml(detail.content, 50000)
-  if (!content) throw new NewsUpstreamError()
+  const mediaUrls = nexonImagesFromContent(detail.content)
+  if (!content && mediaUrls.length === 0) throw new NewsUpstreamError()
   const modifiedAt = Number(detail.modifyDate || detail.createDate)
   return {
     id: threadId,
     title: detail.title.trim(),
-    content,
+    content: content ?? '',
     modifiedAt: Number.isFinite(modifiedAt) ? new Date(modifiedAt * 1000).toISOString() : '',
-    mediaUrls: nexonImagesFromContent(detail.content),
+    mediaUrls,
     contentHtml: sanitizeOfficialArticleHtml(detail.content, 'global'),
   }
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, Landmark, LayoutGrid, Search, UsersRound } from 'lucide-react'
 import { ReturnLocationLink } from '@/components/ReturnLocationLink'
@@ -286,8 +287,7 @@ export function CommunityPage({ onPlayerClick }: Props) {
                       className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-bg/35 px-3 py-3 no-underline transition-colors hover:border-border2"
                     >
                       {club.logo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={imageSrc(club.logo)} alt="" className="h-14 w-14 shrink-0 object-contain" />
+                        <ProgressiveImage src={imageSrc(club.logo)} alt="" className="h-14 w-14 shrink-0 object-contain" />
                       ) : (
                         <div className="h-12 w-2 shrink-0 rounded-full" style={{ background: club.color }} />
                       )}
@@ -330,8 +330,7 @@ export function CommunityPage({ onPlayerClick }: Props) {
                     >
                       <div className="flex items-start gap-3">
                         {mode === 'players' && player.favouriteStudentImage && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <ProgressiveImage
                             src={imageSrc(player.favouriteStudentImage)}
                             alt=""
                             className="h-20 w-20 shrink-0 rounded-lg object-cover object-top"

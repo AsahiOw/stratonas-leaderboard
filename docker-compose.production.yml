@@ -1,11 +1,29 @@
 services:
   app:
+    env_file: .env.production
+    environment:
+      CHIBI_SOURCE_DIR: /data/BAAD
+      CHIBI_DATA_DIR: /data/chibi
+      CHIBI_TOOLS_DIR: /opt/chibi-tools
     volumes:
       - ./Development_data:/app/Development_data
+      - ./Development_data/BAAD:/data/BAAD:ro
+      - ./Production_data/chibi:/data/chibi
       - ./public/assets/club:/app/public/assets/club
       - ./public/assets/custom-student:/app/public/assets/custom-student
       - ./public/assets/gacha:/app/public/assets/gacha
 
+  chibi-worker:
+    env_file: .env.production
+    environment:
+      CHIBI_SOURCE_DIR: /data/BAAD
+      CHIBI_DATA_DIR: /data/chibi
+      CHIBI_TOOLS_DIR: /opt/chibi-tools
+    volumes:
+      - ./Development_data/BAAD:/data/BAAD:ro
+      - ./Production_data/chibi:/data/chibi
+
   db:
+    env_file: .env.production
     volumes:
       - ./Production_data/docker-postgres:/var/lib/postgresql/data

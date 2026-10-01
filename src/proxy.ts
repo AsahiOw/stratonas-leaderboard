@@ -26,11 +26,12 @@ function normalizeCsp(directives: string[]) {
   return directives.join('; ').replace(/\s{2,}/g, ' ').trim()
 }
 
-function contentSecurityPolicy(nonce: string) {
+function contentSecurityPolicy(nonce: string, pathname: string) {
   const devConnectSources = isProduction
     ? []
     : ['http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*']
-  const connectSources = ["'self'", ...devConnectSources].join(' ')
+  // GLTFLoader fetches the model's embedded textures through local blob URLs.
+  const connectSources = ["'self'", ...(['/3D', '/admin/chibi/preview'].includes(pathname) ? ['blob:'] : []), ...devConnectSources].join(' ')
 
   return normalizeCsp([
     "default-src 'self'",
@@ -243,7 +244,7 @@ export async function validatePayload(request: NextRequest) {
 
 export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
-  const csp = contentSecurityPolicy(nonce)
+  const csp = contentSecurityPolicy(nonce, request.nextUrl.pathname)
 
   if (!validateUrl(request)) {
     return applySecurityHeaders(
@@ -278,6 +279,7 @@ export async function proxy(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-nonce', nonce)
+  requestHeaders.set('Content-Security-Policy', csp)
   const response = NextResponse.next({ request: { headers: requestHeaders } })
 
   return applySecurityHeaders(response, csp)

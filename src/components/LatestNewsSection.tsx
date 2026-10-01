@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowUpRight, BadgeCheck, Newspaper } from 'lucide-react'
 import type { NewsPageResult, NewsPost } from '@/lib/blue-archive-news'
@@ -75,7 +76,12 @@ export function LatestNewsSection({ onOpenNews }: { onOpenNews: () => void }) {
   if (!loading && !post) return null
 
   return (
-    <section className="mb-5 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_10px_28px_rgba(0,0,0,0.16)]" aria-label="Latest official Blue Archive news">
+    <section className="mb-5" aria-label="Latest official Blue Archive news">
+      <div className="mb-3 flex items-center gap-3">
+        <h2 className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-muted2">News</h2>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_10px_28px_rgba(0,0,0,0.16)]">
       {loading && !post ? (
         <div className="grid min-h-[170px] animate-pulse sm:grid-cols-[1fr_260px]">
           <div className="space-y-3 p-5"><div className="h-3 w-28 rounded bg-border2" /><div className="h-5 w-4/5 rounded bg-border2" /><div className="h-3 w-full rounded bg-border2" /><div className="h-3 w-2/3 rounded bg-border2" /></div>
@@ -93,20 +99,20 @@ export function LatestNewsSection({ onOpenNews }: { onOpenNews: () => void }) {
             <div className="mt-3 flex items-center gap-1.5 text-xs text-muted2">
               <span className="font-semibold text-text">{post.authorName}</span><BadgeCheck size={14} className="fill-accent text-card" aria-label="Official account" /><span>·</span><time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time><span>·</span><span>{post.category}</span>
             </div>
-            <h2 className="mt-2 line-clamp-2 text-base font-bold leading-snug text-text sm:text-lg">{post.title}</h2>
+            <h3 className="mt-2 line-clamp-2 text-base font-bold leading-snug text-text sm:text-lg">{post.title}</h3>
             {post.summary && <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-muted2">{post.summary}</p>}
             <div className="mt-auto pt-3">
               <a href={post.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-bold text-accent hover:text-accent/80">Read official post <ArrowUpRight size={13} aria-hidden /></a>
             </div>
           </div>
           {post.thumbnailUrl ? (
-            <a href={post.url} target="_blank" rel="noopener noreferrer" className="group order-first block h-36 overflow-hidden border-b border-border bg-card2 sm:order-none sm:h-full sm:min-h-[180px] sm:border-b-0 sm:border-l" aria-label={`Open ${post.title} on the official site`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageSource(post.thumbnailUrl) || undefined} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+            <a href={post.url} target="_blank" rel="noopener noreferrer" className="group relative order-first block h-36 overflow-hidden border-b border-border bg-card2 sm:order-none sm:h-full sm:min-h-[180px] sm:border-b-0 sm:border-l" aria-label={`Open ${post.title} on the official site`}>
+              <ProgressiveImage src={imageSource(post.thumbnailUrl)!} alt="" fill sizes="(min-width: 640px) 260px, 100vw" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
             </a>
           ) : null}
         </div>
       ) : null}
+      </div>
     </section>
   )
 }

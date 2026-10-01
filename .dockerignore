@@ -13,4 +13,15 @@ Production_data
 *.tsbuildinfo
 
 README.md
-scripts
+
+# The worker needs its source entrypoint and conversion libraries. Keep the
+# other scripts out of the context and never send a downloaded tool archive.
+scripts/*
+!scripts/chibi-worker.ts
+!scripts/chibi-runtime.ts
+!scripts/chibi-preflight.ts
+!scripts/chibi/
+!scripts/chibi/**
+!scripts/chibi-postprocess.mjs
+!scripts/chibi-tools/
+!scripts/chibi-tools/**

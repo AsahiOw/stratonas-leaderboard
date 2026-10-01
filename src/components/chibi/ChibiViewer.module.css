@@ -1,0 +1,22 @@
+.fullscreen[role=dialog] {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  background: radial-gradient(ellipse at 50% 40%, #294353, #111723 75%);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.fullscreen[role=dialog] [data-chibi-stage] { flex: 1; min-height: 0; }
+.fullscreen[role=dialog] [data-chibi-canvas] { height: 100%; }
+.fullscreen[role=dialog] [data-chibi-controls] { flex-shrink: 0; }
+.toolbar { position: absolute; right: 12px; top: 12px; display: flex; gap: 6px; }
+.toolbar button { display: flex; align-items: center; justify-content: center; min-width: 44px; height: 44px; border: 1px solid #ffffff26; border-radius: 50%; background: #0d142380; color: #cbd5e1; }
+.toolbar button:hover { background: #ffffff15; }
+.toolbar button:focus-visible { outline: 2px solid #67e8f9; outline-offset: 3px; }
+.toolbar button:not(.rotation)[aria-pressed=false], .toolbar .rotation[aria-pressed=true] { color: #67e8f9; border-color: #67e8f966; }
+.toolbar .reset { border-radius: 22px; padding: 0 14px; font-size: 12px; }

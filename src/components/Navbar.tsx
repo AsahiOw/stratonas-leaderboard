@@ -1,4 +1,5 @@
 'use client'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useRef, useState } from 'react'
 import { LogIn, LogOut, Maximize2, Minimize2 } from 'lucide-react'
 import { lockBodyScroll } from '@/lib/body-scroll-lock'
@@ -47,7 +48,7 @@ export function Navbar({
   })
 
   const tabs = [
-    { id: 'leaderboard' as Tab, label: 'Leaderboard' },
+    { id: 'leaderboard' as Tab, label: 'Home' },
     { id: 'previous' as Tab, label: 'History' },
     { id: 'stats' as Tab, label: 'Statistic' },
     { id: 'other' as Tab, label: 'Other' },
@@ -300,8 +301,11 @@ export function Navbar({
             className="relative z-10 flex shrink-0 items-center gap-2.5 rounded-md bg-transparent p-0 text-left text-text transition-colors hover:text-accent"
             aria-label="Go to leaderboard home"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <ProgressiveImage
+              width={32}
+              height={32}
+              sizes="32px"
+              loading="eager"
               src="/assets/icons/icon.webp"
               alt=""
               className="w-8 h-8 rounded-full object-cover border border-border"

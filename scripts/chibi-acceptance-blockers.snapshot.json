@@ -1,0 +1,399 @@
+{
+  "schemaVersion": 1,
+  "snapshotVersion": "chibi-acceptance-known-blockers-v6",
+  "roster": {
+    "version": 1,
+    "checksum": "f4b364bf6b0d35f41bc74c7e4bbe1aa48ded5d6c192393c910e71946211c7209",
+    "eligibleCount": 275
+  },
+  "source": {
+    "kind": "BAAD",
+    "inventoryVersion": 2,
+    "inventorySha256": "9503a9218b6ebd3ce91c7b6317a0610c5f0f46332d1d70dbf1b04e0feb20d242",
+    "files": 517,
+    "entries": 29689,
+    "candidates": 871
+  },
+  "profileVersion": "chibi-rendering-profile-v9",
+  "policyVersion": "chibi-rendering-policy-v12",
+  "counts": {
+    "eligible": 275,
+    "mapped": 274,
+    "successful": 238,
+    "blocked": 37,
+    "mappedBlocked": 36,
+    "sourceUnavailable": 1
+  },
+  "rows": [
+    {
+      "studentId": 10040,
+      "name": "Tsukuyo",
+      "sourceIdentity": "ch0114",
+      "sourceFingerprint": "7a9dc7976bd1c15aae341e3e88c8ae50b5c82369ded43dfa68c1d839f0c03a48",
+      "itemFingerprint": "b2d05b8cb85942c4e488b8827e66d8967ffe3c522523b1f12f431a7a5608cec2",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0114/Cafe/Cafe_CH0114.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0114: Selected child-renderer event CH0114_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0114_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0114_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0114_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0114_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0114_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0114_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0114_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference."
+    },
+    {
+      "studentId": 10045,
+      "name": "Hoshino (Swimsuit)",
+      "sourceIdentity": "hoshino_swimsuit",
+      "sourceFingerprint": "90e6419f63375c0149d485f5df59a0cbfabe2ca06835a8ff59f9cea9b078e8c4",
+      "itemFingerprint": "f152819a5f61df953bdfe10e3f6c60ffa9c92d486429446c287811ee14f5a13f",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/Hoshino_Swimsuit/Cafe/Cafe_Hoshino_Swimsuit.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for hoshino_swimsuit: Selected child-renderer event Hoshino_Swimsuit_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event Hoshino_Swimsuit_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event Hoshino_Swimsuit_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event Hoshino_Swimsuit_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event Hoshino_Swimsuit_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event Hoshino_Swimsuit_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event Hoshino_Swimsuit_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event Hoshino_Swimsuit_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    },
+    {
+      "studentId": 10060,
+      "name": "Megu",
+      "sourceIdentity": "ch0088",
+      "sourceFingerprint": "da7de0633584f14b42ab4df2d525ff44ec6cf3f2ff4413b0d051e0e86b4fc1cd",
+      "itemFingerprint": "d89b7de390243e96dfdad2b962628869e5edaa021a85e8201761d3cd447f8487",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0088/Cafe/Cafe_CH0088.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0088: Selected child-renderer event CH0088_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0088_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0088_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0088_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference."
+    },
+    {
+      "studentId": 10062,
+      "name": "Toki",
+      "sourceIdentity": "ch0187",
+      "sourceFingerprint": "401e6ac582ef2413327281b263b8af45e1a771214c10f751aebcf8b5955873a5",
+      "itemFingerprint": "4578cd46fe9a344164aa201cd20d159f9978172673799f3a41344e654def1177",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0187/CH0187_CafeOnly.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0187: Selected child-renderer event CH0187_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0187_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference."
+    },
+    {
+      "studentId": 10063,
+      "name": "Koyuki",
+      "sourceIdentity": "ch0198",
+      "sourceFingerprint": "aaf23e024fa86a8b1e17aeeb5d71faca67be69c56ca76aec1ff347ed24f76ec9",
+      "itemFingerprint": "77d871106964af7c36441939d16b983f42b7d56db9cf5df283bbe7671b15cf36",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0198/Cafe/Cafe_CH0198.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0198: Selected child-renderer event CH0198_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0198_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0198_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0198_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0198_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0198_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0198_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0198_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    },
+    {
+      "studentId": 10068,
+      "name": "Reisa",
+      "sourceIdentity": "ch0167",
+      "sourceFingerprint": "42a2dc48c4f524b1a0650424b3b6b0e1859fd59cc3a8529a765cb888591522b0",
+      "itemFingerprint": "90a28b1b30bacccb509323e5ca5f19197c2076751a14beef35009b7ea215638a",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0167/Cafe/Cafe_CH0167.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0167: Selected child-renderer event CH0167_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0167_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0167_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0167_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0167_Cafe_Reaction at 1.0000001192092896 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0167_Cafe_Reaction at 1.0000001192092896 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0167_Cafe_Reaction at 2.7333335876464844 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0167_Cafe_Reaction at 2.7333335876464844 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0167_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0167_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0167_Formation_Pickup at 3.200000286102295 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0167_Formation_Pickup at 3.200000286102295 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0167_Formation_Pickup at 12.033333778381348 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0167_Formation_Pickup at 12.033333778381348 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0167_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0167_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference."
+    },
+    {
+      "studentId": 10076,
+      "name": "Kotori (Cheer Squad)",
+      "sourceIdentity": "ch0185",
+      "sourceFingerprint": "9a872707c9c8fcc1a1f75d3957cd9744d9efd92f51f3d500cfbef00db17527c0",
+      "itemFingerprint": "8694627cf92a5a3b86fa6dce98a812a8427f4fbce3bab9fb23e27216d3854026",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0185/Cafe/Cafe_CH0185.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0185: Selected child-renderer event CH0185_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0185_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0185_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0185_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0185_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0185_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0185_Cafe_Reaction at 2.500000238418579 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0185_Cafe_Reaction at 2.500000238418579 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0185_Cafe_Reaction at 3.1666667461395264 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0185_Cafe_Reaction at 3.1666667461395264 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0185_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0185_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0185_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0185_Formation_Pickup at 2.1000001430511475 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0185_Formation_Pickup at 2.1000001430511475 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0185_Formation_Pickup at 12.333333969116211 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0185_Formation_Pickup at 12.333333969116211 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0185_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0185_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0185_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    },
+    {
+      "studentId": 10078,
+      "name": "Kasumi",
+      "sourceIdentity": "ch0089",
+      "sourceFingerprint": "70529a870a613c68cca33a3f1c5f2e767a5c5266209d3b35b36fd99366af9f97",
+      "itemFingerprint": "3b696a51f534b4e301164286b098abc0e4c43e98861944a9f224f17020b94965",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0089/Cafe/Cafe_CH0089.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0089: Selected child-renderer event CH0089_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0089_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0089_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0089_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0089_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0089_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0089_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0089_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0089_Cafe_Reaction at 4.600000381469727 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0089_Cafe_Reaction at 4.600000381469727 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0089_Cafe_Reaction at 6.133333683013916 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0089_Cafe_Reaction at 6.133333683013916 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference."
+    },
+    {
+      "studentId": 10107,
+      "name": "Chiaki",
+      "sourceIdentity": "ch0238",
+      "sourceFingerprint": "04ff6f162cba74a4b2942fea321562604ca585695a48b3d0ff1ae1a61bf9eefa",
+      "itemFingerprint": "f30d70a3b701f82ab6acb010d707f653fdc03eef41d0475de947a3bdfe571ac6",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0238/Cafe/Cafe_CH0238.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0238: Selected child-renderer event CH0238_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 8 without a source object reference. Selected child-renderer event CH0238_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0238_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 8 without a source object reference. Selected child-renderer event CH0238_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0238_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 8 without a source object reference. Selected child-renderer event CH0238_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0238_Formation_Pickup at 2 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0238_Formation_Pickup at 2 has no exact source renderer-ID binding; BAAD supplied index 8 without a source object reference. Selected child-renderer event CH0238_Formation_Pickup at 4.0333333015441895 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0238_Formation_Pickup at 4.0333333015441895 has no exact source renderer-ID binding; BAAD supplied index 8 without a source object reference. Selected child-renderer event CH0238_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 8 without a source object reference. Selected child-renderer event CH0238_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference."
+    },
+    {
+      "studentId": 10111,
+      "name": "Neru (School)",
+      "sourceIdentity": "ch0280",
+      "sourceFingerprint": "7ba372488819e27efe6bad25f71a759f31cf718bcecb364867a826943da62848",
+      "itemFingerprint": "ee0652d043813b36357f7c2fcf204154a60db08b74ed57821c4ba4ca1aff21a3",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0280/Cafe/Cafe_CH0280.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0280: Core renderer Cafe_CH0280/Neru_Original_Weapon_Chain is a source-bound weapon/equipment renderer without an exact authored attachment relation (UNRESOLVED_WEAPON_EQUIPMENT_ATTACHMENT). Selected child-renderer event CH0280_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0280_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0280_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0280_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0280_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0280_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0280_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0280_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0280_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference."
+    },
+    {
+      "studentId": 10114,
+      "name": "Juri (Part-Timer)",
+      "sourceIdentity": "ch0286",
+      "sourceFingerprint": "d2ee8be653e41d390510bbfc370ed827c6960f3f8f42e0bac381b58c133390b2",
+      "itemFingerprint": "77ba51bc670d970ae2a2df295f3a894a08249c2917aaf190e70fa71a6fe74cbd",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0286/Cafe/Cafe_CH0286.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0286: Selected child-renderer event CH0286_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0286_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0286_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0286_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0286_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0286_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0286_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0286_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference."
+    },
+    {
+      "studentId": 10124,
+      "name": "Hasumi (Swimsuit)",
+      "sourceIdentity": "ch0291",
+      "sourceFingerprint": "6d21041eb8f066838975c96372d81c06a02135b548bec73a2838bb82259b232c",
+      "itemFingerprint": "3a1517de80e60726fa8fdb1a268e50a41a6469f408c0e8502592013fa7aab8ca",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0291/Cafe/Cafe_CH0291.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0291: Selected child-renderer event CH0291_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0291_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0291_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0291_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0291_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0291_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0291_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0291_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference."
+    },
+    {
+      "studentId": 10132,
+      "name": "Tsukuyo (Dress)",
+      "sourceIdentity": "ch0297",
+      "sourceFingerprint": "f08d743dc5b154f3a9bb66af7fce43fc45d3ce6d135ca4ca4b6c43f78720d2c9",
+      "itemFingerprint": "afd568dd526c3612ff0ddaab01c355743a94a6d42475a320c4482006bcd398a0",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0297/Cafe/Cafe_CH0297.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0297: Selected child-renderer event CH0297_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0297_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0297_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0297_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0297_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0297_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0297_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0297_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    },
+    {
+      "studentId": 10134,
+      "name": "Aris (Armed)",
+      "sourceIdentity": "ch0334",
+      "sourceFingerprint": "daafe4c28d92694998650dfe1c76bee76685d1a808c11316a3af67fc85e118fb",
+      "itemFingerprint": "1ff3e24e57e3ce02f425a76e22395339dbc00c5d38c36fb52555153ccf69e144",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0334/Cafe/Cafe_CH0334.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0334: Selected child-renderer event CH0334_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0334_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0334_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0334_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0334_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0334_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0334_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0334_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference."
+    },
+    {
+      "studentId": 10136,
+      "name": "Eimi (Armed)",
+      "sourceIdentity": "ch0337",
+      "sourceFingerprint": "c6d9ce46188466b12b8fc5f755c251c7e21cded49b5c0d9cd51debc9cd70ad8f",
+      "itemFingerprint": "92dac8c38deea4b9725ee7f89b0a0453c2a40d941f8e297090d42240ce8d7a3f",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0337/Cafe/Cafe_CH0337.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0337: Selected child-renderer event CH0337_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0337_Cafe_Reaction at 6.666666507720947 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0337_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0337_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference."
+    },
+    {
+      "studentId": 10139,
+      "name": "Niko",
+      "sourceIdentity": "ch0172",
+      "sourceFingerprint": "1af9fb5eb50129b9f5e11a3d8efe39273bcd08efe8014c12a2255cce6c0d93cb",
+      "itemFingerprint": "e339ed945b5938ad9fb398a74f0b677f9a510df901924c5e2b2be6fba8b4838b",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0172/CH0172_CafeOnly.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0172: Selected child-renderer event CH0172_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0172_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0172_Cafe_Walk at 2.799999952316284 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0172_Cafe_Walk at 2.799999952316284 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0172_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0172_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0172_Cafe_Idle at 4 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0172_Cafe_Idle at 4 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0172_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0172_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0172_Cafe_Reaction at 8.399999618530273 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0172_Cafe_Reaction at 8.399999618530273 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference."
+    },
+    {
+      "studentId": 10144,
+      "name": "Shun (Swimsuit)",
+      "sourceIdentity": "ch0355_02",
+      "sourceFingerprint": "b97423b44ef3aced250912c785886a961d737d70c443f6ac46fa2adf0758d274",
+      "itemFingerprint": "953cc0f07a780f9400bc2ee6f8468d477fcd5f5b9d92b62601f9286861a03cd6",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0355_02/Echelon/Echelon_CH0355_02.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0355_02: Selected child-renderer event CH0355_02_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0355_02_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0355_02_Formation_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0355_02_Formation_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    },
+    {
+      "studentId": 10149,
+      "name": "Kokoro",
+      "sourceIdentity": "ch0368",
+      "sourceFingerprint": "c11ca51931f26b80f6fb43bd47edfea5762e2dcd8d721b0a2b0237bf737875eb",
+      "itemFingerprint": "ab9c95a6630498d816fba752ba249541fb86df52a1484d9ff5854c724eff677d",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0368/Cafe/Cafe_CH0368.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0368: Selected child-renderer event CH0368_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0368_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0368_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0368_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0368_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0368_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0368_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event CH0368_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference."
+    },
+    {
+      "studentId": 16012,
+      "name": "Junko (New Year)",
+      "sourceIdentity": "ch0192",
+      "sourceFingerprint": "0e75dd2f1ca6258ba52293ba9ae02017f64f3f1d7fe79e9b930e22b4380ef18d",
+      "itemFingerprint": "c099d70802a54762d9cf0e7bb14a3d7772820d773435b2dcd51c2de5b7ebd8ba",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0192/Cafe/Cafe_CH0192.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0192: Selected child-renderer event CH0192_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 9 without a source object reference. Selected child-renderer event CH0192_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 10 without a source object reference. Selected child-renderer event CH0192_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 9 without a source object reference. Selected child-renderer event CH0192_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 10 without a source object reference."
+    },
+    {
+      "studentId": 16013,
+      "name": "Koharu (Swimsuit)",
+      "sourceIdentity": "ch0205",
+      "sourceFingerprint": "ea01a468688e2c92f34d12e152c8481d73c8766a2a37d2f2957e7a877b06069f",
+      "itemFingerprint": "be2775579ece5709e63dab1acc4f97254e96f94a2eeee7fd00e282432f683e93",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0205/Cafe/Cafe_CH0205.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0205: Selected child-renderer event CH0205_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0205_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0205_Formation_Pickup at 0.13334321975708008 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0205_Formation_Pickup at 0.13334321975708008 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0205_Formation_Pickup at 2.13334321975708 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0205_Formation_Pickup at 2.13334321975708 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0205_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0205_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0205_Cafe_Reaction at 2.3000097274780273 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0205_Cafe_Reaction at 2.3000097274780273 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0205_Cafe_Reaction at 3.63334321975708 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0205_Cafe_Reaction at 3.63334321975708 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0205_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0205_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0205_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0205_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference."
+    },
+    {
+      "studentId": 16014,
+      "name": "Ibuki",
+      "sourceIdentity": "ibuki_original",
+      "sourceFingerprint": "03b4cdc20b44ede2b8af425634ba0f26b2df5edeb63d9e5c2ecd04418c55b374",
+      "itemFingerprint": "62a020456e2a77803f63d0dde7e0614b001e4996d79dbcfb5077f6efa864c897",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/Ibuki_Original/Cafe/Cafe_Ibuki_Original.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ibuki_original: Selected child-renderer event Ibuki_Original_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event Ibuki_Original_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event Ibuki_Original_Formation_Pickup at 1.9000000953674316 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event Ibuki_Original_Formation_Pickup at 1.9000000953674316 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event Ibuki_Original_Formation_Pickup at 8.800000190734863 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event Ibuki_Original_Formation_Pickup at 8.800000190734863 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event Ibuki_Original_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event Ibuki_Original_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event Ibuki_Original_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event Ibuki_Original_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference. Selected child-renderer event Ibuki_Original_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event Ibuki_Original_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 7 without a source object reference."
+    },
+    {
+      "studentId": 16017,
+      "name": "Aoba",
+      "sourceIdentity": "ch0288",
+      "sourceFingerprint": "5c391d344e74f9618866572f646b255dee1e09900fab5044aab052586c6ab487",
+      "itemFingerprint": "59cbbb21d680dd99260be3829ee0a790ef690cd3a51e91a5ec0e452aed20f298",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0288/Cafe/Cafe_CH0288.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0288: Selected child-renderer event CH0288_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 0.06666667014360428 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 0.06666667014360428 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 0.06666667014360428 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 2.200000047683716 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 2.200000047683716 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 2.200000047683716 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 2.2333333492279053 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 2.2333333492279053 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Formation_Pickup at 2.2333333492279053 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 6.133333206176758 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 6.133333206176758 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 6.133333206176758 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 6.199999809265137 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 6.199999809265137 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 6.199999809265137 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 8.366666793823242 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 8.366666793823242 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 8.366666793823242 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 8.399999618530273 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 8.399999618530273 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0288_Cafe_Reaction at 8.399999618530273 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0288_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0288_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference."
+    },
+    {
+      "studentId": 16020,
+      "name": "Otogi",
+      "sourceIdentity": "ch0174",
+      "sourceFingerprint": "e52003d299adb965e0aaf778b9e2ca59fba858694c1e0947eb8de01b33ba7633",
+      "itemFingerprint": "87560bae5b551e19f618d92479e93b65fbbdd9ce1857234b7628a7b6dc52ea89",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0174/CH0174_CafeOnly.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0174: Selected child-renderer event CH0174_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 10 without a source object reference. Selected child-renderer event CH0174_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 10 without a source object reference. Selected child-renderer event CH0174_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 10 without a source object reference."
+    },
+    {
+      "studentId": 20012,
+      "name": "Sena",
+      "sourceIdentity": "ch0081",
+      "sourceFingerprint": "d45c3398b5c4d54498c0531f5c96e062f87d9b01aef3da3798e0007b68408d16",
+      "itemFingerprint": "0376aa909323eef8e693fdfc33265f5a60589425e75964beea7c6a578652726a",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0081/Cafe/Cafe_CH0081.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0081: Core geometry Cafe_CH0081/CH0081_Body is source-complete but visually unacceptable: source primitive 0 has disconnected Head and torso components, a 0.1780399764 Unity mesh units gap, and 0 bridging triangles (SOURCE_AUTHORED_CORE_GEOMETRY_SEPARATION)."
+    },
+    {
+      "studentId": 20020,
+      "name": "Himari",
+      "sourceIdentity": "ch0159",
+      "sourceFingerprint": "3f3e5d0d88524b9fb318c526ba549b879f141b2099e164133eda432c8be7cc90",
+      "itemFingerprint": "fd5d4f9d59aa85fa6c323a8e75b01e78270fde7b6ae7488449274327d8436be8",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0159/Cafe/Cafe_CH0159.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0159: Core renderer Cafe_CH0159/CH0159_Blanket_Mesh (cab-2af91f2f6b7a5ff6c558ae3e5bd841c1#6077610608080120193) has an exact null source mesh pointer (cab-2af91f2f6b7a5ff6c558ae3e5bd841c1:0); no core geometry is assigned. Selected child-renderer event CH0159_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0159_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0159_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0159_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference."
+    },
+    {
+      "studentId": 20031,
+      "name": "Shigure (Hot Spring)",
+      "sourceIdentity": "ch0123",
+      "sourceFingerprint": "4cf54aeabaa7dacf99014f1fb035138046bed8c11a3f594efd1be026f54a34cb",
+      "itemFingerprint": "68a11c697c4b33626d76113743bc1f698af509c676d811a72c1a7e42f4d02113",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0123/Cafe/Cafe_CH0123.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0123: Source shader mx/e-water-v2 uses ripple/distortion behavior that glTF-native output cannot preserve; Viewer runtime adapter mx-e-water-v2 is required. Selected child-renderer event CH0123_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0123_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0123_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0123_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0123_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0123_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    },
+    {
+      "studentId": 20033,
+      "name": "Makoto",
+      "sourceIdentity": "ch0079",
+      "sourceFingerprint": "94ddfa7ee127fdf6c0173dba57735902f8fc6eba2c1102e562649c78299f887f",
+      "itemFingerprint": "0f9a7c5c85e83d1b58b505461717b80de5bd8e698a1f69cf2c69e3c81d5dbfc6",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0079/Cafe/Cafe_CH0079.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0079: Selected child-renderer event CH0079_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0079_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0079_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0079_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0079_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0079_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0079_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0079_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    },
+    {
+      "studentId": 20036,
+      "name": "Serika (Swimsuit)",
+      "sourceIdentity": "ch0189",
+      "sourceFingerprint": "0ef9678db9b1323e22659fc8ccee2f861cea03a76214258a18b3ae92b1f1825f",
+      "itemFingerprint": "79508684f94a572af5859c5b016bc7831f7dc3bf37599a5003debe238b332dcb",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0189/Cafe/Cafe_CH0189.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0189: Selected child-renderer event CH0189_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0189_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0189_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0189_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0189_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0189_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0189_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0189_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0189_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0189_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0189_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0189_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference."
+    },
+    {
+      "studentId": 20037,
+      "name": "Fubuki (Swimsuit)",
+      "sourceIdentity": "ch0261",
+      "sourceFingerprint": "bd6e2c89bced5add694acdbc4a433c9ab2b58bcd3143f813dda7f6846ade4dc8",
+      "itemFingerprint": "4695bc55acd37b9b21bcb147958e01e8c8de5e073ef131b82df6d3c3e8dacb0a",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0261/Cafe/Cafe_CH0261.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0261: Selected child-renderer event CH0261_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0261_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0261_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0261_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0261_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0261_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    },
+    {
+      "studentId": 20039,
+      "name": "Kisaki",
+      "sourceIdentity": "ch0139",
+      "sourceFingerprint": "b410a135df3aa4248b85f4dd6012663a81db5981b0aff0e10a458192cbfe3337",
+      "itemFingerprint": "07a5955f5ad05318040e44925f93f46292bb73f0003ecdcec4f63a5540c1ea1d",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0139/Cafe/Cafe_CH0139.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0139: Selected child-renderer event CH0139_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0139_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0139_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0139_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0139_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0139_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference."
+    },
+    {
+      "studentId": 20051,
+      "name": "Reisa (Magical)",
+      "sourceIdentity": "ch0326",
+      "sourceFingerprint": "359c15dc7d5b12b8bbf344a7b147eef85fb25108c70474792c6c83566039de34",
+      "itemFingerprint": "4c89950076c94e3bf740b3d3635f81072768b7b3bf0c25c392ad5bcafc55b57a",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0326/Cafe/Cafe_CH0326.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0326: Selected child-renderer event CH0326_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0326_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0326_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0326_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0326_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0326_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0326_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0326_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference."
+    },
+    {
+      "studentId": 20052,
+      "name": "Yakumo",
+      "sourceIdentity": "ch0228",
+      "sourceFingerprint": "5a59e618cfeeb5018525e2f68a4f4d526b014151bcff30e6e532eabf8354d7af",
+      "itemFingerprint": "b9672199f97382f0c5e8f233f4116338b32e82891fd2fb3afac4b00b5027ad1e",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0228/Cafe/Cafe_CH0228.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0228: Selected child-renderer event CH0228_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0228_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0228_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference. Selected child-renderer event CH0228_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 3 without a source object reference."
+    },
+    {
+      "studentId": 20055,
+      "name": "Yuzu (Armed)",
+      "sourceIdentity": "ch0336",
+      "sourceFingerprint": "13e761029a01906a5806bd0f900fc3e46c516836a6d3154e0f233c4497d446d5",
+      "itemFingerprint": "282a9a9cef45ace76329207a001e302b3ffd2e22062a2404f23c3a76953fe60d",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0336/Cafe/Cafe_CH0336.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0336: Core renderer Cafe_CH0336/CH0336_Weapon is a source-bound weapon/equipment renderer without an exact authored attachment relation (UNRESOLVED_WEAPON_EQUIPMENT_ATTACHMENT). Selected child-renderer event CH0336_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Cafe_Walk at 2.4000000953674316 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Cafe_Walk at 2.4000000953674316 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 1 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 1 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 1 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 1.0333333015441895 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 1.0333333015441895 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 1.0333333015441895 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 4.133333206176758 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 4.133333206176758 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 4.133333206176758 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 4.166666507720947 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 4.166666507720947 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Formation_Pickup at 4.166666507720947 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0336_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Cafe_Idle at 8 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Cafe_Idle at 8 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference. Selected child-renderer event CH0336_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Cafe_Reaction at 11.5 has no exact source renderer-ID binding; BAAD supplied index 2 without a source object reference. Selected child-renderer event CH0336_Cafe_Reaction at 11.5 has no exact source renderer-ID binding; BAAD supplied index 1 without a source object reference."
+    },
+    {
+      "studentId": 20056,
+      "name": "Koyuki (Pajamas)",
+      "sourceIdentity": "ch0310",
+      "sourceFingerprint": "75cabd9a82dc0af1d5e742eee3633e7325df2a3066ca24e3b6f82a56375394d0",
+      "itemFingerprint": "d0233f8db9da55474b29ca903c8e93796ea6c256edfb4aca1208830e0d192a69",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0310/Cafe/Cafe_CH0310.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0310: Selected child-renderer event CH0310_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0310_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0310_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0310_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0310_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0310_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0310_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0310_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference."
+    },
+    {
+      "studentId": 20061,
+      "name": "Kasumi (Swimsuit)",
+      "sourceIdentity": null,
+      "sourceFingerprint": null,
+      "itemFingerprint": null,
+      "prefabPath": null,
+      "expectedStatus": "unavailable",
+      "diagnostic": "No exact canonical source identity was found."
+    },
+    {
+      "studentId": 26002,
+      "name": "Juri",
+      "sourceIdentity": "juri_original",
+      "sourceFingerprint": "64030ec0653d7319d5a166911ba22aa26f26fd5a950f03741dcfbd454a256639",
+      "itemFingerprint": "b2dec3c899b3c31a643d158ae11bce6f03b34f34ad9696c57c9778390957e3ef",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/Juri_Original/Cafe/Cafe_Juri_Original.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for juri_original: Core renderer Cafe_Juri_Original/Juri_Original_Weapon is a source-bound weapon/equipment renderer without an exact authored attachment relation (UNRESOLVED_WEAPON_EQUIPMENT_ATTACHMENT)."
+    },
+    {
+      "studentId": 26016,
+      "name": "Chiaki (Swimsuit)",
+      "sourceIdentity": "ch0348",
+      "sourceFingerprint": "dfa5268da6d04fd0a56f000379eb5be93ba62b41673ca5df215d9ab83c0cdb86",
+      "itemFingerprint": "ec1a4759944f41395bd3fb28b6684d50d818013f74282f6390c3ae2de023a09c",
+      "prefabPath": "Assets/_MX/AddressableAsset/Character/CH0348/Cafe/Cafe_CH0348.prefab",
+      "expectedStatus": "unavailable",
+      "diagnostic": "Source rendering profile is unresolved for ch0348: Selected child-renderer event CH0348_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0348_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0348_Cafe_Walk at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0348_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0348_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0348_Formation_Pickup at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 4.599999904632568 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 4.599999904632568 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 4.599999904632568 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 5.866666793823242 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 5.866666793823242 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0348_Cafe_Reaction at 5.866666793823242 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference. Selected child-renderer event CH0348_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 6 without a source object reference. Selected child-renderer event CH0348_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 5 without a source object reference. Selected child-renderer event CH0348_Cafe_Idle at 0 has no exact source renderer-ID binding; BAAD supplied index 4 without a source object reference."
+    }
+  ]
+}

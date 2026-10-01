@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useRef, useState } from 'react'
 import localFont from 'next/font/local'
 import { imageSrc, hexToRgb } from '@/lib/utils'
@@ -250,8 +251,8 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
     >
       {/* z-0 — Memorial lobby video (design parity: 200%x200% + translate/scale + contain) */}
       <div className="absolute inset-0 z-0 overflow-hidden bg-[#ddd]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+
+        <ProgressiveImage unoptimized={exportMode} loading={exportMode ? 'eager' : 'lazy'}
           src={poster}
           alt=""
           draggable={false}
@@ -323,8 +324,8 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
 
       {/* z-3 — Right panel: club badge behind portrait */}
       <div className="absolute inset-y-0 right-0 z-[3] w-[54%] pointer-events-none">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+
+        <ProgressiveImage unoptimized={exportMode} loading={exportMode ? 'eager' : 'lazy'}
           src={clubLogo}
           alt=""
           draggable={false}
@@ -341,8 +342,8 @@ export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', 
             filter: `drop-shadow(0 0 16px ${rgba(clubAccent, 0.18)})`,
           }}
         />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+
+        <ProgressiveImage unoptimized={exportMode} loading={exportMode ? 'eager' : 'lazy'}
           src={portrait}
           alt={entry.favouriteStudent || entry.name}
           draggable={false}

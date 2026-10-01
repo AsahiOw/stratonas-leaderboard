@@ -1,4 +1,5 @@
 'use client'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { RaidBanner } from '@/components/RaidBanner'
@@ -69,8 +70,9 @@ function TopThreePodium({
           >
             {portrait && (
               <div className="absolute inset-y-0 right-0 z-0 w-[58%] opacity-38">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <ProgressiveImage
+                  fill
+                  sizes="(min-width: 640px) 320px, 58vw"
                   src={portrait}
                   alt=""
                   className="h-full w-full object-cover object-[center_24%]"

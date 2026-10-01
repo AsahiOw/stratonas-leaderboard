@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
@@ -18,8 +19,7 @@ interface CharacterSpriteProps {
 function CharacterSprite({ character, expression, className }: CharacterSpriteProps) {
   return (
     // Sprite swapping uses browser-preloaded source files instead of image optimization.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <ProgressiveImage unoptimized loading="eager"
       src={loginSprite(character, expression)}
       alt=""
       aria-hidden="true"
@@ -118,8 +118,7 @@ export function LoginScene() {
             />
             {keiAngry && (
               // The effect is preloaded with the sprites and appears over Kei's head during the jump.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <ProgressiveImage unoptimized loading="eager"
                 src="/assets/images/angry-effect.png"
                 alt=""
                 aria-hidden="true"

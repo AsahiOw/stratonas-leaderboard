@@ -1,3 +1,4 @@
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
@@ -60,8 +61,8 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
           <div className="relative min-h-[260px] bg-bg">
             {cover && (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+
+                <ProgressiveImage src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.24),rgba(13,13,19,0.96))] sm:bg-[linear-gradient(to_bottom,rgba(13,13,19,0.08),rgba(13,13,19,0.9))]" />
               </>
             )}

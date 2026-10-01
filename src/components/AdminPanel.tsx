@@ -1,5 +1,6 @@
 'use client'
 import { Clapperboard, ClipboardList, Database, FileUp, GraduationCap, LayoutDashboard, School, Settings, Skull, Swords, Ticket, UsersRound, type LucideIcon } from 'lucide-react'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ServerBadge } from '@/components/ui/ServerBadge'
 import { StModal } from '@/components/ui/StModal'
@@ -7,6 +8,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { StField, inputClass } from '@/components/ui/StField'
 import { Toast } from '@/components/ui/Toast'
 import { AdminRecruitmentSection } from '@/components/AdminRecruitmentSection'
+import { AdminChibi } from '@/components/chibi/AdminChibi'
 import { fmtDate, imageSrc, proxyImage } from '@/lib/utils'
 
 interface Club {
@@ -293,7 +295,7 @@ interface XlsxImportProgress {
   error?: string | null
 }
 
-type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'videos' | 'raids' | 'bosses' | 'entries' | 'plana' | 'import' | 'recruitment' | 'settings'
+type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'chibi' | 'videos' | 'raids' | 'bosses' | 'entries' | 'plana' | 'import' | 'recruitment' | 'settings'
 type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'videos' | 'raids' | 'bosses' | 'entries'
 type DeleteConfirmation = {
   title: string
@@ -308,6 +310,7 @@ const navItems: { id: Section; label: string; icon: LucideIcon }[] = [
   { id: 'players', label: 'Players', icon: UsersRound },
   { id: 'clubs', label: 'Clubs', icon: School },
   { id: 'students', label: 'Students', icon: GraduationCap },
+  { id: 'chibi', label: 'Chibi', icon: GraduationCap },
   { id: 'videos', label: 'Videos', icon: Clapperboard },
   { id: 'raids', label: 'Raids', icon: Swords },
   { id: 'bosses', label: 'Bosses', icon: Skull },
@@ -2015,8 +2018,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                       <tr key={c.id} className={i < visibleClubs.length - 1 ? 'border-b border-border' : ''}>
                         <td className="px-3.5 py-2.5">
                           {c.logo ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <ProgressiveImage
                               src={imageSrc(c.logo)}
                               alt={c.name}
                               className="w-9 h-9 rounded-lg object-cover border border-border"
@@ -2054,6 +2056,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
         )}
 
         {/* STUDENTS */}
+        {sec === 'chibi' && <AdminChibi />}
         {sec === 'students' && (
           <div>
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
@@ -2078,8 +2081,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                 <div key={s.id} className="bg-card border border-border rounded-xl p-3.5">
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+
+                      <ProgressiveImage
                         src={imageSrc(s.image)}
                         alt={s.name}
                         className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
@@ -2139,8 +2142,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                     {visibleStudents.map((s, i) => (
                       <tr key={s.id} className={i < visibleStudents.length - 1 ? 'border-b border-border' : ''}>
                         <td className="px-3.5 py-2.5">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+
+                          <ProgressiveImage
                             src={imageSrc(s.image)}
                             alt={s.name}
                             className="w-11 h-11 rounded-lg object-cover border border-border"
@@ -2149,8 +2152,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                         </td>
                         <td className="px-3.5 py-2.5">
                           {s.portrait ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <ProgressiveImage
                               src={imageSrc(s.portrait)}
                               alt={`${s.name} portrait`}
                               className="w-11 h-11 rounded-lg object-cover border border-border"
@@ -2389,8 +2391,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
                     {b.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <ProgressiveImage
                         src={proxyImage(b.image)}
                         alt={b.name}
                         className="w-11 h-11 rounded-lg object-cover border border-border shrink-0"
@@ -2985,8 +2986,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                         <div className="grid grid-cols-1 lg:grid-cols-[72px_1fr] gap-3">
                           <div className="h-[72px] w-[72px] bg-card2 border border-border rounded-xl overflow-hidden flex items-center justify-center text-[10px] text-muted">
                             {item.pfpUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
+                              <ProgressiveImage
                                 src={proxyImage(item.pfpUrl)}
                                 alt="PFP preview"
                                 className="h-full w-full object-cover"
@@ -3602,8 +3602,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
             </StField>
             {(clubLogoPreview || cForm.logo) && (
               <div className="mb-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+
+                <ProgressiveImage
                   src={clubLogoPreview || imageSrc(cForm.logo)}
                   alt="Preview"
                   className="h-16 w-16 rounded-xl border border-border object-cover"
@@ -3955,7 +3955,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                   <div key={label}>
                     <div className="text-[10px] text-muted tracking-[0.06em] uppercase mb-1">{label}</div>
                     {kind === 'video' ? (
-                      <video
+                      <video preload="none"
                         src={imageSrc(src)}
                         muted
                         loop
@@ -3965,8 +3965,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                         onError={e => (e.currentTarget.style.display = 'none')}
                       />
                     ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <ProgressiveImage
                         src={imageSrc(src)}
                         alt={`${label} preview`}
                         className="h-24 w-24 rounded-xl border border-border object-cover"
@@ -4060,8 +4059,8 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
             </StField>
             {bForm.image && (
               <div className="mb-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+
+                <ProgressiveImage
                   src={proxyImage(bForm.image)}
                   alt="Preview"
                   className="h-20 rounded-lg border border-border object-cover"

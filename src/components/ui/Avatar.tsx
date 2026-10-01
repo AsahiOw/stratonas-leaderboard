@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { imageSrc } from '@/lib/utils'
 
 interface Props {
@@ -17,12 +18,12 @@ export function Avatar({ initials, color = 'var(--accent)', size = 32, image, al
   const rounded = isLarge ? 'rounded-xl' : 'rounded-lg'
   if (image && !imageFailed) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <ProgressiveImage
         src={imageSrc(image)}
         alt={alt}
         width={size}
         height={size}
+        sizes={`${size}px`}
         onError={() => setImageFailed(true)}
         className={`${rounded} object-cover shrink-0 border`}
         style={{ width: size, height: size, borderColor: `${color}55` }}

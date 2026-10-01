@@ -40,6 +40,30 @@ Start here. Pick one mode and follow only that section.
 
 The app runs at **http://localhost:3000** in all local modes.
 
+## 3D Student Browser and Importer
+
+Open **http://localhost:3000/3D** to search successfully imported characters by name, five-digit ID, or identity path. A shareable selection looks like `/3D?student=10002`. Students without an active verified published model are omitted from the public catalog; their import failures remain visible in Admin diagnostics.
+
+Apply migrations, install the managed conversion tools, and start the durable worker before importing:
+
+```text
+npx prisma migrate deploy
+npm run chibi:setup
+npm run chibi:doctor
+npm run chibi:worker
+```
+
+The existing **Admin → Chibi** section provides Scan / Audit, Import / Update, Retry Failed, selected force rebuilds, and mapping review. Conversion runs in the worker through PostgreSQL jobs; the web request only enqueues work. The source defaults to `Development_data/BAAD` and is never downloaded or modified by this workflow. Published revisions live in `Development_data/chibi` and become available without an application rebuild. See [portable setup and deployment](docs/chibi-setup.md) for native and Docker configuration.
+
+Use `npm run dev` for the local preview, or `npm run build` followed by `npm start` for production mode. Both `localhost` and `127.0.0.1` remain allowed development origins.
+
+- **Standing idle**, **Walk**, **Pick up**, and **Touch** use the clips assigned to the selected student profile. Unsupported or unresolved controls remain visible with a reason.
+- Drag to rotate, scroll or pinch to zoom, and tap the model to trigger its reaction.
+- Walking plays in place. Pickup holds its final pose; choose Standing idle to put her down.
+- Private candidate previews let an admin check the model and interactions before approving an uncertain mapping.
+
+The corrected original Haruna GLB under `public/assets/chibi` is retained as a regression fixture. Run `npm run test:chibi` for mapping, storage, browser-state, and asset checks. With a local database and running app, `npx tsx scripts/test-chibi-integration.ts`, `npx tsx scripts/test-chibi-http.ts`, `node scripts/test-chibi-browser.mjs`, and `npx tsx scripts/test-chibi-admin.ts` cover PostgreSQL concurrency, runtime delivery, browser navigation, and admin access. The integration test creates a disposable database schema; the admin smoke test removes its temporary account when finished.
+
 ## Prerequisites
 
 - Node.js 22+ and npm.
@@ -190,15 +214,15 @@ The repo does not currently include macOS/Linux scripts for starting a native Po
 
 ## Production With Docker
 
-Production uses the same app image with a separate PostgreSQL data folder.
+Production uses the same app image with separate PostgreSQL and chibi artifact folders. The app, database, and chibi worker share the production environment file.
 
-1. Create or update `.env.docker`.
+1. Create or update `.env.production`.
 
 ```bash
-cp .env.docker.example .env.docker
+cp .env.production.example .env.production
 ```
 
-2. Set production values in `.env.docker`.
+2. Set production values in `.env.production`.
 
 ```env
 DATABASE_URL=postgresql://USER:PASSWORD@db:5432/DB_NAME

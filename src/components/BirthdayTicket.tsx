@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useRef, useState } from 'react'
 import { useStudentAccent } from '@/lib/student-accent'
 import { imageSrc } from '@/lib/utils'
@@ -89,8 +90,9 @@ function HoverVideo({
 
   return (
     <div className="absolute inset-0 overflow-hidden">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <ProgressiveImage
+        fill
+        sizes="(min-width: 768px) 180px, 34vw"
         src={poster}
         alt={alt}
         className={`absolute inset-0 h-full w-full object-cover object-[center_30%] transition duration-300 ${playing ? 'opacity-0' : 'opacity-100 hover:scale-[1.04]'}`}
@@ -98,11 +100,11 @@ function HoverVideo({
       {videoUrl && (
         <video
           ref={videoRef}
-          src={videoUrl}
+          src={active ? videoUrl : undefined}
           muted
           playsInline
           loop
-          preload="metadata"
+          preload="none"
           className={`absolute inset-0 h-full w-full object-cover object-[center_30%] transition-opacity duration-300 ${playing ? 'opacity-100' : 'opacity-0'}`}
         />
       )}
@@ -211,8 +213,9 @@ export function UpcomingBirthdayCard({ student }: { student: BirthdayStudent }) 
     >
       <div className="absolute inset-x-0 top-0 z-20 h-0.5 bg-[var(--birthday-accent)]" />
       <div className="relative aspect-square overflow-hidden bg-[#ebe6db]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <ProgressiveImage
+          fill
+          sizes="140px"
           src={poster}
           alt=""
           loading="lazy"

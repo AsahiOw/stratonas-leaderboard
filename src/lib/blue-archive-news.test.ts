@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { isNewsCategory, isNewsServer, NewsUpstreamError, normalizeJpNewsPage, normalizeNewsPage, plainTextFromHtml, previewImageFromContent, previewImagesFromContent, sanitizeOfficialArticleHtml } from './blue-archive-news'
+import { getOfficialNewsArticle, isNewsCategory, isNewsServer, NewsUpstreamError, normalizeJpNewsPage, normalizeNewsPage, plainTextFromHtml, previewImageFromContent, previewImagesFromContent, sanitizeOfficialArticleHtml } from './blue-archive-news'
 
 const rawPage = {
   threads: [
@@ -79,4 +79,25 @@ assert.equal(jpResult.posts[0].url, 'https://bluearchive.jp/news/newsJump/682')
 assert.deepEqual(jpResult.posts[0].mediaUrls, ['https://webusstatic.yo-star.com/bluearchive_jp_web/mainsite/upload/news/example.png'])
 assert.equal(jpResult.hasMore, true)
 
-console.log('Blue Archive news adapter tests passed.')
+async function testImageOnlyArticle() {
+  const originalFetch = globalThis.fetch
+  let body = '<p>&nbsp;</p><img src="https://dszw1qtcnsa5e.cloudfront.net/developer-letter.jpg"><p>&nbsp;</p>'
+  globalThis.fetch = async () => Response.json({ threadId: '3550470', title: "Blue Archive Fall Developer's Letter", content: body, createDate: 100 })
+  try {
+    const article = await getOfficialNewsArticle('3550470')
+    assert.equal(article.content, '')
+    assert.deepEqual(article.mediaUrls, ['https://dszw1qtcnsa5e.cloudfront.net/developer-letter.jpg'])
+    assert.match(article.contentHtml, /<img[^>]+\/api\/image-proxy/)
+    body = '<p>A normal text article.</p>'
+    assert.equal((await getOfficialNewsArticle('3550470')).content, 'A normal text article.')
+    for (const invalid of ['<p>&nbsp;</p>', '<img src="https://example.com/untrusted.jpg">', '<script>alert(1)</script>']) {
+      body = invalid
+      await assert.rejects(getOfficialNewsArticle('3550470'), NewsUpstreamError)
+    }
+  } finally { globalThis.fetch = originalFetch }
+}
+
+void testImageOnlyArticle().then(() => console.log('Blue Archive news adapter tests passed.'), error => {
+  console.error(error)
+  process.exitCode = 1
+})

@@ -1,6 +1,6 @@
 'use client'
 
-import Image from 'next/image'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useState } from 'react'
 import styles from './RadioPage.module.css'
 
@@ -16,5 +16,5 @@ export function RadioArtwork({ src, alt = '', sizes = '240px', eager = false }: 
     )
   }
 
-  return <Image src={src} alt={alt} fill sizes={sizes} loading={eager ? 'eager' : 'lazy'} unoptimized onError={() => setFailed(true)} className={styles.artImage} />
+  return <ProgressiveImage src={src} alt={alt} fill sizes={sizes} loading={eager ? 'eager' : 'lazy'} onError={() => setFailed(true)} className={styles.artImage} />
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RaidCard } from '@/components/RaidCard'
 import { warmMemorialVideoCache } from '@/lib/memorial-video-cache'
@@ -247,8 +248,8 @@ export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
         return (
           <section key={division.name}>
             <div className="mb-3 flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={division.icon} alt="" className="h-9 w-9 object-contain" />
+
+              <ProgressiveImage src={division.icon} alt="" className="h-9 w-9 object-contain" />
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
                   {division.range}

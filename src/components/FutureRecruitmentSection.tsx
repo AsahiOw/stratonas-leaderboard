@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { dateKeyFromDate } from '@/lib/recruitments'
 import { fmtDate, imageSrc } from '@/lib/utils'
 
@@ -50,6 +51,33 @@ export function FutureRecruitmentSection({ schedule }: Props) {
   const [activeId, setActiveId] = useState(recruitments[0]?.id || '')
   const [now, setNow] = useState<number | null>(null)
   const [videoHeight, setVideoHeight] = useState<number | null>(null)
+  const [videoReadyFor, setVideoReadyFor] = useState<string | null>(null)
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null)
+  const activeRecruitment = recruitments.find((recruitment) => recruitment.id === activeId) || recruitments[0]
+  const animationPath = activeRecruitment?.animationPath
+
+  useEffect(() => {
+    const stage = videoStageRef.current
+    if (!stage || !animationPath) return
+    setVideoReadyFor(null); setPlayingVideo(null)
+    let visible = false, delayed = false, cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const startIfReady = () => { if (!cancelled && visible && delayed) setVideoReadyFor(animationPath) }
+    const afterPageLoad = () => {
+      timer = setTimeout(() => { delayed = true; startIfReady() }, 1200)
+    }
+    const observer = new IntersectionObserver(entries => {
+      visible = entries.some(entry => entry.isIntersecting)
+      startIfReady()
+    }, { threshold: 0.01 })
+    observer.observe(stage)
+    if (document.readyState === 'complete') afterPageLoad()
+    else window.addEventListener('load', afterPageLoad, { once: true })
+    return () => {
+      cancelled = true; clearTimeout(timer); observer.disconnect()
+      window.removeEventListener('load', afterPageLoad)
+    }
+  }, [animationPath])
 
   useEffect(() => {
     setCurrentSchedule(schedule || null)
@@ -126,8 +154,6 @@ export function FutureRecruitmentSection({ schedule }: Props) {
 
   if (!currentSchedule || recruitments.length === 0) return null
 
-  const activeRecruitment = recruitments.find((recruitment) => recruitment.id === activeId) || recruitments[0]
-
   return (
     <section className="fade-up mb-3 mt-5 md:mb-6">
       <div className="mb-3 flex items-center gap-3">
@@ -142,15 +168,19 @@ export function FutureRecruitmentSection({ schedule }: Props) {
 
       <div className="future-recruitment-layout">
         <div ref={videoStageRef} className="future-recruitment-video relative overflow-hidden rounded-xl bg-bg">
-          <video
+          <ProgressiveImage src={imageSrc(activeRecruitment.bannerPath)} alt="" fill sizes="(min-width: 768px) 55vw, 100vw" className="object-cover" />
+          {videoReadyFor === activeRecruitment.animationPath && <video
+            key={activeRecruitment.animationPath}
             src={imageSrc(activeRecruitment.animationPath)}
             autoPlay
             muted
             loop
             playsInline
-            preload="auto"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
+            preload="none"
+            onPlaying={() => setPlayingVideo(activeRecruitment.animationPath)}
+            onError={() => setPlayingVideo(null)}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${playingVideo === activeRecruitment.animationPath ? 'opacity-100' : 'opacity-0'}`}
+          />}
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(8,8,12,0.72),transparent_44%)]" />
           <div className="absolute bottom-3 left-3 max-w-[min(82%,360px)] rounded-lg border border-white/15 bg-white/88 px-3 py-2 text-accent shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-sm">
             <div className="truncate text-sm font-bold leading-tight">{activeRecruitment.student.name}</div>
@@ -178,10 +208,11 @@ export function FutureRecruitmentSection({ schedule }: Props) {
                 className={`relative h-24 min-w-[180px] overflow-hidden rounded-xl bg-transparent transition-transform duration-200 ease-out md:aspect-[16/6] md:h-auto md:min-h-[96px] md:min-w-0 md:shrink-0 ${selected ? '-translate-y-1.5 md:translate-y-0 md:-translate-x-3' : 'hover:-translate-y-1 md:hover:translate-y-0 md:hover:-translate-x-1'
                   }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <ProgressiveImage
                   src={imageSrc(recruitment.bannerPath)}
                   alt={recruitment.student.name}
+                  fill
+                  sizes="(min-width: 768px) 30vw, 180px"
                   className="h-full w-full object-cover"
                   onError={e => (e.currentTarget.style.display = 'none')}
                 />

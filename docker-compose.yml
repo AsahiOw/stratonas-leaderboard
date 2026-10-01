@@ -15,6 +15,24 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  chibi-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.chibi-worker
+    platform: linux/amd64
+    env_file: .env.docker
+    environment:
+      CHIBI_SOURCE_DIR: /data/BAAD
+      CHIBI_DATA_DIR: /data/chibi
+      CHIBI_TOOLS_DIR: /opt/chibi-tools
+    volumes:
+      - ./Development_data/BAAD:/data/BAAD:ro
+      - ./Development_data/chibi:/data/chibi
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
   bgutil-provider:
     image: brainicism/bgutil-ytdlp-pot-provider:1.3.1
     init: true

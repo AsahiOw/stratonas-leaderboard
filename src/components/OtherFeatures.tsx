@@ -1,5 +1,6 @@
 'use client'
 
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { ArrowUpRight } from 'lucide-react'
 
 type FeatureTab = 'community' | 'calendar' | 'raid' | 'custom-card' | 'news' | 'radio'
@@ -72,8 +73,8 @@ export function OtherFeatures({ onSelect }: Props) {
             className="group relative min-h-[280px] overflow-hidden rounded-2xl border border-border bg-card text-left shadow-[0_14px_35px_rgba(0,0,0,0.2)] outline-none transition duration-300 hover:-translate-y-1 hover:border-border2 hover:shadow-[0_20px_45px_rgba(0,0,0,0.35)] focus-visible:ring-2 focus-visible:ring-accent/70 md:aspect-[4/5]"
             aria-label={`Open ${feature.title}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+
+            <ProgressiveImage
               src={feature.image}
               alt=""
               className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"

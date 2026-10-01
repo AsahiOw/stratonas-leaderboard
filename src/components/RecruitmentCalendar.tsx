@@ -1,5 +1,7 @@
 'use client'
 
+import DeferredVideo from '@/components/ui/DeferredVideo'
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   CalendarDays,
@@ -201,8 +203,8 @@ function CalendarStudentSticker({
       title={`${recruitment.student.name} — ${fmtDate(dateKey)}`}
     >
       <span className="calendar-sticker-tape" aria-hidden="true" />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={stickerImage(recruitment.student, recruitment.bannerPath)} alt="" loading="lazy" />
+
+      <ProgressiveImage src={stickerImage(recruitment.student, recruitment.bannerPath)} alt="" loading="lazy" />
       <span className="sr-only">{recruitment.student.name}</span>
     </button>
   )
@@ -297,8 +299,8 @@ function RecruitmentQueueList({
                 onClick={(event) => onSelect(recruitment, schedule.dateKey, event.currentTarget)}
                 aria-label={`Open ${recruitment.student.name}'s recruitment file, starting ${fmtDate(schedule.dateKey)}`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={stickerImage(recruitment.student, recruitment.bannerPath)} alt="" loading="lazy" />
+
+                <ProgressiveImage src={stickerImage(recruitment.student, recruitment.bannerPath)} alt="" loading="lazy" />
                 <span>
                   <strong>{recruitment.student.name}</strong>
                   <small>{[recruitment.student.school, formatClub(recruitment.student.club)].filter(Boolean).join(' · ')}</small>
@@ -342,8 +344,8 @@ function BirthdayStickerStack({ students }: { students: BirthdayStudent[] }) {
           title={`${student.name}'s birthday`}
         >
           <span className="birthday-sticker-tape" aria-hidden="true" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageSrc(student.image)} alt={`${student.name}'s portrait`} loading="lazy" />
+
+          <ProgressiveImage src={imageSrc(student.image)} alt={`${student.name}'s portrait`} loading="lazy" />
           <span>{student.name}</span>
         </article>
       ))}
@@ -373,8 +375,8 @@ function RecruitmentPicker({
             onClick={(event) => onSelect(recruitment, event.currentTarget)}
             className="flex w-full items-center gap-3 rounded-xl border border-[#cfc2aa] bg-[#fbf6eb] p-3 text-left text-[#302d3b] shadow-[2px_3px_0_rgba(81,71,82,0.08)] transition hover:border-accent/50 hover:bg-[#eef3ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageSrc(recruitment.student.image, imageSrc(recruitment.bannerPath))} alt="" className="h-14 w-12 rounded-lg object-cover object-top" />
+
+            <ProgressiveImage src={imageSrc(recruitment.student.image, imageSrc(recruitment.bannerPath))} alt="" className="h-14 w-12 rounded-lg object-cover object-top" />
             <span className="min-w-0">
               <span className="block truncate font-semibold">{recruitment.student.name}</span>
               <span className="mt-0.5 block truncate text-xs text-[#70697a]">{recruitment.student.school || 'School record pending'} · CV. {recruitment.student.characterVoice || '—'}</span>
@@ -435,8 +437,8 @@ function RecruitmentDossier({
         <header className="dossier-hero">
           <div className="dossier-portrait-card">
             <span className="dossier-paperclip" aria-hidden="true"><Paperclip size={24} /></span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={stickerImage(student, recruitment.bannerPath)} alt={`${student.name} portrait`} />
+
+            <ProgressiveImage src={stickerImage(student, recruitment.bannerPath)} alt={`${student.name} portrait`} />
             <span className="dossier-id-strip">ID · {student.id}</span>
           </div>
           <div className="min-w-0 flex-1">
@@ -499,7 +501,7 @@ function RecruitmentDossier({
               <span><i aria-hidden="true" /> SCHALE MEDIA ARCHIVE</span>
               <span>REC · RECRUITMENT-{String(student.id).padStart(5, '0')}</span>
             </div>
-            <video
+            <DeferredVideo
               src={imageSrc(recruitment.animationPath)}
               poster={imageSrc(recruitment.bannerPath)}
               autoPlay
@@ -507,16 +509,15 @@ function RecruitmentDossier({
               loop
               controls
               playsInline
-              preload="metadata"
-              className="aspect-[4/3] w-full bg-[#070a12] object-cover"
+              className="relative aspect-[4/3] w-full bg-[#070a12] object-cover"
             />
             <div className="recruitment-terminal-footer"><span>Playback controls available</span><span>Verified archive</span></div>
           </div>
           <div className="recruitment-banner-sticker">
             <span className="banner-sticker-tape banner-sticker-tape-left" aria-hidden="true" />
             <span className="banner-sticker-tape banner-sticker-tape-right" aria-hidden="true" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageSrc(recruitment.bannerPath)} alt={`${student.name} recruitment banner`} loading="lazy" />
+
+            <ProgressiveImage src={imageSrc(recruitment.bannerPath)} alt={`${student.name} recruitment banner`} loading="lazy" />
             <span className="banner-sticker-caption">Banner notice · opens {fmtDate(dateKey)}</span>
             <span className="banner-sticker-stamp" aria-hidden="true">SCHEDULED</span>
           </div>

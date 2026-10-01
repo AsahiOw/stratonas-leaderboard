@@ -3,6 +3,7 @@
 import { Disc3, ListMusic, RadioTower } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { suppressNextKeiGreeting } from '@/lib/kei-volume'
+import { imageThumbnail } from '@/lib/progressive-image'
 import { PhysicalPlayer } from './PhysicalPlayer'
 import { RadioArtwork } from './RadioArtwork'
 import { TrackLibrary } from './TrackLibrary'
@@ -126,7 +127,7 @@ export function RadioPage({ onReturnToOther }: { onReturnToOther: () => void }) 
 
   return (
     <main className={styles.radioWorld} onKeyDown={handleKeyDown} tabIndex={-1}>
-      <div className={styles.roomGlow} style={selected ? { '--artwork': `url("${selected.thumbnailUrl}")` } as React.CSSProperties : undefined} />
+      <div className={styles.roomGlow} style={selected ? { '--artwork': `url("${imageThumbnail(selected.thumbnailUrl, 16)}")` } as React.CSSProperties : undefined} />
       <div className={styles.station}>
         <div className={styles.stationTop}>
           <div className={styles.stationId}><span>KIVOTOS AUDIO SERVICE</span><b>FIELD UNIT 01</b></div>

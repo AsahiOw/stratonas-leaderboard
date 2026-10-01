@@ -22,6 +22,7 @@ type SchaleStudent = {
   Id?: unknown
   Name?: unknown
   PathName?: unknown
+  DevName?: unknown
   FamilyName?: unknown
   PersonalName?: unknown
   School?: unknown
@@ -219,6 +220,7 @@ async function runStudentImport(activityId?: string) {
           id,
           name,
           pathName: normalizeOptionalStudentText(student.PathName),
+          devName: normalizeOptionalStudentText(student.DevName),
           image: studentImageUrl(id),
           portrait: studentPortraitUrl(id),
           memorial: memorials?.get(normalizeMemorialStudentName(name)) || null,
@@ -261,6 +263,7 @@ async function runStudentImport(activityId?: string) {
           update: {
             name: student.name,
             pathName: student.pathName,
+            devName: student.devName,
             image: student.image,
             portrait: student.portrait,
             ...(memorials ? { memorial: student.memorial } : {}),

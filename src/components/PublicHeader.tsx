@@ -1,3 +1,4 @@
+import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
@@ -14,8 +15,8 @@ export function PublicHeader({ actions }: PublicHeaderProps) {
           className="flex shrink-0 items-center gap-2.5 rounded-md text-text no-underline transition-colors hover:text-accent"
           aria-label="Go to leaderboard home"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+
+          <ProgressiveImage
             src="/assets/icons/icon.webp"
             alt=""
             className="h-8 w-8 rounded-full border border-border object-cover"
