@@ -347,9 +347,9 @@ To process local MP4 files already in `./Development_data/lobbies` without check
 npm run media:process-existing
 ```
 
-The scripts skip existing optimized videos and posters. The weekly maintenance scheduler runs Radio OST at Wednesday `02:00 UTC+7`, SchaleDB Students at `03:00`, SchaleDB Raid Bosses at `04:00`, Plana Stats Raid at `05:00`, and Memorial Lobby Media on Thursday at `00:00`. Each job has a 10-minute start window and is skipped if another scheduled or manual import keeps the maintenance slot busy for that entire window. The scheduler never runs missed jobs merely because the server started or restarted. Admins can still start each import manually.
+The scripts reuse existing nonempty optimized videos and posters. After both outputs and their database records are ready, the original MP4 is deleted from `lobbies`; failed processing keeps the original for retry. The download folder remains available for future videos. The weekly maintenance scheduler runs Radio OST at Wednesday `02:00 UTC+7`, SchaleDB Students at `03:00`, SchaleDB Raid Bosses at `04:00`, Plana Stats Raid at `05:00`, and Memorial Lobby Media on Thursday at `00:00`. Each job has a 10-minute start window and is skipped if another scheduled or manual import keeps the maintenance slot busy for that entire window. The scheduler never runs missed jobs merely because the server started or restarted. Admins can still start each import manually.
 
-Each sync also scans `./Development_data/lobbies` for existing raw MP4 files that are missing either a matching optimized MP4 or JPG poster, so local files downloaded before the automation are completed without being downloaded again.
+Each sync also scans `./Development_data/lobbies` for existing raw MP4 files, completes any missing outputs, and removes originals whose optimized video and poster are ready. Use `npm run media:process-existing` to clean up the existing backlog without checking YouTube. Keep `Development_data/jaymie-yt-dlp-archive.txt` so completed videos are not downloaded again.
 
 Video optimization uses ffmpeg and can affect app responsiveness on the same machine. The cross-platform media job limits ffmpeg to 2 threads by default; set `MEDIA_FFMPEG_THREADS=1` for gentler background processing or a higher value for faster offline processing.
 

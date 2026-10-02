@@ -298,7 +298,7 @@ async function findSyncVideosNeedingWork() {
   await updateState({
     stage: 'Scanning local videos',
     currentItem: null,
-    message: 'Checking raw lobby videos for missing optimized videos and posters.',
+    message: 'Checking raw lobby videos for missing outputs and completed originals to remove.',
   })
 
   return findExistingVideosNeedingWork()
@@ -459,16 +459,15 @@ async function findExistingVideosNeedingWork() {
   for (const entry of entries) {
     if (!entry.isFile() || path.extname(entry.name).toLowerCase() !== '.mp4') continue
     const source = path.join(SOURCE_DIR, entry.name)
-    const optimized = path.join(VIDEO_OUT_DIR, entry.name)
-    const poster = path.join(POSTER_OUT_DIR, `${path.parse(entry.name).name}.jpg`)
     await upsertLocalVideo(source)
-    if (!await isFile(optimized) || !await isFile(poster)) candidates.push(source)
+    candidates.push(source)
   }
 
   return candidates.sort()
 }
 
 async function processVideo(sourcePath: string) {
+  if (path.dirname(path.resolve(sourcePath)) !== path.resolve(SOURCE_DIR)) throw new Error('Original video must be inside the lobby download folder.')
   const name = path.basename(sourcePath)
   const baseName = path.parse(name).name
   const optimizedPath = path.join(VIDEO_OUT_DIR, name)
@@ -517,6 +516,9 @@ async function processVideo(sourcePath: string) {
     posters += 1
     await upsertPosterVideo(sourcePath)
   }
+
+  if (!await isFile(optimizedPath) || !await isFile(posterPath)) throw new Error(`The optimized video or poster is missing or empty: ${name}. Original video was kept.`)
+  await fs.unlink(sourcePath)
 
   return { optimized, posters, skipped }
 }
@@ -809,7 +811,7 @@ async function upsertVideoAssetByFileOrTitle(
 async function isFile(filePath: string) {
   try {
     const stats = await fs.stat(filePath)
-    return stats.isFile()
+    return stats.isFile() && stats.size > 0
   } catch {
     return false
   }
