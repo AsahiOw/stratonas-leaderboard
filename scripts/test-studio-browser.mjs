@@ -1,0 +1,218 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import puppeteer from 'puppeteer'
+
+const base = process.env.STUDIO_TEST_ORIGIN || 'http://127.0.0.1:3000'
+assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname))
+const output = path.resolve('Development_data/studio-test')
+await fs.mkdir(output, { recursive: true })
+const browser = await puppeteer.launch({ headless: true, ...(process.env.PUPPETEER_EXECUTABLE_PATH ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] })
+const page = await browser.newPage(), errors = []
+page.on('pageerror', e => errors.push(e.message))
+await page.setViewport({ width: 1440, height: 1050, deviceScaleFactor: 1 })
+page.setDefaultTimeout(90_000)
+await page.evaluateOnNewDocument(() => localStorage.setItem('stratonas:kei-greeting-enabled', 'false'))
+const revealPanel = async element => {
+  const panelId = await element.evaluate(e => { const panel = e.closest('[role="tabpanel"]'); return panel?.hidden ? panel.id : null })
+  if (panelId) await page.click(`[aria-controls="${panelId}"]`)
+}
+const click = async text => {
+  await page.waitForFunction(text => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === text && !b.disabled), {}, text)
+  const button = await page.evaluateHandle(text => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === text), text)
+  assert.ok(button.asElement(), `Button missing: ${text}`); await revealPanel(button.asElement()); await button.asElement().click(); await button.dispose()
+}
+const select = async (label, value) => {
+  if (label === 'Student' || label === 'Background') {
+    const panel = label === 'Student' ? 'students' : 'scene'
+    await page.click(`#studio-tab-${panel}`)
+    const name = label === 'Student' ? (await fetch(`${base}/api/chibi/students`).then(r => r.json())).students.find(student => String(student.id) === value).name : value.replace(/\.(jpe?g|png|webp)$/i, '').replace(/^BG_/, '').replaceAll('_', ' ')
+    await page.$eval(`#studio-panel-${panel} input[type=search]`, (input, text) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, text); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }))
+    }, name)
+    await page.waitForFunction((panel, value) => [...document.querySelectorAll(`#studio-panel-${panel} [data-choice]`)].some(button => button.dataset.choice === value), {}, panel, value)
+    const choice = await page.evaluateHandle((panel, value) => [...document.querySelectorAll(`#studio-panel-${panel} [data-choice]`)].find(button => button.dataset.choice === value), panel, value)
+    await choice.asElement().click(); await choice.dispose(); return
+  }
+  const element = await page.evaluateHandle(label => [...document.querySelectorAll('label')].find(l => l.firstChild?.textContent.trim() === label)?.querySelector('select'), label)
+  assert.ok(element.asElement(), `Select missing: ${label}`); await revealPanel(element.asElement()); await element.asElement().select(value); await element.dispose()
+}
+const ready = count => page.waitForFunction(count => [...document.querySelectorAll('aside small')].filter(e => e.textContent === 'Ready').length === count, {}, count)
+const pause = async () => { await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Pause pose')); await click('Pause pose') }
+const timeline = () => page.$eval('[aria-label="Pose timeline"]', e => Number(e.value))
+const range = async (label, value) => page.$eval(`[aria-label="${label}"]`, (e, value) => {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(e, value); e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true }))
+}, String(value))
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
+try {
+  const response = await page.goto(`${base}/studio`, { waitUntil: 'domcontentloaded' }); assert.equal(response.status(), 200)
+  await page.waitForSelector('[data-studio-stage] canvas')
+  await page.focus('#studio-tab-students'); await page.keyboard.press('ArrowRight')
+  assert.equal(await page.$eval('#studio-tab-pose', e => e.getAttribute('aria-selected')), 'true', 'Keyboard tab navigation failed')
+  await page.click('#studio-tab-students')
+  await click('Add student'); await ready(1)
+  await page.waitForFunction(() => Number(document.querySelector('[aria-label="Pose timeline"]').max) > 0)
+  await pause(); const frozen = await timeline(); await wait(450); assert.equal(await timeline(), frozen, 'Paused timeline moved')
+  await click('Play animation'); await wait(350); assert.notEqual(await timeline(), frozen, 'Playback did not advance')
+  await range('Pose timeline', 0.35); await wait(200); assert.ok(Math.abs(await timeline() - 0.35) < 0.02)
+  assert.ok(await page.evaluate(() => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Play animation')), 'Scrubbing must pause')
+  await select('Student', '13000'); await click('Add student'); await ready(2)
+  await pause(); await range('Pose timeline', 0.55)
+  await select('Student', '10002'); await click('Add student'); await ready(3)
+  await pause(); await range('Pose timeline', 0.7)
+  const clipNames = await page.evaluate(() => [...document.querySelectorAll('label')].find(l => l.firstChild?.textContent.trim() === 'Animation').querySelector('select').options.length)
+  assert.ok(clipNames > 1)
+  const clip = await page.evaluate(() => [...document.querySelectorAll('label')].find(l => l.firstChild?.textContent.trim() === 'Animation').querySelector('select').options[2].value)
+  await select('Animation', clip); await pause(); await range('Pose timeline', 0.7)
+  await range('Student rotation', 25); await range('Student size', 1.15)
+  const background = await page.$eval('#studio-panel-scene [data-choice]:not([data-choice=""])', button => button.dataset.choice)
+  await select('Background', background)
+  await page.waitForFunction(() => !document.querySelector('[role="status"]').textContent.includes('Loading background'))
+  await click('Front view'); await click('Save scene')
+  const saved = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.equal(saved.actors.length, 3); assert.equal(saved.background, background); assert.equal(saved.actors[2].rotation, 25); assert.equal(saved.actors[2].scale, 1.15)
+  assert.ok(saved.actors.every(a => a.paused)); assert.ok(Math.abs(saved.actors[2].time - 0.7) < 0.02)
+  assert.ok(Math.abs(saved.actors[0].time - 0.35) < 0.02 && Math.abs(saved.actors[1].time - 0.55) < 0.02, 'Changing one student changed another student’s pose')
+  const frozenImage = await page.$eval('[data-studio-stage] canvas', e => e.toDataURL())
+  await wait(400)
+  assert.equal(await page.$eval('[data-studio-stage] canvas', e => e.toDataURL()), frozenImage, 'Paused rendered poses changed')
+  const canvas = await page.$('[data-studio-stage] canvas'), box = await canvas.boundingBox()
+  // Drag a visible actor, then confirm placement changed in the saved scene.
+  const beforeDrag = saved.actors.map(a => a.position)
+  let dragged = false
+  for (const x of [box.x + box.width * .5, box.x + box.width * .3, box.x + box.width * .7]) {
+    await page.mouse.move(x, box.y + box.height * .57); await page.mouse.down(); await page.mouse.move(x + 55, box.y + box.height * .57 + 20, { steps: 6 }); await page.mouse.up()
+    await click('Save scene')
+    const positions = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1'))).actors.map(a => a.position)
+    if (JSON.stringify(positions) !== JSON.stringify(beforeDrag)) { dragged = true; break }
+  }
+  assert.ok(dragged, 'Dragging did not move a student')
+  const afterDrag = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  await page.screenshot({ path: path.join(output, 'desktop.png'), fullPage: true })
+  const session = await page.createCDPSession(); await session.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: output })
+  await click('Export PNG')
+  await page.waitForFunction(() => document.querySelector('[role="status"]').textContent.includes('Photo exported'))
+  await wait(500); const png = await fs.readFile(path.join(output, 'stratonas-studio.png')); assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a')
+  await page.reload({ waitUntil: 'domcontentloaded' }); await click('Open saved scene'); await ready(3); await click('Save scene')
+  const restored = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.deepEqual(restored, afterDrag, 'Saved scene did not restore its camera, placement, and poses')
+  await click('Hide controls'); assert.equal(await page.$('aside[aria-label="Studio controls"]'), null); await click('Show controls')
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 }); await wait(400)
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Mobile page overflows horizontally')
+  await page.click('#studio-tab-pose')
+  await click('Move camera'); await click('Save scene')
+  const beforePinch = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  const touchBox = await page.$eval('[data-studio-stage] canvas', e => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: touchBox.x - 20, y: touchBox.y, id: 1 }, { x: touchBox.x + 20, y: touchBox.y, id: 2 }] })
+  await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchBox.x - 40, y: touchBox.y, id: 1 }, { x: touchBox.x + 40, y: touchBox.y, id: 2 }] })
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await wait(200); await click('Save scene')
+  const afterPinch = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.notDeepEqual(afterPinch.camera.position, beforePinch.camera.position, 'Two-finger pinch did not zoom the camera')
+  assert.deepEqual(afterPinch.actors.map(a => a.position), beforePinch.actors.map(a => a.position), 'Camera mode moved a student')
+  await click('Move students')
+  await page.screenshot({ path: path.join(output, 'mobile.png'), fullPage: true })
+  const previewBefore = await page.$eval('[data-studio-stage]', e => e.getBoundingClientRect().top)
+  await page.$eval('[role="tabpanel"]:not([hidden])', e => e.parentElement.scrollTop = 400)
+  const previewAfter = await page.$eval('[data-studio-stage]', e => e.getBoundingClientRect().top)
+  assert.equal(previewAfter, previewBefore, 'Mobile editing moved the preview out of view')
+  await click('Right'); await click('Save scene')
+  const nudged = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.notDeepEqual(nudged.actors[0].position, restored.actors[0].position, 'Touch position control did not move the student')
+  await page.click('#studio-tab-students')
+  assert.equal(await page.$$eval('button[aria-label^="Remove "]', buttons => buttons.length), 3, 'Each student needs a visible remove control')
+  await page.click('button[aria-label^="Remove "]'); await ready(2)
+  await page.click('#studio-tab-pose')
+  await click('Remove student'); await ready(1)
+  // Explicit layers must override depth, with independently ordered halos.
+  await page.setViewport({ width: 1440, height: 1050, deviceScaleFactor: 1 })
+  const catalog = await fetch(`${base}/api/chibi/students`).then(r => r.json())
+  const depthScene = { version: 1, background: null, camera: { position: [0, 1, 10], target: [0, 1, 0] }, actors: [10015, 10134, 10066, 10135].map((studentId, i) => {
+    const student = catalog.students.find(s => s.id === studentId)
+    assert.ok(student?.model, `Depth fixture model missing: ${studentId}`)
+    return { id: `depth-${studentId}`, studentId, position: i === 3 ? [0, -0.7, -2] : [(i - 1) * 1.5, 0, 0], rotation: 0, scale: 1, clip: student.model.profile.initialPose, time: 0, paused: true }
+  }) }
+  await page.evaluate(scene => localStorage.setItem('stratonas-photo-studio-v1', JSON.stringify(scene)), depthScene)
+  await click('Open saved scene'); await ready(4)
+  await page.click('#studio-tab-students')
+  const keiButton = await page.evaluateHandle(() => [...document.querySelectorAll('aside button')].find(b => b.textContent.startsWith('4. Kei')))
+  await keiButton.asElement().click(); await keiButton.dispose()
+  await click('Send to back'); await click('Halo to back'); await wait(250)
+  const layerPixels = () => page.$eval('[data-studio-stage] canvas', e => e.toDataURL())
+  const behindPixels = await layerPixels()
+  await page.screenshot({ path: path.join(output, 'kei-behind.png'), fullPage: true })
+  await click('Bring to front'); await wait(250); await click('Save scene')
+  const frontScene = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.deepEqual(frontScene.layers.at(-1), { actorId: 'depth-10135', part: 'body' })
+  assert.deepEqual(frontScene.actors.map(a => a.position), depthScene.actors.map(a => a.position), 'Layer order changed student positions')
+  assert.ok(await layerPixels() !== behindPixels, 'Body ordering did not change visible overlap')
+  await page.screenshot({ path: path.join(output, 'kei-front.png'), fullPage: true })
+  await click('Send to back'); await click('Halo to back'); await wait(250)
+  assert.ok(await layerPixels() === behindPixels, 'Returning the body to back did not restore the image')
+  await select('Place halo in front of', 'depth-10134:body'); await wait(250); await click('Save scene')
+  const haloScene = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  const bodyIndex = haloScene.layers.findIndex(l => l.actorId === 'depth-10134' && l.part === 'body')
+  assert.deepEqual(haloScene.layers[bodyIndex + 1], { actorId: 'depth-10135', part: 'halo' })
+  assert.deepEqual(haloScene.layers[0], { actorId: 'depth-10135', part: 'body' })
+  assert.ok(await layerPixels() !== behindPixels, 'Halo ordering did not change visible overlap')
+  await page.screenshot({ path: path.join(output, 'kei-halo-front.png'), fullPage: true })
+  const layerOutput = path.join(output, `layers-${Date.now()}`); await fs.mkdir(layerOutput)
+  await session.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: layerOutput })
+  const composite = await layerPixels(); await click('Export PNG')
+  await page.waitForFunction(() => document.querySelector('[role="status"]').textContent.includes('Photo exported'))
+  for (let attempt = 0; attempt < 100; attempt++) { if (await fs.stat(path.join(layerOutput, 'stratonas-studio.png')).then(() => true, () => false)) break; await wait(100) }
+  assert.deepEqual(await fs.readFile(path.join(layerOutput, 'stratonas-studio.png')), Buffer.from(composite.split(',')[1], 'base64'), 'PNG export did not preserve the body/halo composite')
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 }); await wait(250)
+  await select('Place body in front of', 'depth-10134:body'); await click('Send to back'); await click('Save scene')
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Layer controls overflow on mobile')
+  await page.screenshot({ path: path.join(output, 'mobile-layers.png'), fullPage: true })
+  const mobileLayers = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.deepEqual(mobileLayers.layers, haloScene.layers, 'Mobile body controls changed the independent halo order')
+  await page.setViewport({ width: 1440, height: 1050, deviceScaleFactor: 1 })
+  await click('Halo to front'); await click('Save scene')
+  let savedLayers = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.deepEqual(savedLayers.layers.at(-1), { actorId: 'depth-10135', part: 'halo' })
+  const chooseCast = async index => {
+    await page.click('#studio-tab-students')
+    const button = await page.evaluateHandle(index => [...document.querySelectorAll('#studio-panel-students button')].find(button => button.textContent.startsWith(`${index}. `)), index)
+    await button.asElement().click(); await button.dispose()
+  }
+  const beforeTilt = await layerPixels(), cameraBeforeTilt = savedLayers.camera
+  await chooseCast(1); await click('Tilt forward'); await click('Tilt forward')
+  await click('Reset tilt'); assert.equal(await page.$eval('[aria-label="Student tilt"]', input => Number(input.value)), 0)
+  await click('Tilt forward'); await click('Tilt forward')
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 })
+  await chooseCast(4); await click('Tilt backward'); await click('Tilt backward'); await click('Save scene')
+  savedLayers = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.deepEqual(savedLayers.actors.map(actor => actor.tilt ?? 0), [20, 0, 0, -20], 'Student tilts were not independent')
+  for (const vector of ['position', 'target']) for (let axis = 0; axis < 3; axis++) assert.ok(Math.abs(savedLayers.camera[vector][axis] - cameraBeforeTilt[vector][axis]) < 1e-8, 'Student tilt changed the scene camera')
+  assert.deepEqual(savedLayers.actors.map(actor => actor.position), depthScene.actors.map(actor => actor.position))
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile tilt controls overflow')
+  await page.screenshot({ path: path.join(output, 'mobile-student-tilt.png'), fullPage: true })
+  await page.setViewport({ width: 1440, height: 1050, deviceScaleFactor: 1 })
+  await wait(250); assert.ok(await layerPixels() !== beforeTilt, 'Tilt did not affect the rendered students')
+  await page.screenshot({ path: path.join(output, 'independent-student-tilts.png'), fullPage: true })
+  // Rotate the camera without changing the chosen body/halo relationship.
+  savedLayers.camera = { position: [0, 1, -10], target: [0, 1, 0] }
+  await page.evaluate(scene => localStorage.setItem('stratonas-photo-studio-v1', JSON.stringify(scene)), savedLayers)
+  await click('Open saved scene'); await ready(4); await click('Save scene')
+  const reversedScene = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.deepEqual(reversedScene.layers, savedLayers.layers, 'Camera movement changed layer order')
+  await page.reload({ waitUntil: 'domcontentloaded' }); await click('Open saved scene'); await ready(4); await click('Save scene')
+  const layerRestored = JSON.parse(await page.evaluate(() => localStorage.getItem('stratonas-photo-studio-v1')))
+  assert.deepEqual(layerRestored.layers, savedLayers.layers, 'Independent layer ordering did not persist')
+  assert.deepEqual(layerRestored.actors.map(actor => actor.tilt ?? 0), [20, 0, 0, -20], 'Independent tilts did not persist')
+  assert.deepEqual(layerRestored.actors.map(a => a.position), depthScene.actors.map(a => a.position))
+  await page.goto(`${base}/3D?student=23000`, { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => { const stage = document.querySelector('[data-chibi-stage]'); return stage?.querySelector('canvas') && !stage.querySelector('[role="status"], [role="alert"]') })
+  assert.ok(await page.$('[data-chibi-canvas] canvas'), 'Existing gallery no longer renders')
+  assert.ok(await page.$('a[href="/studio"]'), 'Gallery is missing its studio link')
+  assert.deepEqual(errors, [], 'Browser runtime errors')
+  const summary = { route: '/studio', actorsTested: 7, background, clipsAvailable: clipNames - 1, checks: ['load', 'keyboard editor tabs', 'independent playback', 'pause', 'scrub', 'animation selection', 'frozen rendered poses', 'placement drag', 'rotation', 'scale', 'BAAD background', 'camera preset', 'PNG download', 'save/reload/restore', 'hide controls', 'mobile layout', 'fixed preview during editing', 'mobile position buttons', 'touch pinch zoom', 'separate camera mode', 'remove beside each student', 'remove', 'Kei in front of all Aris', 'send to back', 'positions unchanged by layers', 'independent halo overlap', 'composited PNG export', 'mobile layer controls', 'in front of a specific layer', 'camera-independent layer order', 'saved layer order', 'existing gallery'], errors, output }
+  await fs.writeFile(path.join(output, 'result.json'), JSON.stringify(summary, null, 2)); console.log(JSON.stringify(summary, null, 2))
+} catch (error) {
+  await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: true }).catch(() => {})
+  console.log(await page.evaluate(() => [...document.querySelectorAll('button,[role="status"]')].map(e => e.textContent.trim()).join('\n'))); throw error
+} finally { await browser.close() }
+
+

@@ -3,17 +3,13 @@
 import { useEffect, useState } from 'react'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Menu, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Menu, Search, Sparkles, X } from 'lucide-react'
 import styles from './ChibiBrowser.module.css'
 import { ChibiViewer } from './ChibiViewer'
 import { mergeChibiArrangementDocuments, type ChibiArrangementDocument, type ChibiArrangementRecord } from './chibi-arrangement'
-import { filterChibiStudents, readChibiBrowserQuery, resolveChibiSelection, writeChibiBrowserQuery, type ChibiInteractionFilter } from '@/lib/chibi/browser'
-import { CHIBI_ACTIONS, emptyChibiProfile, type ChibiCatalogStudent, type ChibiProfile } from '@/lib/chibi/types'
+import { filterChibiStudents, readChibiBrowserQuery, resolveChibiSelection, writeChibiBrowserQuery } from '@/lib/chibi/browser'
+import { emptyChibiProfile, type ChibiCatalogStudent, type ChibiProfile } from '@/lib/chibi/types'
 import { imageSrc } from '@/lib/utils'
-
-const interactionLabels: Record<Exclude<ChibiInteractionFilter, 'all'>, string> = {
-  idle: 'Idle', walk: 'Walk', pickup: 'Pickup', touch: 'Touch',
-}
 
 type AdminCatalogStudent = ChibiCatalogStudent & { catalogVisible: boolean; arrangement: ChibiArrangementRecord | null }
 
@@ -34,7 +30,7 @@ export function ChibiBrowser({ students, loadError = null, adminEnabled = false 
   const { selected, problem: selectionProblem } = resolveChibiSelection(catalogStudents, query.studentId === null ? filtered : catalogStudents, query)
   const selectedIndex = selected ? filtered.findIndex((student) => student.id === selected.id) : -1
 
-  function navigate(next: Partial<Pick<typeof query, 'search' | 'availability' | 'interaction' | 'studentId'>>, push = false) {
+  function navigate(next: Partial<Pick<typeof query, 'search' | 'availability' | 'studentId'>>, push = false) {
     const params = writeChibiBrowserQuery({ ...query, ...next })
     const href = params.size ? `${pathname}?${params}` : pathname
     if (push) window.history.pushState(null, '', href)
@@ -46,7 +42,7 @@ export function ChibiBrowser({ students, loadError = null, adminEnabled = false 
     if (next) choose(next.id)
   }
 
-  function filter(next: Partial<Pick<typeof query, 'search' | 'interaction'>>) {
+  function filter(next: Partial<Pick<typeof query, 'search'>>) {
     navigate({ studentId: selected?.id ?? query.studentId, ...next })
   }
   const rosterError = loadError && !(adminEnabled && adminStudents.length > 0) ? loadError : null
@@ -63,7 +59,7 @@ export function ChibiBrowser({ students, loadError = null, adminEnabled = false 
         </div>
       </div>
       <div className={styles.modelArea}>
-        {rosterError ? <Message title="Students unavailable" detail={rosterError} /> : selectionProblem ? <Message title="Student unavailable" detail={selectionProblem} /> : selected?.model ? <ChibiViewer key={`${selected.id}:${selected.model.assetId}:${selected.model.revision}`} model={selected.model} className={styles.viewer} showDiagnostics={adminEnabled} /> : <Message title="Find your next student" detail="Try another name or clear the filters to explore the collection." />}
+        {rosterError ? <Message title="Students unavailable" detail={rosterError} /> : selectionProblem ? <Message title="Student unavailable" detail={selectionProblem} /> : selected?.model ? <ChibiViewer key={`${selected.id}:${selected.model.assetId}:${selected.model.revision}`} model={selected.model} className={styles.viewer} showDiagnostics={adminEnabled} /> : <Message title="Choose a student" detail="Open student search and choose a student to view their model." />}
       </div>
       {adminEnabled && selected?.model && <details className={styles.diagnostics}>
         <summary>Admin · Model details</summary>
@@ -74,7 +70,6 @@ export function ChibiBrowser({ students, loadError = null, adminEnabled = false 
       <div className={styles.rosterHeading}><h2>Find a student</h2><span>{filtered.length} students</span></div>
       <div className={styles.filters}>
         <div className={styles.search}><Search size={17} aria-hidden="true" /><input id="chibi-search" aria-label="Search students" type="search" value={searchParams.get('q') ?? ''} onChange={event => filter({ search: event.target.value })} placeholder="Search students…" /></div>
-        <label className={styles.interactionFilter}><SlidersHorizontal size={16} aria-hidden="true" /><span className="sr-only">Filter by interaction</span><select value={query.interaction} onChange={event => filter({ interaction: event.target.value as ChibiInteractionFilter })}><option value="all">All interactions</option>{CHIBI_ACTIONS.map(action => <option key={action} value={action}>{interactionLabels[action]}</option>)}</select></label>
       </div>
       {adminLoadError && adminEnabled && <p role="status" className="px-4 text-xs text-amber-200">Admin roster unavailable: {adminLoadError}</p>}
       <div className={styles.results} aria-label="Student results">
@@ -82,7 +77,7 @@ export function ChibiBrowser({ students, loadError = null, adminEnabled = false 
           <span className={styles.portrait}>{imageSrc(student.image) ? <ProgressiveImage src={imageSrc(student.image)} alt="" fill sizes="(max-width: 767px) 48px, 52px" /> : <Sparkles size={22} aria-hidden="true" />}</span>
           <strong>{student.name}</strong><ArrowRight className={styles.cardArrow} size={16} aria-hidden="true" />
         </button>)}
-        {!filtered.length && <div role="status" className={styles.empty}><p>No students found.</p><button type="button" onClick={() => filter({ search: '', interaction: 'all' })}>Clear filters</button></div>}
+        {!filtered.length && <div role="status" className={styles.empty}><p>No students found.</p><button type="button" onClick={() => filter({ search: '' })}>Clear filters</button></div>}
       </div>
       <p className={styles.rosterHint}>Choose a student. Discover a little personality.</p>
     </aside>

@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable react-hooks/immutability -- A studio host shares imperative Three.js resources; effects manage their lifetime. */
+
 import { useEffect, useRef, useState } from 'react'
 import { Layers, Maximize, Minimize, RotateCw } from 'lucide-react'
 import styles from './ChibiViewer.module.css'
@@ -17,6 +19,7 @@ import { captureChibiFaceLayer, chibiFaceLayerKey, chibiArrangementCorrectionMat
 import { createHaloFollower, type HaloFollowBinding } from './chibi-halo-follow'
 import { separateCoincidentSkinLayers } from './chibi-coincident-skin-layers'
 import { downloadChibiModel, type ModelDownloadProgress } from './chibi-model-download'
+import type { StudioViewerHost } from './studio-types'
 
 export type ChibiViewerModel = NonNullable<ChibiCatalogStudent['model']>
 const labels: Record<ChibiAction, string> = { idle: 'Idle', walk: 'Walk', pickup: 'Pick up', touch: 'Touch' }
@@ -104,7 +107,7 @@ function addEyebrowCameraCorrection(object: THREE.Mesh, material: THREE.Material
 }
 
 
-export function ChibiViewer({ model, className = '', showDiagnostics = true, arrangement: previewArrangement = null, arrangementDefault: previewDefault = null }: { model: ChibiViewerModel; className?: string; showDiagnostics?: boolean; arrangement?: ChibiArrangementDocument | null; arrangementDefault?: ChibiArrangementDocument | null }) {
+export function ChibiViewer({ model, className = '', showDiagnostics = true, arrangement: previewArrangement = null, arrangementDefault: previewDefault = null, studio }: { model: ChibiViewerModel; className?: string; showDiagnostics?: boolean; arrangement?: ChibiArrangementDocument | null; arrangementDefault?: ChibiArrangementDocument | null; studio?: StudioViewerHost }) {
   const arrangement = previewArrangement ?? model.arrangement ?? null
   const arrangementDefault = previewDefault ?? model.arrangementDefault ?? null
   const containerRef = useRef<HTMLDivElement>(null)
@@ -140,6 +143,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   }
 
   useEffect(() => {
+    if (studio) return
     const viewer = viewerRef.current
     const changed = () => setFullscreen(document.fullscreenElement === viewer)
     document.addEventListener('fullscreenchange', changed)
@@ -147,7 +151,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       document.removeEventListener('fullscreenchange', changed)
       if (document.fullscreenElement === viewer) void document.exitFullscreen()
     }
-  }, [])
+  }, [studio])
 
   useEffect(() => {
     if (!fullscreen) return
@@ -205,20 +209,24 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     let rendererEvents: ChildRendererEvent[] = []
     let renderingProfile: ChibiRenderingProfile | null = null
     let renderer: THREE.WebGLRenderer
-    try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }) }
+    try { renderer = studio?.renderer ?? new THREE.WebGLRenderer({ antialias: true, alpha: true }) }
     catch { setError('3D rendering is unavailable. Try a browser with WebGL enabled.'); return }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x151925, 0)
-    renderer.domElement.setAttribute('aria-label', 'Interactive student model. Drag to rotate, scroll to zoom, or tap the student to react.')
-    container.appendChild(renderer.domElement)
+    if (!studio) {
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x151925, 0)
+      renderer.domElement.setAttribute('aria-label', 'Interactive student model. Drag to rotate, scroll to zoom, or tap the student to react.')
+      container.appendChild(renderer.domElement)
+    }
 
-    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 1, 0.01, 100), controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping = true; controls.enablePan = true; controls.minDistance = 0.5; controls.maxDistance = 12; controls.maxPolarAngle = Math.PI
+    const scene = studio?.scene ?? new THREE.Scene(), camera = studio?.camera ?? new THREE.PerspectiveCamera(35, 1, 0.01, 100), controls = studio?.controls ?? new OrbitControls(camera, renderer.domElement)
+    if (!studio) { controls.enableDamping = true; controls.enablePan = true; controls.minDistance = 0.5; controls.maxDistance = 12; controls.maxPolarAngle = Math.PI }
     const resetCamera = () => { camera.position.set(0, 1.4, 4.5); controls.target.set(0, 0.9, 0); controls.update() }
-    resetCamera(); scene.add(new THREE.HemisphereLight(0xffffff, 0x8891aa, 2.5))
-    const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(2, 4, 5); scene.add(light)
-    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.035, 64), new THREE.MeshStandardMaterial({ color: 0x252d40, roughness: 1 })); pedestal.position.y = -0.03; scene.add(pedestal)
-    floorRef.current = pedestal; pedestal.visible = floorVisibleRef.current
-    const holder = new THREE.Group(); scene.add(holder)
+    if (!studio) {
+      resetCamera(); scene.add(new THREE.HemisphereLight(0xffffff, 0x8891aa, 2.5))
+      const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(2, 4, 5); scene.add(light)
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.035, 64), new THREE.MeshStandardMaterial({ color: 0x252d40, roughness: 1 })); pedestal.position.y = -0.03; scene.add(pedestal)
+      floorRef.current = pedestal; pedestal.visible = floorVisibleRef.current
+    }
+    const holder = new THREE.Group(); (studio?.group ?? scene).add(holder)
     // Keep imported node transforms and animation tracks intact.  The admin
     // arrangement is applied to this wrapper (and to per-renderer wrappers)
     // after the mixer updates, so preview edits never rewrite the GLB.
@@ -281,7 +289,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     applyArrangementRef.current = applyArrangement
 
     const resize = () => { const width = container.clientWidth, height = container.clientHeight; renderer.setSize(width, height); camera.aspect = width / Math.max(height, 1); camera.updateProjectionMatrix() }
-    const observer = new ResizeObserver(resize); observer.observe(container); resize()
+    const observer = new ResizeObserver(resize); if (!studio) { observer.observe(container); resize() }
     const raycaster = new THREE.Raycaster(), dragPlane = new THREE.Plane(), dragPoint = new THREE.Vector3(), dragOffset = new THREE.Vector3(), restingPosition = new THREE.Vector3()
     let down: { x: number; y: number; id: number; hit: THREE.Vector3 | null } | null = null
     let holdTimer: ReturnType<typeof setTimeout> | null = null, dragging = false
@@ -299,6 +307,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       }
     }
     const pointerDown = (event: PointerEvent) => {
+      if (studio) return
       if (!event.isPrimary) { releasePickup(); down = null; return }
       if (event.button !== 0 || !root) return
       castPointer(event.clientX, event.clientY)
@@ -396,8 +405,13 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         if (disposed) return
         setStatus('Preparing model…')
         const resourcePath = new URL('.', new URL(model.url, window.location.href)).href
-        const gltf = await new GLTFLoader().parseAsync(buffer, resourcePath)
+        const manager = new THREE.LoadingManager()
+        let textureLoadFailed = false
+        manager.onError = () => { textureLoadFailed = true }
+        const gltf = await new GLTFLoader(manager).parseAsync(buffer, resourcePath)
         if (disposed) { disposeModel(gltf.scene); return }
+        // GLTFLoader resolves with missing textures instead of rejecting.
+        if (textureLoadFailed) { disposeModel(gltf.scene); throw new Error('Model textures could not be loaded.') }
         root = gltf.scene
         root.traverse(object => {
           if (!(object instanceof THREE.SkinnedMesh)) return
@@ -747,21 +761,40 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         }
         const playInitial = () => {
           const idle = model.profile.interactions.idle, preferred = model.profile.initialPose || (idle.state === 'available' ? idle.clip : null)
-          if (preferred && playClip(preferred, preferred === idle.clip ? 'idle' : null, idle)) return
+          if (preferred && playClip(preferred, preferred === idle.clip ? 'idle' : null, studio ? { ...idle, loop: true, hold: false } : idle)) return
           currentAction?.stop(); currentAction = null; currentKind = null; setActive(null)
           mouthTransforms.forEach((transform, mouth) => { mouth.map?.offset.copy(transform.offset); mouth.map?.repeat.copy(transform.repeat) })
           updateRendererState()
         }
         const play = (kind: ChibiAction) => { const interaction = model.profile.interactions[kind]; if (interaction.state === 'available' && interaction.clip && !missing.has(kind)) playClip(interaction.clip, kind, interaction) }
         playRef.current = play
-        mixer.addEventListener('finished', () => { if (currentKind === 'touch') playInitial() })
+        mixer.addEventListener('finished', () => { if (!studio && currentKind === 'touch') playInitial() })
         returnToIdle = playInitial
         playInitial(); resetRef.current = () => { pointerCancel(); holder.rotation.y = 0; holder.position.copy(restingPosition); resetCamera(); playInitial() }; mixer.update(0); root.updateMatrixWorld(true)
+        // Fit in actor-local space so the studio placement is not cancelled by centering.
+        if (studio) { holder.removeFromParent(); holder.updateMatrixWorld(true) }
         const bounds = previewBounds(root), fitBounds = previewFitBounds(root), size = fitBounds.getSize(new THREE.Vector3()), anchor = previewAnchor(root, bounds), ground = previewGround(root, bounds), scale = 1.8 / Math.max(size.y, 0.01)
         previewScale = scale; restingHolderY = -ground * scale
         holder.scale.setScalar(scale); holder.position.set(-anchor.x * scale, restingHolderY, -anchor.z * scale); restingPosition.copy(holder.position); applyArrangement(); setStatus('Model ready')
+        if (studio) studio.group.add(holder)
+        const haloMeshes: THREE.Mesh[] = []
+        if (studio && sceneData?.haloFollow?.schemaVersion === 1) {
+          const haloNodes = new Set(sceneData.haloFollow.bindings.map(binding => binding.haloNodeIndex))
+          root.traverse(object => {
+            const index = gltf.parser.associations.get(object)?.nodes
+            if (index !== undefined && haloNodes.has(index)) object.traverse(child => { if (child instanceof THREE.Mesh) haloMeshes.push(child) })
+          })
+        }
+        studio?.ready({
+          haloMeshes,
+          clips: [...clips.values()].map(clip => ({ name: clip.name, duration: clip.duration })),
+          play: name => { const kind = CHIBI_ACTIONS.find(action => model.profile.interactions[action].clip === name) ?? null; playClip(name, kind, { loop: true }); mixer?.update(0) },
+          pause: paused => { if (currentAction) currentAction.paused = paused },
+          seek: time => { if (!currentAction) return; currentAction.time = THREE.MathUtils.clamp(time, 0, currentAction.getClip().duration); mixer?.update(0); updateMouths(); applyArrangement(); haloFollower?.reset(); haloFollower?.update(0, currentAction.getClip()) },
+          playback: () => ({ clip: currentAction?.getClip().name ?? null, time: currentAction?.time ?? 0, duration: currentAction?.getClip().duration ?? 0, paused: currentAction?.paused ?? true }),
+        })
       } catch (cause) {
-        if (!disposed && !(cause instanceof DOMException && cause.name === 'AbortError')) setError('The model could not be loaded. Check your connection and try again.')
+        if (!disposed && !(cause instanceof DOMException && cause.name === 'AbortError')) { setError('The model could not be loaded. Check your connection and try again.'); studio?.failed('The model could not be loaded. Check your connection and try again.') }
       }
     }
     void load()
@@ -771,13 +804,13 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       previousTime = time
       if (!document.hidden) {
         elapsedSeconds += delta
-        scene.userData.chibiElapsedSeconds = elapsedSeconds
+        if (!studio) scene.userData.chibiElapsedSeconds = elapsedSeconds
         mixer?.update(delta)
         // Formation pickup poses can crouch or sit below the platform even
         // when the standing pose is grounded. Reposition only that held pose
         // from its current lowest rendered point; idle/walk retain the stable
         // initial framing and support furniture is not moved.
-        if (!dragging && currentKind === 'pickup' && root && previewScale > 0) {
+        if (!studio && !dragging && currentKind === 'pickup' && root && previewScale > 0) {
           holder.updateMatrixWorld(true)
           const poseBounds = previewBounds(root, true), poseGround = previewGround(root, poseBounds)
           const localGround = (poseGround - holder.position.y) / previewScale
@@ -789,7 +822,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           holder.position.x = restingPosition.x * Math.cos(angle) + restingPosition.z * Math.sin(angle)
           holder.position.z = -restingPosition.x * Math.sin(angle) + restingPosition.z * Math.cos(angle)
         }
-        updateMouths(); applyArrangement(); haloFollower?.update(delta, currentAction?.getClip() ?? null); hiddenSceneMeshes.forEach(object => { object.visible = false }); controls.update(delta); renderer.render(scene, camera)
+        updateMouths(); applyArrangement(); haloFollower?.update(studio && currentAction?.paused ? 0 : delta, currentAction?.getClip() ?? null); hiddenSceneMeshes.forEach(object => { object.visible = false }); if (!studio) { controls.update(delta); renderer.render(scene, camera) }
       }
       frame = requestAnimationFrame(render)
     }
@@ -800,15 +833,20 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove, true); renderer.domElement.removeEventListener('pointerup', pointerUp, true); renderer.domElement.removeEventListener('pointercancel', pointerCancel, true); renderer.domElement.removeEventListener('lostpointercapture', pointerCancel)
       renderer.domElement.removeEventListener('contextmenu', contextMenu)
       floorRef.current = null
-      controls.dispose(); mixer?.stopAllAction(); if (root) mixer?.uncacheRoot(root); disposeModel(scene); renderer.dispose(); renderer.domElement.remove(); playRef.current = null; resetRef.current = null; applyArrangementRef.current = null
+      mixer?.stopAllAction(); if (root) mixer?.uncacheRoot(root)
+      if (studio) { holder.removeFromParent(); disposeModel(holder) }
+      else { controls.dispose(); disposeModel(scene); renderer.dispose(); renderer.domElement.remove() }
+      playRef.current = null; resetRef.current = null; applyArrangementRef.current = null
     }
-  }, [model, retryAttempt])
+  }, [model, retryAttempt, studio])
 
   useEffect(() => {
     arrangementRef.current = arrangement
     arrangementDefaultRef.current = arrangementDefault
     applyArrangementRef.current?.()
   }, [arrangement, arrangementDefault])
+
+  if (studio) return <div ref={containerRef} hidden />
 
   return <div ref={viewerRef} tabIndex={-1} role={fullscreen ? 'dialog' : undefined} aria-modal={fullscreen || undefined} aria-label={fullscreen ? 'Student model fullscreen' : undefined} className={`overflow-hidden rounded-2xl border border-white/10 bg-[#151925] ${className} ${fullscreen ? styles.fullscreen : ''}`}>
     <div data-chibi-stage className="relative">

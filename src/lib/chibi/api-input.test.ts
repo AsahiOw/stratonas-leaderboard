@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import path from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import ts from 'typescript'
 import { candidateClips, readImportInput, readProfile } from './api-input'
 import { artifactPath } from './storage'
 import { emptyChibiProfile, isEligibleStudentId } from './types'
@@ -11,6 +14,10 @@ test('eligibility uses integer boundaries and excludes custom identities', () =>
 })
 test('import input rejects invalid modes and unbounded force rebuilds', () => {
   assert.deepEqual(readImportInput({ mode: 'update' }), { mode: 'update', studentIds: [] })
+  assert.deepEqual(readImportInput({ mode: 'update-missing-animations' }), { mode: 'update-missing-animations', studentIds: [] })
+  assert.throws(() => readImportInput({ mode: 'update-missing-animations', studentIds: [10002] }), /selected automatically/)
+  assert.deepEqual(readImportInput({ mode: 'download-assets' }), { mode: 'download-assets', studentIds: [] })
+  assert.throws(() => readImportInput({ mode: 'download-assets', studentIds: [10002] }))
   assert.deepEqual(readImportInput({ mode: 'force-rebuild', studentIds: [10002, 10002, 10143] }).studentIds, [10002, 10143])
   for (const input of [null, [], { mode: 'delete' }, { mode: 'force-rebuild' }, { mode: 'update', studentIds: [9999] }]) assert.throws(() => readImportInput(input))
 })
@@ -46,4 +53,15 @@ test('relative storage keys work with spaces and reject traversal or foreign abs
   const root = path.resolve('Development_data', 'a path with spaces')
   assert.equal(artifactPath('published/a/model.glb', root), path.join(root, 'published', 'a', 'model.glb'))
   for (const key of ['', '../secret', '/etc/passwd', 'C:/secret', 'C:\\secret', 'a\\..\\b', 'a/../b', 'a//b', 'a/./b', 'a/\0']) assert.throws(() => artifactPath(key, root))
+})
+
+test('storage paths work when compiled to CommonJS without default-import interoperability', () => {
+  assert.equal(existsSync(new URL('./storage.js', import.meta.url)), false, 'A stale compiled storage.js would shadow the TypeScript source in production.')
+  const source = readFileSync(new URL('./storage.ts', import.meta.url), 'utf8')
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017, esModuleInterop: false } }).outputText
+  const exports: { artifactPath?: typeof artifactPath } = {}
+  new Function('require', 'exports', compiled)(createRequire(import.meta.url), exports)
+  const root = path.resolve('Development_data/chibi')
+  assert.equal(exports.artifactPath!('published/test.glb', root), path.join(root, 'published/test.glb'))
+  assert.throws(() => exports.artifactPath!('published/../outside.glb', root), /Invalid chibi artifact key/)
 })

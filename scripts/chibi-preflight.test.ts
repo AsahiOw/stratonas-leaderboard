@@ -33,7 +33,10 @@ test('source layout and output checks are read-only and actionable', async () =>
 
     await mkdir(sourceRoot, { recursive: true })
     await mkdir(dataRoot, { recursive: true })
-    for (const directory of ['AssetBundles', 'MediaResources', 'TableBundles']) await mkdir(path.join(sourceRoot, directory))
+    const missingBundles = await sourceLayoutCheck(sourceRoot)
+    assert.equal(missingBundles.ok, false)
+    assert.match(missingBundles.detail, /AssetBundles/)
+    await mkdir(path.join(sourceRoot, 'AssetBundles'))
     assert.equal((await sourceLayoutCheck(sourceRoot)).ok, true)
     assert.equal((await outputStorageCheck(dataRoot)).ok, true)
   } finally {

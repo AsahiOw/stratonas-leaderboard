@@ -431,6 +431,7 @@ async function processJobWithTiming(db: Db, job: any, report: InventoryReport, o
   const jobInitializationStartedAt = performance.now()
   try {
     const selection = Array.isArray(job.selection) ? job.selection.filter((id: unknown): id is number => Number.isInteger(id)) : []
+    if (job.mode === 'update-missing-animations' && !selection.length) throw new Error('Missing-animation updates require an explicit student selection.')
     const roster = await db.student.findMany({ where: { id: selection.length ? { in: selection } : { gte: 10000, lte: 99999 } }, select: { id: true } })
     await db.chibiImportItem.createMany({ data: roster.map((student: { id: number }) => ({ jobId: job.id, studentId: student.id })), skipDuplicates: true })
     const initialized = await db.chibiImportJob.updateMany({ where: { id: job.id, status: 'running', leaseToken }, data: { total: roster.length, stage: 'mapping' } })

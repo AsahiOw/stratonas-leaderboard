@@ -6,8 +6,8 @@
   min-height: 0;
   color: #e9eef7;
 }
-.browser button, .browser input, .browser select { outline-offset: 4px; }
-.browser button:focus-visible, .browser input:focus-visible, .browser select:focus-visible, .browser summary:focus-visible { outline: 2px solid #67e8f9; }
+.browser button, .browser input { outline-offset: 4px; }
+.browser button:focus-visible, .browser input:focus-visible, .browser summary:focus-visible { outline: 2px solid #67e8f9; }
 .gallery {
   display: flex;
   flex-direction: column;
@@ -47,8 +47,6 @@
 .search:focus-within { border-color: #67e8f980; }
 .search input { width: 100%; min-width: 0; height: 44px; background: transparent; color: #e9eef7; font-size: 16px; }
 .search input::placeholder { color: #8a9ab0; }
-.interactionFilter { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: #93a2b8; }
-.interactionFilter select { width: 100%; min-width: 0; min-height: 36px; font-size: 12px; color: #b4c1d4; background: #151b28; }
 .results { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 10px 10px; }
 .studentCard { display: flex; width: 100%; align-items: center; gap: 12px; padding: 8px; margin-bottom: 4px; border: 1px solid transparent; border-radius: 16px; text-align: left; transition: background .15s, border-color .15s; }
 .studentCard:hover { background: #ffffff06; }
@@ -82,9 +80,6 @@
   .filters { display: flex; gap: 10px; padding: 10px 10px 8px; }
   .search { flex: 1; min-width: 0; }
   .search input { height: 40px; }
-  .interactionFilter { width: 116px; margin-top: 0; }
-  .interactionFilter svg { display: none; }
-  .interactionFilter select { min-height: 44px; }
   .results { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 0 10px 8px; }
   .studentCard { flex-direction: column; flex: 0 0 82px; gap: 5px; height: 104px; margin: 0; padding: 6px; text-align: center; }
   .portrait { width: 48px; height: 48px; border-radius: 8px; }
@@ -100,7 +95,6 @@
 @media (min-width: 600px) and (max-width: 767px) and (max-height: 500px) {
   .browser.rosterOpen { grid-template-columns: minmax(0, 1fr) 230px; grid-template-rows: minmax(0, 1fr); }
   .filters { flex-direction: column; gap: 4px; }
-  .interactionFilter { width: 100%; }
   .results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-y: auto; }
   .studentCard { width: 100%; }
 }

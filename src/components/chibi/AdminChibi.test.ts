@@ -10,6 +10,14 @@ import { AdminChibi, getAdminChibiDataLabels, getAdminChibiStudentStatus, Select
 test('initial admin markup does not claim the worker is offline or the roster is empty', () => {
   const markup = renderToStaticMarkup(createElement(AdminChibi))
   assert.match(markup, /Checking import service…/)
+  assert.match(markup, /Redownload AssetBundles/)
+  assert.match(markup, /Update missing animations/)
+  assert.match(markup, /Students with all four available are skipped/)
+  assert.match(markup, /Update all students/)
+  assert.match(markup, /Export database records/)
+  assert.match(markup, /Import records folder/)
+  assert.match(markup, /webkitdirectory/)
+  assert.match(markup, /After it finishes, choose Update missing animations or Update all students/)
   assert.match(markup, /Loading students…/)
   assert.doesNotMatch(markup, /Import service needs attention/)
   assert.doesNotMatch(markup, /0 of 0 eligible students/)
@@ -106,6 +114,6 @@ test('selected rebuild sends exactly the selected IDs, while whole-roster update
     (work: () => Promise<void>) => work(), async (_url: string, body: { mode: string; studentIds: number[] }) => { requests.push(body) },
     (_method: string, body: unknown) => body, [10002, 10107], () => {}, () => {},
   )
-  await enqueue('force-rebuild'); await enqueue('update')
-  assert.deepEqual(requests, [{ mode: 'force-rebuild', studentIds: [10002, 10107] }, { mode: 'update', studentIds: [] }])
+  await enqueue('force-rebuild'); await enqueue('update'); await enqueue('update-missing-animations')
+  assert.deepEqual(requests, [{ mode: 'force-rebuild', studentIds: [10002, 10107] }, { mode: 'update', studentIds: [] }, { mode: 'update-missing-animations', studentIds: [] }])
 })

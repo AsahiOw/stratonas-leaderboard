@@ -338,6 +338,9 @@ with tempfile.TemporaryDirectory() as directory:
         'removed.zip': {'path': 'removed.zip', 'sha256': 'c' * 64, 'modifiedNs': 3, 'entries': []},
     }
     removed.unlink()
+    for hidden in ['.baad-download/job', '.baad-previous']:
+        (source / hidden).mkdir(parents=True)
+        (source / hidden / 'ignored.zip').write_bytes(b'IGNORED')
     (source / 'new.zip').write_bytes(b'NEW')
     changed.write_bytes(b'CCCC')
     os.utime(changed, ns=(changed_stat.st_atime_ns, changed_stat.st_mtime_ns))

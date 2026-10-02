@@ -525,7 +525,9 @@ def reuse_previous_file_record(previous_files, relative, digest, modified_ns):
 
 
 def source_archive_paths(source: pathlib.Path):
-    return sorted(item for item in source.rglob("*") if item.is_file() and item.suffix.lower() in {".zip", ".bundle"})
+    return sorted(item for item in source.rglob("*") if item.is_file()
+                  and not item.relative_to(source).parts[0].startswith(".baad-")
+                  and item.suffix.lower() in {".zip", ".bundle"})
 
 
 def pointer_record(pointer, asset):

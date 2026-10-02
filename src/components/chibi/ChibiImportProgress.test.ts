@@ -11,6 +11,19 @@ const job = {
   heartbeatAt: '2026-09-28T02:29:50Z',
 }
 
+test('download jobs show source activity and the separate import next step', () => {
+  const markup = renderToStaticMarkup(createElement(ChibiImportProgress, {
+    job: { ...job, mode: 'download-assets', stage: 'download' }, now, activeItems: [], progress: [],
+  }))
+  assert.match(markup, /Downloading Japan AssetBundles/)
+  assert.doesNotMatch(markup, /students processed|Processing characters/)
+  const complete = renderToStaticMarkup(createElement(ChibiImportProgress, {
+    job: { ...job, mode: 'download-assets', status: 'completed', total: 204, processed: 204 }, now, activeItems: [], progress: [],
+  }))
+  assert.match(complete, /204 archives\/bundles ready/)
+  assert.match(complete, /Choose Update all students/)
+})
+
 test('inventory shows liveness and recent scan messages without a misleading zero-percent bar', () => {
   const markup = renderToStaticMarkup(createElement(ChibiImportProgress, {
     job, now, activeItems: [], progress: [{ at: job.heartbeatAt, message: 'Completed 10/517 archives/bundles' }],

@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
 import { chibiRoots } from '../src/lib/chibi/storage'
+import { installBaad } from './chibi-baad'
 
 type Platform = 'win32-x64' | 'darwin-x64' | 'linux-x64'
 type Manifest = {
@@ -334,6 +335,7 @@ async function main() {
   }, null, 2) + '\n', 'utf8')
 
   console.log(`Chibi tools ready for ${hostPlatform}.`)
+  await installBaad(toolsRoot, python.executablePath, console.log)
   console.log(`  AssetStudioModCLI ${manifest.assetStudioModCli.version}: ${assetStudio.assemblyPath}`)
   console.log(`  FBX2glTF ${manifest.fbx2gltf.version}: ${fbx2gltf.executablePath}`)
   console.log(`  UnityPy ${manifest.unityPy.version}: ${python.executablePath}`)

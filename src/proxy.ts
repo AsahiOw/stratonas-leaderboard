@@ -26,12 +26,13 @@ function normalizeCsp(directives: string[]) {
   return directives.join('; ').replace(/\s{2,}/g, ' ').trim()
 }
 
-function contentSecurityPolicy(nonce: string, pathname: string) {
+function contentSecurityPolicy(nonce: string) {
   const devConnectSources = isProduction
     ? []
     : ['http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*']
-  // GLTFLoader fetches the model's embedded textures through local blob URLs.
-  const connectSources = ["'self'", ...(['/3D', '/admin/chibi/preview'].includes(pathname) ? ['blob:'] : []), ...devConnectSources].join(' ')
+  // Client navigation keeps the starting document's CSP. Every entry page
+  // must allow GLTFLoader to fetch embedded textures through local blob URLs.
+  const connectSources = ["'self'", 'blob:', ...devConnectSources].join(' ')
 
   return normalizeCsp([
     "default-src 'self'",
@@ -134,6 +135,7 @@ function checkRateLimit(request: NextRequest) {
 
 function payloadLimit(pathname: string, contentType: string) {
   if (contentType === 'application/json') {
+    if (pathname === '/api/admin/chibi/records') return 64 * 1024 * 1024
     return pathname === '/api/chat' ? CHAT_MAX_BYTES : JSON_MAX_BYTES
   }
 
@@ -148,7 +150,7 @@ function payloadLimit(pathname: string, contentType: string) {
   return null
 }
 
-function validateJsonValue(value: unknown, depth = 0, state = { items: 0 }) {
+function validateJsonValue(value: unknown, depth = 0, state = { items: 0 }, maxItems = MAX_JSON_ITEMS) {
   if (depth > MAX_JSON_DEPTH) throw new Error('JSON nesting is too deep')
   if (typeof value === 'string') {
     if (value.length > MAX_JSON_STRING_LENGTH) throw new Error('JSON string is too long')
@@ -159,11 +161,11 @@ function validateJsonValue(value: unknown, depth = 0, state = { items: 0 }) {
   const entries = Array.isArray(value) ? value.entries() : Object.entries(value)
   for (const [key, child] of entries) {
     state.items += 1
-    if (state.items > MAX_JSON_ITEMS) throw new Error('JSON contains too many items')
+    if (state.items > maxItems) throw new Error('JSON contains too many items')
     if (typeof key === 'string' && FORBIDDEN_JSON_KEYS.has(key)) {
       throw new Error('JSON contains a forbidden key')
     }
-    validateJsonValue(child, depth + 1, state)
+    validateJsonValue(child, depth + 1, state, maxItems)
   }
 }
 
@@ -231,7 +233,7 @@ export async function validatePayload(request: NextRequest) {
     if (contentType === 'application/json') {
       if (bytes.byteLength === 0) throw new Error('Empty JSON body')
       const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
-      validateJsonValue(value)
+      validateJsonValue(value, 0, { items: 0 }, request.nextUrl.pathname === '/api/admin/chibi/records' ? 4_000_000 : MAX_JSON_ITEMS)
     } else {
       new TextDecoder('utf-8', { fatal: true }).decode(bytes)
     }
@@ -244,7 +246,7 @@ export async function validatePayload(request: NextRequest) {
 
 export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
-  const csp = contentSecurityPolicy(nonce, request.nextUrl.pathname)
+  const csp = contentSecurityPolicy(nonce)
 
   if (!validateUrl(request)) {
     return applySecurityHeaders(

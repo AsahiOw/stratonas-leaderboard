@@ -26,7 +26,7 @@ services:
       CHIBI_DATA_DIR: /data/chibi
       CHIBI_TOOLS_DIR: /opt/chibi-tools
     volumes:
-      - ./Development_data/BAAD:/data/BAAD:ro
+      - ./Development_data/BAAD:/data/BAAD
       - ./Development_data/chibi:/data/chibi
     depends_on:
       db:

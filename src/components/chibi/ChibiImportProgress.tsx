@@ -1,6 +1,7 @@
 import { estimateChibiRemainingMs, type ChibiProgressEntry } from '@/lib/chibi/import-progress'
 
 type ProgressJob = {
+  mode?: string
   status: string; stage: string; total: number; processed: number
   createdAt: string; startedAt: string | null; completedAt: string | null; heartbeatAt: string | null
 }
@@ -15,6 +16,12 @@ export function ChibiImportProgress({ job, progress, activeItems, now, processin
   job: ProgressJob; progress: ChibiProgressEntry[]; activeItems: ActiveItem[]; now: number; processingStartedAt?: string | null
 }) {
   const active = job.status === 'queued' || job.status === 'running'
+  if (job.mode === 'download-assets') return <div className="space-y-3 rounded-lg border border-border p-3" aria-label="AssetBundle download activity">
+    <p className="font-medium">{job.status === 'completed' ? 'Japan AssetBundles downloaded' : job.status === 'failed' ? 'AssetBundle download failed' : job.status === 'queued' ? 'Waiting for the download worker' : 'Downloading Japan AssetBundles'}</p>
+    {active ? <><progress className="w-full" aria-label="AssetBundle download in progress" /><p className="text-xs text-muted2">Refreshes every 5 seconds. Imports are paused until this download finishes.</p></> : job.status === 'completed' && <p className="text-xs text-emerald-300">{job.total} archives/bundles ready. Choose Update all students to start importing.</p>}
+    {job.status === 'running' && <p className="text-xs text-muted2">{job.heartbeatAt ? `Worker heartbeat ${duration(Math.max(0, now - Date.parse(job.heartbeatAt)))} ago` : 'Waiting for worker heartbeat'}</p>}
+    {progress.length > 0 && <ol className="max-h-48 space-y-1 overflow-auto text-xs text-muted2">{progress.map((entry, index) => <li key={`${entry.at}-${index}`} className="break-words">{entry.message}</li>)}</ol>}
+  </div>
   const scanning = job.status === 'running' && job.stage === 'inventory'
   const heartbeatAge = job.heartbeatAt ? now - Date.parse(job.heartbeatAt) : null
   const heartbeatMissing = job.status === 'running' && (heartbeatAge === null || heartbeatAge >= 90_000)

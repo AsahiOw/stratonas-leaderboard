@@ -2,6 +2,7 @@
 
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { ArrowUpRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 type FeatureTab = 'community' | 'calendar' | 'raid' | 'custom-card' | 'news' | 'radio'
 
@@ -10,7 +11,7 @@ interface Props {
 }
 
 const features: {
-  tab: FeatureTab
+  tab: FeatureTab | 'chibi' | 'studio'
   title: string
   description: string
   image: string
@@ -50,10 +51,23 @@ const features: {
       title: 'News',
       description: 'Read the latest official Blue Archive announcements, updates, and events.',
       image: '/assets/others/news.jpg',
+    },
+    {
+      tab: 'chibi',
+      title: 'Chibi Model (Beta)',
+      description: 'Explore student models in 3D and interact with their animations.',
+      image: '/assets/others/3d.jpg',
+    },
+    {
+      tab: 'studio',
+      title: 'Photo Studio (Beta)',
+      description: 'Arrange students, choose a background, and capture your own scene.',
+      image: '/assets/others/photo-studio.jpg',
     }
   ]
 
 export function OtherFeatures({ onSelect }: Props) {
+  const router = useRouter()
   return (
     <section className="view-transition pt-7">
       <div className="mb-5">
@@ -69,7 +83,7 @@ export function OtherFeatures({ onSelect }: Props) {
           <button
             key={feature.tab}
             type="button"
-            onClick={() => onSelect(feature.tab)}
+            onClick={() => feature.tab === 'chibi' ? router.push('/3D') : feature.tab === 'studio' ? router.push('/studio') : onSelect(feature.tab)}
             className="group relative min-h-[280px] overflow-hidden rounded-2xl border border-border bg-card text-left shadow-[0_14px_35px_rgba(0,0,0,0.2)] outline-none transition duration-300 hover:-translate-y-1 hover:border-border2 hover:shadow-[0_20px_45px_rgba(0,0,0,0.35)] focus-visible:ring-2 focus-visible:ring-accent/70 md:aspect-[4/5]"
             aria-label={`Open ${feature.title}`}
           >

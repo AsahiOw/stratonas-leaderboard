@@ -212,6 +212,27 @@ function deferred<T = void>() {
 
 const fixtureReport: InventoryReport = { version: 2, source: 'fixture', files: [], candidates: [candidate], errors: [] }
 
+test('missing-animation jobs process only their selected students', async () => {
+  const state = fakeDatabase(null, null, [
+    { id: 10002, name: 'Complete', pathName: 'complete' },
+    { id: 10003, name: 'Incomplete', pathName: 'incomplete' },
+  ])
+  const queued = { ...cacheJob('job-missing'), mode: 'update-missing-animations', selection: [10003] }
+  state.jobs.set(queued.id, queued)
+  await processTestJob(state.db, queued, { ...fixtureReport, candidates: [] })
+  assert.deepEqual(state.items.map(item => item.studentId), [10003])
+  assert.equal(state.jobs.get(queued.id).total, 1)
+  assert.equal(state.jobs.get(queued.id).status, 'completed')
+})
+
+test('missing-animation jobs refuse an empty selection instead of processing the whole roster', async () => {
+  const state = fakeDatabase(null, null)
+  const queued = { ...cacheJob('job-empty-missing'), mode: 'update-missing-animations' }
+  state.jobs.set(queued.id, queued)
+  await assert.rejects(processTestJob(state.db, queued, fixtureReport), /explicit student selection/)
+  assert.equal(state.items.length, 0)
+})
+
 function fxCacheCandidate(evidenceNote: string): SourceCandidate {
   const targetReference = sourceReference('f'.repeat(64), 'CAB-fx', '101')
   const transformReference = sourceReference('f'.repeat(64), 'CAB-fx', '102')

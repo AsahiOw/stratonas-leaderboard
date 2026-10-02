@@ -94,3 +94,32 @@ test('rejects HTTP failures before reporting download progress', async t => {
   await assert.rejects(downloadChibiModel('/student.glb', new AbortController().signal, value => progress.push(value)), /HTTP 503/)
   assert.deepEqual(progress, [])
 })
+
+test('texture failures reject the model and release its scene; a fresh retry can succeed', async () => {
+  const source = readFileSync(new URL('./ChibiViewer.tsx', import.meta.url), 'utf8')
+  const start = source.indexOf('        const manager = new THREE.LoadingManager()')
+  const end = source.indexOf('        root = gltf.scene', start)
+  assert.ok(start > 0 && end > start)
+  const js = ts.transpileModule(`return async () => { ${source.slice(start, end)} return gltf.scene }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const scenes: object[] = [], released: object[] = [], managers: object[] = []
+  let failTexture = true
+  class LoadingManager { onError?: () => void }
+  class Loader {
+    constructor(private manager: LoadingManager) { managers.push(manager) }
+    async parseAsync() {
+      const scene = {}; scenes.push(scene)
+      if (failTexture) this.manager.onError?.()
+      return { scene }
+    }
+  }
+  const parse = (disposed: boolean) => new Function('THREE', 'GLTFLoader', 'buffer', 'resourcePath', 'disposed', 'disposeModel', js)(
+    { LoadingManager }, Loader, new ArrayBuffer(0), '/', disposed, (scene: object) => released.push(scene),
+  )()
+  await assert.rejects(parse(false), /Model textures could not be loaded/)
+  assert.deepEqual(released, [scenes[0]])
+  failTexture = false
+  assert.equal(await parse(false), scenes[1])
+  assert.notEqual(managers[0], managers[1])
+  assert.equal(await parse(true), undefined)
+  assert.deepEqual(released, [scenes[0], scenes[2]])
+})

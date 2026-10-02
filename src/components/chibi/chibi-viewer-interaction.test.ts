@@ -43,7 +43,7 @@ function gestureHarness(pickupAvailable = true) {
     addEventListener: (name: string, handler: (event: Record<string, unknown>) => void) => { handlers[name] = handler },
   } }
   const block = source.slice(source.indexOf('    const raycaster ='), source.indexOf('    const updateRendererState ='))
-  const js = ts.transpileModule(`let currentKind = null, disposed = false;
+  const js = ts.transpileModule(`let currentKind = null, disposed = false; const studio = undefined;
     const playRef = { current: kind => { currentKind = kind; calls.push(kind) } };
     const setHolding = value => calls.push(value ? 'holding' : 'released');
     ${block}

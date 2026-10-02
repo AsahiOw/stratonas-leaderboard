@@ -3,7 +3,7 @@ import { CHIBI_ACTIONS, isEligibleStudentId, type ChibiProfile } from './types'
 export class ChibiInputError extends Error {}
 /** Optimistic-concurrency failure for an admin edit against a replaced asset. */
 export class ChibiStaleError extends ChibiInputError {}
-export const IMPORT_MODES = ['audit', 'update', 'retry-failed', 'force-rebuild'] as const
+export const IMPORT_MODES = ['audit', 'update', 'update-missing-animations', 'retry-failed', 'force-rebuild', 'download-assets'] as const
 export function readImportInput(value: unknown) {
   const body = record(value)
   if (!IMPORT_MODES.includes(body.mode as typeof IMPORT_MODES[number])) throw new ChibiInputError('Choose a valid import mode.')
@@ -12,6 +12,8 @@ export function readImportInput(value: unknown) {
     throw new ChibiInputError('Student IDs must be integers from 10000 through 99999.')
   }
   const studentIds = [...new Set(selection as number[])]
+  if (body.mode === 'download-assets' && studentIds.length) throw new ChibiInputError('AssetBundle downloads apply to the whole source collection.')
+  if (body.mode === 'update-missing-animations' && studentIds.length) throw new ChibiInputError('Students missing animations are selected automatically.')
   if (body.mode === 'force-rebuild' && !studentIds.length) throw new ChibiInputError('Select students to force rebuild.')
   return { mode: body.mode as typeof IMPORT_MODES[number], studentIds }
 }

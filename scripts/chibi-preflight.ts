@@ -40,6 +40,7 @@ export type ChibiCommandRunner = (command: string, args: string[]) => Promise<Co
 export type ChibiPreflightOptions = {
   roots?: ChibiPreflightRoots
   toolsOnly?: boolean
+  downloadSource?: boolean
   manifest?: ChibiToolManifest | null
   installRecord?: Record<string, any> | null
   runCommand?: ChibiCommandRunner
@@ -243,11 +244,11 @@ export async function sourceLayoutCheck(sourceRoot: string) {
     if (!source.isDirectory()) return check('source', 'source directory', false, `${sourceRoot} is not a directory`, 'Set CHIBI_SOURCE_DIR to the original BAAD directory.')
     await access(sourceRoot, constants.R_OK)
     const entries = await readdir(sourceRoot, { withFileTypes: true })
-    const requiredDirectories = ['AssetBundles', 'MediaResources', 'TableBundles']
+    const requiredDirectories = ['AssetBundles']
     const missing = requiredDirectories.filter(directory => !entries.some(entry => entry.isDirectory() && entry.name.toLowerCase() === directory.toLowerCase()))
     return missing.length
-      ? check('source', 'source directory', false, `missing BAAD directories: ${missing.join(', ')} under ${sourceRoot}`, 'Set CHIBI_SOURCE_DIR to a complete BAAD tree containing AssetBundles, MediaResources, and TableBundles.')
-      : check('source', 'source directory', true, `${sourceRoot} (AssetBundles, MediaResources, TableBundles present)`)
+      ? check('source', 'source directory', false, `missing BAAD directories: ${missing.join(', ')} under ${sourceRoot}`, 'Set CHIBI_SOURCE_DIR to a BAAD directory containing AssetBundles.')
+      : check('source', 'source directory', true, `${sourceRoot} (AssetBundles present)`)
   } catch (error) {
     return check('source', 'source directory', false, `cannot read ${sourceRoot}: ${error instanceof Error ? error.message : String(error)}`, 'Set CHIBI_SOURCE_DIR to the existing, readable BAAD directory.')
   }
@@ -298,7 +299,7 @@ export async function runChibiPreflight(options: ChibiPreflightOptions = {}): Pr
   checks.push(...await pythonChecks(record, manifest, runner))
   checks.push(...await toolChecks(host.value, roots, record, manifest))
   if (!options.toolsOnly) {
-    checks.push(await sourceLayoutCheck(roots.source))
+    checks.push(options.downloadSource ? check('source', 'source directory', true, 'A queued AssetBundle download will prepare the source directory.') : await sourceLayoutCheck(roots.source))
     checks.push(await outputStorageCheck(roots.data))
     checks.push(await databaseCheck())
   }

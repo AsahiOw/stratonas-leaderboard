@@ -53,7 +53,15 @@ npm run chibi:doctor
 npm run chibi:worker
 ```
 
-The existing **Admin → Chibi** section provides Scan / Audit, Import / Update, Retry Failed, selected force rebuilds, and mapping review. Conversion runs in the worker through PostgreSQL jobs; the web request only enqueues work. The source defaults to `Development_data/BAAD` and is never downloaded or modified by this workflow. Published revisions live in `Development_data/chibi` and become available without an application rebuild. See [portable setup and deployment](docs/chibi-setup.md) for native and Docker configuration.
+The existing **Admin → Chibi** section provides Redownload AssetBundles, Scan / Audit, Import / Update, Retry Failed, selected force rebuilds, and mapping review. Downloads and conversion run in the worker through PostgreSQL jobs; the web request only enqueues work. The source defaults to `Development_data/BAAD`. **Redownload AssetBundles** uses pinned [BA-AD 3.1.0](https://github.com/Deathemonic/BA-AD/tree/v3.1.0) to download Japan Android AssetBundles only. When it completes, choose **Update all students** to import the new source. MediaResources and TableBundles are not downloaded or required. Current published models remain available during either operation.
+
+Downloads are staged below `BAAD/.baad-download`. Failed downloads never replace the active source; retry with the same Admin button. Successful downloads move the previous AssetBundles into `BAAD/.baad-previous`, retaining one previous source snapshot. Both managed folders are excluded from inventory scans. Allow disk space for the active source, previous snapshot, and a fresh download. Native setup installs the checksum-verified Windows/Intel Mac executable; the Docker worker builds the pinned BA-AD commit on Debian for glibc compatibility. Only the worker receives a writable BAAD mount; the production web app keeps its read-only source mount.
+
+After deploying these changes, rebuild both services: `docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build app chibi-worker`. The worker entrypoint prepares bind-mount directory permissions, then runs as the unprivileged Chibi user. Published revisions use `Development_data/chibi` in both development and production.
+
+To transfer finished models without converting again, use **Admin → Chibi → Export database records**. This saves `records.json` in a new folder under `Development_data/chibi-record-exports`. Copy that folder and the referenced `Development_data/chibi/published` files to the host, then choose **Import records folder** and select the exported folder in your browser. Only database records are uploaded. Import verifies every model file checksum and matching student identity, then atomically merges model metadata and student bindings, including animation settings, visibility and adjustments. Settings for included students are replaced; accounts, leaderboard data, other students, source inventories and job history remain unchanged. Missing files, mismatched students, conflicting model IDs or an active import prevent the database transfer. Both machines must run compatible code and database migrations. If your production models previously lived in `Production_data/chibi/published`, move those files into `Development_data/chibi/published` before switching to the new mount.
+
+After downloading new AssetBundles, **Update missing animations** queues only students whose saved profile does not mark all four actions (Idle, Walk, Pickup, Touch) available, including students not imported yet. Fully animated students are excluded even if their source files changed or their model needs repair; use **Rebuild selected models** for those repairs. This uses the normal source scan and update/reuse pipeline, so missing source animations cannot be fabricated. **Update all students** remains available for a full-roster update.
 
 Use `npm run dev` for the local preview, or `npm run build` followed by `npm start` for production mode. Both `localhost` and `127.0.0.1` remain allowed development origins.
 
@@ -216,13 +224,13 @@ The repo does not currently include macOS/Linux scripts for starting a native Po
 
 Production uses the same app image with separate PostgreSQL and chibi artifact folders. The app, database, and chibi worker share the production environment file.
 
-1. Create or update `.env.production`.
+1. Use your existing `.env.docker`. If it does not exist yet, create it from the example.
 
 ```bash
-cp .env.production.example .env.production
+cp .env.docker.example .env.docker
 ```
 
-2. Set production values in `.env.production`.
+2. Set production values in `.env.docker`.
 
 ```env
 DATABASE_URL=postgresql://USER:PASSWORD@db:5432/DB_NAME

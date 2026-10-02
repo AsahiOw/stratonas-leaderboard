@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { Check, RefreshCw, Search, X } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CHIBI_ACTIONS, emptyChibiProfile, type ChibiInteractionState, type ChibiProfile } from '@/lib/chibi/types'
 import { imageSrc } from '@/lib/utils'
 import type { ChibiReadinessDiagnostic, ChibiWorkerReadiness } from '@/lib/chibi/worker-readiness'
@@ -207,6 +207,7 @@ export function AdminChibi() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const recordsFolder = useRef<HTMLInputElement>(null)
   const load = useCallback(async () => {
     try {
       const [roster, current] = await Promise.all([
@@ -255,7 +256,19 @@ export function AdminChibi() {
   }
   const enqueue = (mode: string) => run(async () => {
     await fetchJson<{ jobId: string }>('/api/admin/chibi/import', jsonRequest('POST', { mode, studentIds: mode === 'force-rebuild' ? selected : [] }))
-    setPage(1); setMessage(mode === 'force-rebuild' ? `Rebuild queued for ${selected.length} selected students. Your selection stays visible below.` : mode === 'update' ? 'Full-roster update queued. Only new or changed models need processing.' : mode === 'audit' ? 'Source scan queued. This checks which models are available.' : 'Retry queued for students whose last import failed.')
+    setPage(1); setMessage(mode === 'download-assets' ? 'Japan AssetBundle download queued. When it finishes, choose an update option to import the new assets.' : mode === 'force-rebuild' ? `Rebuild queued for ${selected.length} selected students. Your selection stays visible below.` : mode === 'update-missing-animations' ? 'Update queued for students missing Idle, Walk, Pickup or Touch. Students with all four are skipped.' : mode === 'update' ? 'Full-roster update queued. Only new or changed models need processing.' : mode === 'audit' ? 'Source scan queued. This checks which models are available.' : 'Retry queued for students whose last import failed.')
+  })
+  const exportRecords = () => run(async () => {
+    const result = await fetchJson<{ folder: string; students: number; models: number }>('/api/admin/chibi/records', jsonRequest('POST', { action: 'export' }))
+    setMessage(`Exported ${result.students} students and ${result.models} model records to ${result.folder}. Copy this folder and the published model files to your host, then import the records folder there.`)
+  })
+  const importRecords = (files: File[]) => run(async () => {
+    const manifests = files.filter(file => file.name === 'records.json')
+    if (manifests.length !== 1) throw new Error('Choose one exported folder containing records.json.')
+    if (manifests[0].size >= 64 * 1024 * 1024 - 1024) throw new Error('The records package exceeds 64 MB.')
+    const records: unknown = JSON.parse(await manifests[0].text())
+    const result = await fetchJson<{ students: number; models: number }>('/api/admin/chibi/records', jsonRequest('POST', { action: 'import', records }))
+    setMessage(`Imported ${result.students} student bindings and ${result.models} model records. The gallery can use your copied models immediately; no conversion was run.`)
   })
   const candidate = candidates.find(value => value.sourceIdentity === identity)
   const visible = students.filter(student => `${student.id} ${student.name} ${student.pathName || ''}`.toLowerCase().includes(query.toLowerCase()))
@@ -285,6 +298,20 @@ export function AdminChibi() {
     <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">3D student models</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted2">Keep the student collection up to date, or choose specific students to rebuild their models.</p></div><Link className={button} href="/3D">Open 3D gallery ↗</Link></header>
     {(error || dataLoadError) && <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-300"><p>{error || dataLoadError}</p>{dataLoadError && <><p className="mt-2">Your selection is preserved. The information below may be out of date; update actions are paused until the connection returns.</p><button className={`${button} mt-3`} onClick={() => void load().catch(() => undefined)}>Try again</button></>}</div>}
     {message && <p role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-sm text-emerald-300">{message}</p>}
+    <section className="rounded-2xl border border-border bg-white/[0.025] p-5" aria-label="Transfer Chibi database records">
+      <h3 className="text-lg font-semibold">Move finished models to another server</h3>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted2">Export the database records into Development_data/chibi-record-exports. Copy the exported folder and Development_data/chibi/published to your host, then select the records folder here. Import checks the copied model files and restores animation settings, visibility and adjustments without rebuilding models. It replaces settings for the included students; other website data stays in place.</p>
+      <div className="mt-4 flex flex-wrap gap-3"><button className={button} disabled={busy || dataLoadState !== 'loaded'} onClick={exportRecords}>Export database records</button><button className={button} disabled={controlsDisabled} onClick={() => recordsFolder.current?.click()}>Import records folder</button></div>
+      <input ref={recordsFolder} type="file" className="hidden" aria-label="Choose exported Chibi records folder" multiple {...{ webkitdirectory: '', directory: '' }} onChange={event => { const files = Array.from(event.currentTarget.files || []); event.currentTarget.value = ''; if (files.length) void importRecords(files) }} />
+      {busy && <p role="status" className="mt-3 text-xs text-muted2">Working… Model file verification can take a few minutes. Keep this page open.</p>}
+    </section>
+    <section className="rounded-2xl border border-border bg-white/[0.025] p-5" aria-label="Download source assets">
+      <div className="flex flex-wrap items-start justify-between gap-4"><div className="max-w-xl"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Step 1 · Get the latest assets</p><h3 className="mt-2 text-lg font-semibold">Download Japan AssetBundles</h3><p className="mt-2 text-sm leading-6 text-muted2">Downloads the latest model source files with BA-AD. Audio, videos and game tables are excluded. Downloads can take a while; current models stay available. After it finishes, choose Update missing animations or Update all students below.</p></div><button className={`${button} min-h-11 border-cyan-400/40 bg-cyan-400/10 text-cyan-100`} disabled={controlsDisabled} onClick={() => enqueue('download-assets')}>Redownload AssetBundles</button></div>
+      {status?.job?.mode === 'download-assets' && status.job.status === 'completed' && <p role="status" className="mt-3 text-sm text-emerald-300">Download complete. Your source files are ready—choose an update option below to build the models.</p>}
+    </section>
+    <section className="rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.04] p-5" aria-label="Update missing animations">
+      <div className="flex flex-wrap items-start justify-between gap-4"><div className="max-w-xl"><p className="text-xs font-semibold uppercase tracking-wider text-emerald-300">Only incomplete students</p><h3 className="mt-2 text-lg font-semibold">Fill in missing animations</h3><p className="mt-2 text-sm leading-6 text-muted2">Checks only students missing Idle, Walk, Pickup or Touch, including students not imported yet. Students with all four available are skipped. To repair a model that already has all four, use Rebuild selected models below.</p><p className="mt-2 text-xs leading-5 text-muted2">Download the latest AssetBundles first when new game assets are released. Animations absent from the source files may still remain unavailable.</p></div><button className={`${button} flex min-h-11 items-center gap-2 border-emerald-400/40 bg-emerald-400/15 text-emerald-100`} disabled={controlsDisabled} onClick={() => enqueue('update-missing-animations')}><RefreshCw size={16} aria-hidden="true" />Update missing animations</button></div>
+    </section>
     <section className="rounded-2xl border border-border bg-white/[0.025] p-5" aria-label="Update the full collection">
       <div className="flex flex-wrap items-start justify-between gap-4"><div className="max-w-xl"><p className="text-xs font-semibold uppercase tracking-wider text-violet-300">Whole collection</p><h3 className="mt-2 text-lg font-semibold">Import new models and update changed ones</h3><p className="mt-2 text-sm leading-6 text-muted2">This checks every student. Models that are already up to date are reused. To rebuild only a few students, use the selection list below.</p></div><button className={`${button} flex min-h-11 items-center gap-2 border-violet-400/40 bg-violet-400/15 text-violet-100`} disabled={controlsDisabled} onClick={() => enqueue('update')}><RefreshCw size={16} aria-hidden="true" />Update all students</button></div>
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4 text-xs"><p className={dataLoadState === 'loaded' ? status?.ready ? 'text-emerald-300' : 'text-amber-200' : 'text-muted2'}>{dataLabels.worker}</p><p className="text-muted2">Last successful update: {dataLoadState === 'loaded' ? status?.lastSuccessfulImport ? new Date(status.lastSuccessfulImport).toLocaleString() : 'None yet' : dataLoadState === 'loading' ? 'Loading…' : 'Unavailable'}</p></div>
@@ -298,7 +325,7 @@ export function AdminChibi() {
     </section>
     {status?.job && <section className="space-y-3 rounded-2xl border border-border p-5" aria-label="Latest update"><h3 className="font-semibold">{active ? 'Update in progress' : 'Latest update'}</h3>
       <ChibiImportProgress job={status.job} progress={status.progress} activeItems={status.activeItems} now={status.checkedAt} processingStartedAt={status.processingStartedAt} />
-      <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted2">{(['imported', 'updated', 'reused', 'skipped', 'unavailable', 'reviewRequired', 'failed'] as const).map(key => <span key={key}>{({ imported: 'New models', updated: 'Updated', reused: 'Already up to date', skipped: 'Skipped', unavailable: 'Source unavailable', reviewRequired: 'Needs review', failed: 'Failed' })[key]}: {status.job![key]}</span>)}</div>
+      {status.job.mode !== 'download-assets' && <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted2">{(['imported', 'updated', 'reused', 'skipped', 'unavailable', 'reviewRequired', 'failed'] as const).map(key => <span key={key}>{({ imported: 'New models', updated: 'Updated', reused: 'Already up to date', skipped: 'Skipped', unavailable: 'Source unavailable', reviewRequired: 'Needs review', failed: 'Failed' })[key]}: {status.job![key]}</span>)}</div>}
       {status.job.error && <p className="text-sm text-red-300">{status.job.error}</p>}
       <details><summary className="cursor-pointer text-xs text-muted2">Technical results ({itemTotal})</summary><p className="mt-2 text-xs text-muted2">Job {status.job.id} · {status.job.mode} · {status.job.status} · {status.job.stage}</p><div className="mt-3 space-y-3 text-xs">{items.map(item => <div key={item.id}><p><Link className="text-violet-300" href={`/3D?student=${item.studentId}`}>{students.find(student => student.id === item.studentId)?.name || item.studentId}</Link> · {item.status} / {item.stage} · {item.diagnostic || 'No item diagnostic.'}</p><ValidationDiagnostics value={item.asset?.validation} compact /></div>)}</div><div className="mt-3 flex items-center gap-3"><button className={button} disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous page</button><span className="text-xs">Page {page}</span><button className={button} disabled={page * 25 >= itemTotal} onClick={() => setPage(page + 1)}>Next page</button></div></details>
     </section>}

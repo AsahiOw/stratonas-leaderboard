@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@/generated/prisma/client'
 import { ChibiInputError } from './api-input'
-import { emptyChibiProfile, type ChibiCatalogStudent, type ChibiProfile } from './types'
+import { CHIBI_ACTIONS, emptyChibiProfile, type ChibiCatalogStudent, type ChibiProfile } from './types'
 import { mergeChibiArrangementDelta, parseChibiArrangementDelta } from './arrangement'
 
 export const eligibleStudentsWhere = { id: { gte: 10000, lte: 99999 } }
@@ -9,7 +9,7 @@ export const activeJobWhere = { status: { in: ['queued', 'running'] } }
 // Separate from the worker's session lock; serializes all enqueue operations.
 export const CHIBI_ENQUEUE_LOCK = 724_310_002
 export class ChibiJobConflict extends Error {
-  constructor(public jobId: string) { super('A chibi import is already active.') }
+  constructor(public jobId: string) { super('A Chibi import or source download is already active.') }
 }
 export function jsonValue(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
@@ -46,11 +46,24 @@ export async function enqueueChibiJob(input: {
 }, db = prisma) {
   return db.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CHIBI_ENQUEUE_LOCK})`
-    if (!['preview', 'mapping'].includes(input.mode)) {
-      const active = await tx.chibiImportJob.findFirst({ where: { ...activeJobWhere, mode: { notIn: ['preview', 'mapping'] } }, orderBy: { createdAt: 'asc' } })
-      if (active) throw new ChibiJobConflict(active.id)
-    }
+    const modeFilter = input.mode === 'download-assets' ? {}
+      : ['preview', 'mapping'].includes(input.mode) ? { mode: 'download-assets' }
+      : { mode: { notIn: ['preview', 'mapping'] } }
+    const active = await tx.chibiImportJob.findFirst({ where: { ...activeJobWhere, ...modeFilter }, orderBy: { createdAt: 'asc' } })
+    if (active) throw new ChibiJobConflict(active.id)
     let ids = input.studentIds
+    if (input.mode === 'update-missing-animations') {
+      if (ids.length) throw new ChibiInputError('Students missing animations are selected automatically.')
+      const students = await tx.student.findMany({
+        where: eligibleStudentsWhere, orderBy: { id: 'asc' },
+        select: { id: true, chibiBinding: { select: { profile: true } } },
+      })
+      ids = students.filter(student => {
+        const profile = student.chibiBinding?.profile as unknown as ChibiProfile | undefined
+        return !CHIBI_ACTIONS.every(action => profile?.interactions?.[action]?.state === 'available')
+      }).map(student => student.id)
+      if (!ids.length) throw new ChibiInputError('All students already have Idle, Walk, Pickup and Touch available. There is nothing to update.')
+    }
     if (ids.length) {
       const count = await tx.student.count({ where: { id: { ...eligibleStudentsWhere.id, in: ids } } })
       if (count !== ids.length) throw new ChibiInputError('One or more selected students do not exist.')

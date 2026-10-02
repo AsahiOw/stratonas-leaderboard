@@ -5,6 +5,14 @@
 
 FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:9.0-bookworm-slim AS dotnet-sdk
 
+# The upstream Linux release needs glibc 2.38; build the pinned CLI on
+# Bookworm so it can run alongside the existing conversion tools.
+FROM --platform=linux/amd64 rust:1.91-bookworm AS baad-build
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+RUN git clone https://github.com/Deathemonic/BA-AD /baad \
+    && cd /baad && git checkout c7fc5c314298729620d7a842759b65c0cf0bc4e3
+RUN cd /baad && cargo build --locked --release --package baad-cli
+
 FROM --platform=linux/amd64 python:3.12-slim-bookworm AS chibi-tools
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CHIBI_TOOLS_DIR=/opt/chibi-tools
@@ -77,26 +85,29 @@ COPY tsconfig.json ./tsconfig.json
 COPY src/lib/prisma.ts ./src/lib/prisma.ts
 COPY src/lib/chibi ./src/lib/chibi
 COPY scripts/chibi-worker.ts ./scripts/chibi-worker.ts
-COPY scripts/chibi-runtime.ts scripts/chibi-preflight.ts ./scripts/
+COPY scripts/chibi-runtime.ts scripts/chibi-preflight.ts scripts/chibi-baad.ts ./scripts/
 COPY scripts/chibi-tools/manifest.json ./scripts/chibi-tools/manifest.json
 COPY scripts/chibi ./scripts/chibi
 COPY scripts/chibi-postprocess.mjs ./scripts/chibi-postprocess.mjs
+COPY scripts/chibi-halo-follow.mjs scripts/chibi-incomplete-materials.mjs scripts/chibi-face-events.mjs scripts/chibi-root-rotations.mjs scripts/chibi-renderer-active.mjs scripts/chibi-face-skin.mjs scripts/chibi-alternate-hair.mjs scripts/chibi_v12_motion_proof_unitypy.py ./scripts/
 RUN ./node_modules/.bin/esbuild scripts/chibi-worker.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/chibi-worker.mjs
 
 FROM --platform=linux/amd64 python:3.12-slim-bookworm AS worker
 WORKDIR /app
 ENV NODE_ENV=production
+ENV HOME=/home/chibi
 ENV CHIBI_SOURCE_DIR=/data/BAAD
 ENV CHIBI_DATA_DIR=/data/chibi
 ENV CHIBI_TOOLS_DIR=/opt/chibi-tools
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates libfontconfig1 libfreetype6 libglib2.0-0 libicu72 libstdc++6 libx11-6 libxext6 libxml2 libxrender1 openssl \
+    && apt-get install --no-install-recommends -y ca-certificates libfontconfig1 libfreetype6 libglib2.0-0 libicu72 libstdc++6 libx11-6 libxext6 libxml2 libxrender1 openssl util-linux \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=dotnet-sdk /usr/share/dotnet /usr/share/dotnet
 COPY --from=dotnet-sdk /usr/bin/dotnet /usr/bin/dotnet
 COPY --from=chibi-tools /opt/chibi-tools /opt/chibi-tools
+COPY --from=baad-build /baad/target/release/baad /opt/chibi-tools/baad/baad
 COPY --from=node-deps /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-deps /app/node_modules ./node_modules
 COPY package.json package-lock.json tsconfig.json prisma.config.ts ./
@@ -104,14 +115,18 @@ COPY prisma ./prisma
 COPY --from=worker-build /app/dist/chibi-worker.mjs ./dist/chibi-worker.mjs
 COPY scripts/chibi ./scripts/chibi
 COPY scripts/chibi-postprocess.mjs ./scripts/chibi-postprocess.mjs
+COPY scripts/chibi-halo-follow.mjs scripts/chibi-incomplete-materials.mjs scripts/chibi-face-events.mjs scripts/chibi-root-rotations.mjs scripts/chibi-renderer-active.mjs scripts/chibi-face-skin.mjs scripts/chibi-alternate-hair.mjs scripts/chibi_v12_motion_proof_unitypy.py ./scripts/
 COPY scripts/chibi-worker.ts ./scripts/chibi-worker.ts
-COPY scripts/chibi-runtime.ts scripts/chibi-preflight.ts ./scripts/
+COPY scripts/chibi-runtime.ts scripts/chibi-preflight.ts scripts/chibi-baad.ts ./scripts/
 COPY scripts/chibi-tools/manifest.json ./scripts/chibi-tools/manifest.json
 
 RUN addgroup --system --gid 1001 chibi \
     && adduser --system --uid 1001 --ingroup chibi chibi \
-    && mkdir -p /data/BAAD /data/chibi \
-    && chown -R chibi:chibi /app /data/chibi
+    && mkdir -p /data/BAAD /data/chibi /home/chibi \
+    && chown -R chibi:chibi /app /data /opt/chibi-tools/baad /home/chibi
 
-USER chibi
-CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy && node ./dist/chibi-worker.mjs"]
+COPY scripts/chibi-docker-entrypoint.sh /usr/local/bin/chibi-entrypoint
+RUN sed -i 's/\r$//' /usr/local/bin/chibi-entrypoint \
+    && chmod +x /usr/local/bin/chibi-entrypoint
+ENTRYPOINT ["/usr/local/bin/chibi-entrypoint"]
+CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy && exec node ./dist/chibi-worker.mjs"]
