@@ -270,6 +270,10 @@ export function AdminChibi() {
     const result = await fetchJson<{ students: number; models: number }>('/api/admin/chibi/records', jsonRequest('POST', { action: 'import', records }))
     setMessage(`Imported ${result.students} student bindings and ${result.models} model records. The gallery can use your copied models immediately; no conversion was run.`)
   })
+  const cleanupFiles = () => run(async () => {
+    const result = await fetchJson<{ removedFiles: number; freedBytes: number }>('/api/admin/chibi/records', jsonRequest('POST', { action: 'cleanup' }))
+    setMessage(`Removed ${result.removedFiles} old model files and freed ${(result.freedBytes / 1024 ** 3).toFixed(2)} GiB. Current models, previews and saved exports were kept.`)
+  })
   const candidate = candidates.find(value => value.sourceIdentity === identity)
   const visible = students.filter(student => `${student.id} ${student.name} ${student.pathName || ''}`.toLowerCase().includes(query.toLowerCase()))
   const beginReview = (student: RosterStudent) => {
@@ -304,6 +308,11 @@ export function AdminChibi() {
       <div className="mt-4 flex flex-wrap gap-3"><button className={button} disabled={busy || dataLoadState !== 'loaded'} onClick={exportRecords}>Export database records</button><button className={button} disabled={controlsDisabled} onClick={() => recordsFolder.current?.click()}>Import records folder</button></div>
       <input ref={recordsFolder} type="file" className="hidden" aria-label="Choose exported Chibi records folder" multiple {...{ webkitdirectory: '', directory: '' }} onChange={event => { const files = Array.from(event.currentTarget.files || []); event.currentTarget.value = ''; if (files.length) void importRecords(files) }} />
       {busy && <p role="status" className="mt-3 text-xs text-muted2">Working… Model file verification can take a few minutes. Keep this page open.</p>}
+    </section>
+    <section className="rounded-2xl border border-border bg-white/[0.025] p-5" aria-label="Clean up model storage">
+      <h3 className="text-lg font-semibold">Keep model storage small</h3>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted2">Removes older model revisions that are no longer used. Current student models, private previews, saved exports and files from the last 24 hours are kept. Copied models awaiting record import are also kept. Cleanup runs automatically when the import worker starts and after imports, once no jobs are waiting. Import history stays available, but removed revisions can no longer be opened.</p>
+      <button className={`${button} mt-4`} disabled={controlsDisabled} onClick={cleanupFiles}>Clean up old model files</button>
     </section>
     <section className="rounded-2xl border border-border bg-white/[0.025] p-5" aria-label="Download source assets">
       <div className="flex flex-wrap items-start justify-between gap-4"><div className="max-w-xl"><p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Step 1 · Get the latest assets</p><h3 className="mt-2 text-lg font-semibold">Download Japan AssetBundles</h3><p className="mt-2 text-sm leading-6 text-muted2">Downloads the latest model source files with BA-AD. Audio, videos and game tables are excluded. Downloads can take a while; current models stay available. After it finishes, choose Update missing animations or Update all students below.</p></div><button className={`${button} min-h-11 border-cyan-400/40 bg-cyan-400/10 text-cyan-100`} disabled={controlsDisabled} onClick={() => enqueue('download-assets')}>Redownload AssetBundles</button></div>

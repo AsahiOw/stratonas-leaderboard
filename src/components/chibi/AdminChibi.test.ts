@@ -16,6 +16,7 @@ test('initial admin markup does not claim the worker is offline or the roster is
   assert.match(markup, /Update all students/)
   assert.match(markup, /Export database records/)
   assert.match(markup, /Import records folder/)
+  assert.match(markup, /Clean up old model files/)
   assert.match(markup, /webkitdirectory/)
   assert.match(markup, /After it finishes, choose Update missing animations or Update all students/)
   assert.match(markup, /Loading students…/)

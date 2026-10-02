@@ -9,6 +9,7 @@ import { prisma } from '../src/lib/prisma'
 import { chibiRoots } from '../src/lib/chibi/storage'
 import { scanSourceInventory } from '../src/lib/chibi/inventory'
 import { acquireWorkerLock, claimNextJob, processJob, recoverExpiredLeases } from '../src/lib/chibi/engine-db'
+import { cleanupChibiFiles } from '../src/lib/chibi/cleanup'
 import { renewLease } from '../src/lib/chibi/engine-db'
 import { mapStudentToSources } from '../src/lib/chibi/mapping'
 import { chibiRepositoryRoot } from './chibi-runtime'
@@ -67,6 +68,7 @@ function logPreflightFailure(preflight: ChibiPreflightResult) {
 }
 
 async function main() {
+  let cleanupDue = true
   const roots = resolveChibiRoots(chibiRepositoryRoot)
   if (inventoryOnly) {
     const preflight = await runChibiPreflight({ roots })
@@ -151,9 +153,20 @@ async function main() {
           await writeCoverage(report)
           await heartbeat(true, { state: 'running', jobId: activeJob.id, sourceFiles: report.files.length, sourceCandidates: report.candidates.length, sourceErrors: report.errors, preflight })
           await processJob(prisma, activeJob, report, { signal: abort.signal })
+          cleanupDue = true
           if (fatalError) throw fatalError
           reportProgress('Import processing finished. See the student results below.')
           await heartbeat(true, { state: 'idle', jobId: activeJob.id, stage: 'completed', preflight })
+        }
+      }
+      if (cleanupDue && !abort.signal.aborted) {
+        try {
+          const cleanup = await cleanupChibiFiles()
+          cleanupDue = cleanup.skipped
+          if (cleanup.removedFiles) console.log(`Chibi cleanup removed ${cleanup.removedFiles} obsolete files (${(cleanup.freedBytes / 1024 ** 3).toFixed(2)} GiB).`)
+        } catch (error) {
+          cleanupDue = false
+          console.warn('Chibi file cleanup failed; active models are retained. Retry cleanup from Admin.', error)
         }
       }
     } catch (error) {

@@ -63,6 +63,8 @@ To transfer finished models without converting again, use **Admin → Chibi → 
 
 After downloading new AssetBundles, **Update missing animations** queues only students whose saved profile does not mark all four actions (Idle, Walk, Pickup, Touch) available, including students not imported yet. Fully animated students are excluded even if their source files changed or their model needs repair; use **Rebuild selected models** for those repairs. This uses the normal source scan and update/reuse pipeline, so missing source animations cannot be fabricated. **Update all students** remains available for a full-roster update.
 
+**Clean up old model files** removes obsolete published GLBs and their unused asset records while preserving current student bindings (including hidden students), private previews, files referenced by saved `chibi-record-exports` folders, and files modified within the last 24 hours. Files not registered in the database are also kept so copied models can await record import safely. Historical import results and timings remain, but references to removed revisions are cleared. Cleanup refuses to run while jobs are queued or running. The worker also cleans up on startup and after model imports when the queue is idle. Saved exports protect their files until you remove the export folder; an unreadable export stops cleanup. Rebuild the app and worker to enable automatic cleanup in Docker.
+
 Use `npm run dev` for the local preview, or `npm run build` followed by `npm start` for production mode. Both `localhost` and `127.0.0.1` remain allowed development origins.
 
 - **Standing idle**, **Walk**, **Pick up**, and **Touch** use the clips assigned to the selected student profile. Unsupported or unresolved controls remain visible with a reason.

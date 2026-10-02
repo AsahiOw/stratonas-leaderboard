@@ -2,7 +2,6 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { performance } from 'node:perf_hooks'
-import { Pool, type PoolClient } from 'pg'
 
 import { artifactIsIntact, annotateProjectMxSourceMeshEvidence, buildFingerprint, CHIBI_CORE_CONVERTER_VERSION, CHIBI_EXPORTER_VERSION, CHIBI_MATERIAL_VERSION, ChibiArtifactValidationError, convertCandidate, getChibiConversionTiming, getChibiCoreConverterIdentity, profilesEqual, selectAnimator, validateGlb, type ChibiConversionTiming } from './engine'
 import { defaultProfile, mapStudentToSources, type ExistingBinding, type MappingStudent } from './mapping'
@@ -17,7 +16,7 @@ import {
 } from './core-cache'
 import { artifactPath, chibiRoots } from './storage'
 
-export const CHIBI_WORKER_LOCK = 724310001
+export { CHIBI_WORKER_LOCK, acquireWorkerLock } from './worker-lock'
 export const LEASE_TIMEOUT_MS = 90_000
 const WORKER_TRANSACTION_OPTIONS = { maxWait: 30_000, timeout: 30_000 } as const
 type ImportTimingStage = 'toolchainIdentity' | 'mapping' | 'renderingProfile' | 'coreFingerprint' | 'cacheLookup' | 'artifactChecksum'
@@ -90,27 +89,6 @@ function importedArrangementDefault(value: unknown, validation: unknown) {
 
 type Db = any
 export class StaleChibiMappingError extends Error {}
-
-export async function acquireWorkerLock(connectionString = process.env.DATABASE_URL) {
-  if (!connectionString) throw new Error('DATABASE_URL is required.')
-  const pool = new Pool({ connectionString, max: 1 })
-  const client = await pool.connect()
-  const lost = new Promise<never>((_, reject) => client.once('error', error => reject(new Error(`Chibi advisory-lock connection was lost: ${error.message}`, { cause: error }))))
-  const result = await client.query<{ locked: boolean }>('SELECT pg_try_advisory_lock($1) AS locked', [CHIBI_WORKER_LOCK])
-  if (!result.rows[0]?.locked) {
-    client.release()
-    await pool.end()
-    return null
-  }
-  return {
-    async release() {
-      try { await client.query('SELECT pg_advisory_unlock($1)', [CHIBI_WORKER_LOCK]) }
-      finally { client.release(); await pool.end() }
-    },
-    client: client as PoolClient,
-    lost,
-  }
-}
 
 export async function recoverExpiredLeases(db: Db, now = new Date()) {
   const stale = new Date(now.getTime() - LEASE_TIMEOUT_MS)
