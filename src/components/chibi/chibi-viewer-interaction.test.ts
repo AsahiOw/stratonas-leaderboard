@@ -96,16 +96,102 @@ test('hidden meshes, empty stage, and unavailable pickup never start a hold', ()
 })
 
 test('pickup repeats past clip end even when the source profile requests a held pose', () => {
-  const block = source.slice(source.indexOf('        const playClip ='), source.indexOf('        const playInitial ='))
+  const block = source.slice(source.indexOf('        const playClip ='), source.indexOf('        const setPlaybackLoop ='))
   const js = ts.transpileModule(`${block}; return playClip`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const root = new THREE.Group(), mixer = new THREE.AnimationMixer(root)
   const clip = new THREE.AnimationClip('Pickup', 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [0, 1])])
-  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', `let currentAction = null, currentKind = null, haloFollower = null; ${js}`)(
-    THREE, new Map([['Pickup', clip]]), mixer, root, root, 0, new Map(), () => {}, () => {},
+  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', 'setActiveClip', 'setPaused', `let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
+    THREE, new Map([['Pickup', clip]]), mixer, root, root, 0, new Map(), () => {}, () => {}, () => {}, () => {},
   )
   assert.equal(play('Pickup', 'pickup', { loop: false, hold: true }), true)
   mixer.update(1.25)
   const action = mixer.existingAction(clip)!
   assert.equal(action.loop, THREE.LoopRepeat); assert.equal(action.clampWhenFinished, false)
   assert.equal(action.paused, false); assert.ok(Math.abs(action.time - .25) < 1e-6)
+})
+
+test('extra clips play and switch without a quick-action mapping', () => {
+  const block = source.slice(source.indexOf('        const playClip ='), source.indexOf('        const setPlaybackLoop ='))
+  const js = ts.transpileModule(`${block}; return playClip`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const root = new THREE.Group(), mixer = new THREE.AnimationMixer(root)
+  const clips = new Map(['Victory', 'Skill'].map(name => [name, new THREE.AnimationClip(name, 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [0, 1])])]))
+  let activeClip: string | null = null
+  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', 'setActiveClip', 'setPaused', `let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
+    THREE, clips, mixer, root, root, 0, new Map(), () => {}, () => {}, (name: string) => { activeClip = name }, () => {},
+  )
+  assert.equal(play('Victory', null, { loop: true }), true)
+  mixer.update(1.25)
+  assert.equal(activeClip, 'Victory')
+  assert.ok(Math.abs(mixer.existingAction(clips.get('Victory')!)!.time - .25) < 1e-6)
+  assert.equal(play('Skill', null, { loop: true }), true)
+  assert.equal(activeClip, 'Skill')
+  assert.equal(mixer.existingAction(clips.get('Victory')!)!.isRunning(), false)
+  assert.equal(mixer.existingAction(clips.get('Skill')!)!.isRunning(), true)
+  assert.equal(play('OtherCharacter', null, { loop: true }), false)
+  assert.equal(activeClip, 'Skill')
+})
+
+test('zero-duration cut-in clips retain their pose and finite time through loop and pause controls', () => {
+  const block = source.slice(source.indexOf('        const playClip ='), source.indexOf('        const playInitial ='))
+  const js = ts.transpileModule(`${block}; return playClip`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const root = new THREE.Group(), mixer = new THREE.AnimationMixer(root)
+  const clip = new THREE.AnimationClip('CH0320_Cutin_SM032201_01', 0, [new THREE.NumberKeyframeTrack('.position[x]', [0], [2])])
+  const mediaRef = { current: null as null | { togglePause: () => void; setLoop: (loop: boolean) => void; seek: (time: number) => void } }
+  let paused = false
+  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', 'setActiveClip', 'setPaused', 'mediaRef', 'loopingRef', 'setLooping', 'applyArrangement', 'setPlayback',
+    `let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
+    THREE, new Map([[clip.name, clip]]), mixer, root, root, 0, new Map(), () => {}, () => {}, () => {}, (value: boolean) => { paused = value }, mediaRef, { current: true }, () => {}, () => {}, () => {},
+  )
+  assert.equal(play(clip.name, null, { loop: true }), true)
+  const action = mixer.existingAction(clip)!
+  assert.equal(root.position.x, 2)
+  for (const loop of [true, false, true]) {
+    mediaRef.current!.setLoop(loop)
+    mediaRef.current!.togglePause()
+    mixer.update(1)
+    assert.equal(action.time, 0)
+    assert.equal(action.loop, THREE.LoopOnce)
+    assert.equal(action.paused, true)
+    assert.equal(paused, true)
+    assert.equal(root.position.x, 2)
+  }
+  mediaRef.current!.seek(5)
+  assert.equal(action.time, 0)
+})
+
+test('media controls pause, resume, finish once, and replay the held pose', () => {
+  const block = source.slice(source.indexOf('        const setPlaybackLoop ='), source.indexOf('        const playInitial ='))
+  const js = ts.transpileModule(block, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const root = new THREE.Group(), mixer = new THREE.AnimationMixer(root)
+  const clip = new THREE.AnimationClip('Victory', 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [0, 1])])
+  const action = mixer.clipAction(clip).play()
+  const mediaRef = { current: null as null | { togglePause: () => void; setLoop: (loop: boolean) => void; seek: (time: number) => void } }
+  const loopingRef = { current: true }
+  let paused = false
+  let playback = { time: 0, duration: 0 }
+  new Function('THREE', 'currentAction', 'mediaRef', 'loopingRef', 'setPaused', 'setLooping', 'mixer', 'updateMouths', 'applyArrangement', 'setPlayback', `let manualPlayback = false, haloFollower = null; ${js}`)(
+    THREE, action, mediaRef, loopingRef, (value: boolean) => { paused = value }, () => {}, mixer, () => {}, () => {}, (value: typeof playback) => { playback = value },
+  )
+  mixer.update(.25)
+  mediaRef.current!.togglePause(); mixer.update(.5)
+  assert.equal(action.time, .25); assert.equal(paused, true)
+  mediaRef.current!.togglePause(); mixer.update(.25)
+  assert.equal(action.time, .5); assert.equal(paused, false)
+  mediaRef.current!.setLoop(false); mixer.update(1)
+  assert.equal(loopingRef.current, false)
+  assert.equal(action.time, 1); assert.equal(action.paused, true)
+  assert.equal(root.position.x, 1)
+  mediaRef.current!.togglePause(); mixer.update(.25)
+  assert.equal(action.time, .25); assert.equal(paused, false)
+  mediaRef.current!.setLoop(true); mixer.update(1)
+  assert.equal(action.loop, THREE.LoopRepeat); assert.equal(action.paused, false)
+  assert.ok(Math.abs(action.time - .25) < 1e-6)
+  mediaRef.current!.seek(.6); mixer.update(.5)
+  assert.equal(action.time, .6); assert.equal(paused, true)
+  assert.ok(Math.abs(root.position.x - .6) < 1e-6)
+  assert.deepEqual(playback, { time: .6, duration: 1 })
+  mediaRef.current!.seek(5)
+  assert.equal(action.time, 1)
+  mediaRef.current!.seek(-1)
+  assert.equal(action.time, 0)
 })

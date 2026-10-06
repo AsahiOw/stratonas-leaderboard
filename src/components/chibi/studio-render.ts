@@ -1,11 +1,12 @@
 import * as THREE from 'three'
+import type { OutlineEffect } from 'three/addons/effects/OutlineEffect.js'
 import type { StudioLayer } from '@/lib/chibi/studio-scene'
 import type { StudioActorController } from './studio-types'
 
 export type StudioRuntimeActor = { group: THREE.Group; controller: StudioActorController | null }
 
 // Clear depth between layers, keeping the source material ordering inside each body/halo.
-export function renderStudio(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, actors: Map<string, StudioRuntimeActor>, layers: StudioLayer[]) {
+export function renderStudio(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, actors: Map<string, StudioRuntimeActor>, layers: StudioLayer[], outline?: OutlineEffect) {
   const background = scene.background, autoClear = renderer.autoClear
   const groups = [...actors.values()].map(actor => ({ group: actor.group, visible: actor.group.visible }))
   const meshes = new Map<string, { mesh: THREE.Mesh; visible: boolean; halo: boolean }[]>()
@@ -24,6 +25,7 @@ export function renderStudio(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
       for (const entry of entries) entry.mesh.visible = entry.visible && entry.halo === (layer.part === 'halo')
       actor.group.visible = groups.find(entry => entry.group === actor.group)?.visible ?? true
       renderer.clearDepth(); renderer.render(scene, camera)
+      outline?.renderOutline(scene, camera)
       actor.group.visible = false
     }
   } finally {

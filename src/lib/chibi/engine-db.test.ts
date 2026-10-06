@@ -114,9 +114,12 @@ function fakeDatabase(asset: any, binding: any, student: any = { id: 10003, name
       create: async ({ data }: any) => { const created = { id: `asset-${assets.length + 1}`, ...data }; assets.push(created); return created },
     },
     chibiImportJob: {
+      findUnique: async ({ where }: any) => jobs.get(where.id) ?? null,
       updateMany: async ({ where, data }: any) => {
         const job = jobs.get(where.id)
         if (!job || job.status !== where.status || (where.leaseToken && job.leaseToken !== where.leaseToken)) return { count: 0 }
+        if (typeof where.stage === 'string' && job.stage !== where.stage) return { count: 0 }
+        if (where.stage?.not && job.stage === where.stage.not) return { count: 0 }
         Object.assign(job, data)
         return { count: 1 }
       },
@@ -963,6 +966,69 @@ test('unset concurrency stays serial and preserves source-order processing', asy
     assert.equal(state.items.length, 3)
     assert.ok(state.items.every(item => item.status === 'failed'))
   })
+})
+
+test('pause drains active conversions, retains pending students, and resume never reprocesses finished rows', async () => {
+  await withChibiConcurrency('2', async () => {
+    const fixture = queueTestStudents(['first', 'second', 'third', 'fourth'])
+    const state = fakeDatabase(null, fixture.bindings, fixture.students)
+    const job = { ...cacheJob('job-pause-resume'), processed: 0 }
+    state.jobs.set(job.id, job)
+    const started: string[] = []
+    const gates = [deferred(), deferred()]
+    const bothStarted = deferred()
+    const processing = processTestJob(state.db, job, fixtureReport, {
+      convert: async ({ profile }: any) => {
+        const index = started.length
+        started.push(profile.label.replace('queue-', ''))
+        if (started.length === 2) bothStarted.resolve()
+        await gates[index].promise
+        return { checksum: `pause-${index}`, fileKey: `published/pause-${index}.glb`, clips: [], materials: {}, validation: { valid: true },
+          arrangementDefault: { schemaVersion: 1, nodes: { '$model': { visible: true, position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } } },
+        } as any
+      },
+    })
+    await bothStarted.promise
+    Object.assign(job, { stage: 'pause-requested' })
+    gates[0].resolve()
+    await new Promise(resolve => setTimeout(resolve, 5))
+    assert.equal(job.status, 'running', 'the second active character must finish before Paused')
+    assert.deepEqual(started, ['first', 'second'])
+    gates[1].resolve()
+    assert.equal(await processing, true)
+    assert.equal(job.status, 'paused')
+    assert.equal(job.leaseToken, null)
+    assert.equal(job.processed, 2)
+    assert.deepEqual(state.items.map(item => item.status), ['imported', 'imported', 'pending', 'pending'])
+    assert.equal(state.assets.length, 2, 'active characters publish their completed models before pausing')
+    Object.assign(job, { status: 'running', stage: 'inventory', leaseToken: 'new-lease' })
+    const resumed: string[] = []
+    assert.equal(await processTestJob(state.db, job, fixtureReport, {
+      convert: async ({ profile }: any) => { resumed.push(profile.label.replace('queue-', '')); throw new Error('fixture resumed result') },
+    }), false)
+    assert.deepEqual(resumed, ['third', 'fourth'])
+    assert.equal(job.status, 'completed')
+    assert.equal(job.processed, 4)
+  })
+})
+
+test('a pause requested during initialization cannot be overwritten by the mapping stage', async () => {
+  const state = fakeDatabase(null, null)
+  const job = cacheJob('job-pause-initialization')
+  state.jobs.set(job.id, job)
+  const createMany = state.db.chibiImportItem.createMany
+  state.db.chibiImportItem.createMany = async (args: any) => {
+    const result = await createMany(args)
+    Object.assign(job, { stage: 'pause-requested' })
+    return result
+  }
+  let conversions = 0
+  assert.equal(await processTestJob(state.db, job, fixtureReport, {
+    convert: async () => { conversions++; throw new Error('must not convert') },
+  }), true)
+  assert.equal(conversions, 0)
+  assert.equal(job.status, 'paused')
+  assert.ok(state.items.every(item => item.status === 'pending'))
 })
 
 test('lease loss aborts the bounded queue before any conversion starts', async () => {

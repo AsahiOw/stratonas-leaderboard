@@ -5,7 +5,7 @@ import { CHIBI_ACTIONS, emptyChibiProfile, type ChibiCatalogStudent, type ChibiP
 import { mergeChibiArrangementDelta, parseChibiArrangementDelta } from './arrangement'
 
 export const eligibleStudentsWhere = { id: { gte: 10000, lte: 99999 } }
-export const activeJobWhere = { status: { in: ['queued', 'running'] } }
+export const activeJobWhere = { status: { in: ['queued', 'running', 'paused'] } }
 // Separate from the worker's session lock; serializes all enqueue operations.
 export const CHIBI_ENQUEUE_LOCK = 724_310_002
 export class ChibiJobConflict extends Error {
@@ -86,4 +86,21 @@ export async function enqueueChibiJob(input: {
 export function publicJob(job: Awaited<ReturnType<typeof enqueueChibiJob>>) {
   const { leaseToken: _lease, ...safe } = job
   return safe
+}
+
+export async function controlChibiJob(jobId: string, action: 'pause' | 'resume', db = prisma) {
+  return db.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CHIBI_ENQUEUE_LOCK})`
+    const job = await tx.chibiImportJob.findUnique({ where: { id: jobId } })
+    if (!job || job.mode === 'download-assets') throw new ChibiInputError('Choose an existing character import job.')
+    const allowed = action === 'pause' ? ['queued', 'running', 'paused'] : ['paused', 'queued']
+    if (!allowed.includes(job.status)) throw new ChibiJobConflict(jobId)
+    const data = action === 'resume'
+      ? { status: 'queued', stage: 'resuming', completedAt: null, error: null }
+      : job.status === 'running' ? { stage: 'pause-requested' }
+      : { status: 'paused', stage: 'paused', leaseToken: null, workerId: null, heartbeatAt: null }
+    const changed = await tx.chibiImportJob.updateMany({ where: { id: jobId, status: job.status, leaseToken: job.leaseToken }, data })
+    if (changed.count !== 1) throw new ChibiJobConflict(jobId)
+    return tx.chibiImportJob.findUniqueOrThrow({ where: { id: jobId } })
+  })
 }

@@ -74,4 +74,4 @@ def export(manifest):
 
 
 if __name__ == "__main__":
-    Path(sys.argv[2]).write_text(json.dumps(export(json.loads(Path(sys.argv[1]).read_text()))))
+    Path(sys.argv[2]).write_text(json.dumps(export(json.loads(Path(sys.argv[1]).read_text(encoding='utf-8')))), encoding='utf-8')

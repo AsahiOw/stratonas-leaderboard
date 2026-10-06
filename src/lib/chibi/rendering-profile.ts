@@ -18,6 +18,7 @@ import type {
   SourceCandidate,
 } from './inventory'
 import type { ChibiProfile } from './types'
+import { sourceAnimationClips } from './mapping'
 
 export const CHIBI_RENDERING_PROFILE_VERSION = 'chibi-rendering-profile-v10'
 /**
@@ -6464,8 +6465,7 @@ export function buildChibiRenderingProfile(candidate: SourceCandidate, prefabPat
   if (pinnedRigMountAssessment && !pinnedRigMountAssessment.valid) {
     unresolved.push(`Source-pinned rig-mount group proof is incomplete for ${pinnedRigMountAssessment.group.identity}; exact source evidence is required.`)
   }
-  const selectedClips = new Set([interaction.initialPose, ...Object.values(interaction.interactions)
-    .filter(action => action.state === 'available' && action.clip).map(action => action.clip)].filter((clip): clip is string => typeof clip === 'string'))
+  const selectedClips = new Set(sourceAnimationClips(candidate, interaction))
   const seenRendererReferences = new Set<string>()
   const seenHierarchyPaths = new Set<string>()
   const pinnedRigMountKeys = new Set(pinnedRigMountAssessment?.sourceReferences.map(referenceKey) ?? [])

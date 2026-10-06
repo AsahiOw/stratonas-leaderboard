@@ -87,6 +87,20 @@ export function defaultProfile(source: SourceCandidate): ChibiProfile {
   return profile
 }
 
+export function sourceAnimationClips(source: SourceCandidate, profile: ChibiProfile): string[] {
+  // The dependency closure also indexes shared controller entries and other
+  // outfits. Keep every character-owned clip plus reviewed assignments.
+  const identity = canonicalIdentity(source.sourceIdentity)
+  const owned = identity ? (source.clips ?? []).filter(clip => {
+    const clipIdentity = canonicalIdentity(clip)
+    return !!clipIdentity && (clipIdentity === identity || clipIdentity.startsWith(`${identity}_`))
+  }) : []
+  const assigned = [profile.initialPose, ...Object.values(profile.interactions)
+    .filter(interaction => interaction.state === 'available').map(interaction => interaction.clip)]
+    .filter((clip): clip is string => typeof clip === 'string' && !!clip)
+  return [...new Set([...assigned, ...owned])]
+}
+
 export function mapStudentToSources(student: MappingStudent, sources: readonly SourceCandidate[], binding?: ExistingBinding | null): MappingDecision {
   const byIdentity = new Map(sources.map(source => [canonicalIdentity(source.sourceIdentity), source]))
   const overrides = binding?.overrides && typeof binding.overrides === 'object' ? binding.overrides as ReviewedOverrides : null

@@ -2,12 +2,13 @@
 
 /* eslint-disable react-hooks/immutability -- A studio host shares imperative Three.js resources; effects manage their lifetime. */
 
-import { useEffect, useRef, useState } from 'react'
-import { Layers, Maximize, Minimize, RotateCw } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Grid2X2, Maximize, Minimize, Orbit, Pause, Play, Repeat, RotateCw, SlidersHorizontal, PenTool } from 'lucide-react'
 import styles from './ChibiViewer.module.css'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js'
 import { CHIBI_ACTIONS, type ChibiAction, type ChibiCatalogStudent } from '@/lib/chibi/types'
 import { sourceObjectKey, type ChibiRenderingProfile } from '@/lib/chibi/rendering-profile'
 import { mouthTileAtTime, mouthTileTextureTransform, mouthTileStateAtTime, normalizePlaybackTime } from '@/lib/chibi-mouth'
@@ -114,6 +115,10 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   const viewerRef = useRef<HTMLDivElement>(null)
   const floorRef = useRef<THREE.Mesh | null>(null)
   const playRef = useRef<((action: ChibiAction) => void) | null>(null)
+  const playClipRef = useRef<((name: string) => void) | null>(null)
+  const mediaRef = useRef<{ togglePause: () => void; setLoop: (loop: boolean) => void; seek: (time: number) => void } | null>(null)
+  const allAnimationsRef = useRef(false)
+  const loopingRef = useRef(true)
   const resetRef = useRef<(() => void) | null>(null)
   const arrangementRef = useRef<ChibiArrangementDocument | null>(arrangement)
   const arrangementDefaultRef = useRef<ChibiArrangementDocument | null>(arrangementDefault)
@@ -121,12 +126,24 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   const [status, setStatus] = useState('Loading model…')
   const [error, setError] = useState<string | null>(null)
   const [active, setActive] = useState<ChibiAction | null>(null)
+  const [availableClips, setAvailableClips] = useState<string[]>([])
+  const [activeClip, setActiveClip] = useState<string | null>(null)
+  const [paused, setPaused] = useState(false)
+  const [looping, setLooping] = useState(true)
+  const [allAnimations, setAllAnimations] = useState(false)
+  const [playback, setPlayback] = useState({ time: 0, duration: 0 })
   const [missingClips, setMissingClips] = useState<Set<string>>(new Set())
   const [floorVisible, setFloorVisible] = useState(true)
   const floorVisibleRef = useRef(floorVisible)
+  const [outlineEnabled, setOutlineEnabled] = useState(false)
+  const outlineEnabledRef = useRef(false)
   const [rotating, setRotating] = useState(false)
   const rotatingRef = useRef(false)
   const [fullscreen, setFullscreen] = useState(false)
+  const [controlsOpen, setControlsOpen] = useState(true)
+  const [fullscreenControlsOpen, setFullscreenControlsOpen] = useState(false)
+  const controlsId = useId()
+  const controlsVisible = fullscreen ? fullscreenControlsOpen : controlsOpen
   const [holding, setHolding] = useState(false)
   const [download, setDownload] = useState<ModelDownloadProgress>({ loaded: 0, total: null })
   const [retryAttempt, setRetryAttempt] = useState(0)
@@ -136,11 +153,14 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       if (document.fullscreenElement === viewerRef.current) await document.exitFullscreen()
       setFullscreen(false)
     } else {
+      setFullscreenControlsOpen(false)
       setFullscreen(true)
       // Keep the same immersive overlay on mobile browsers without this API.
       await viewerRef.current?.requestFullscreen?.().catch(() => { })
     }
   }
+
+  useEffect(() => { allAnimationsRef.current = allAnimations && controlsVisible }, [allAnimations, controlsVisible])
 
   useEffect(() => {
     if (studio) return
@@ -175,7 +195,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         setFullscreen(false)
       }
       if (event.key !== 'Tab') return
-      const buttons = [...(viewerRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])]
+      const buttons = [...(viewerRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), input:not(:disabled)') ?? [])].filter(element => element.getClientRects().length > 0)
       const first = buttons[0], last = buttons.at(-1)
       if (event.shiftKey && (document.activeElement === first || document.activeElement === viewerRef.current)) { event.preventDefault(); last?.focus() }
       else if (!event.shiftKey && (document.activeElement === last || document.activeElement === viewerRef.current)) { event.preventDefault(); first?.focus() }
@@ -195,9 +215,13 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     const container = containerRef.current
     if (!container) return
     setStatus('Downloading model…'); setDownload({ loaded: 0, total: null }); setError(null); setActive(null); setMissingClips(new Set()); setHolding(false)
+    setAvailableClips([]); setActiveClip(null); playClipRef.current = null
+    setPaused(false); mediaRef.current = null
+    setPlayback({ time: 0, duration: 0 })
     const abortController = new AbortController()
     let disposed = false, frame = 0, root: THREE.Group | null = null, mixer: THREE.AnimationMixer | null = null
     let currentAction: THREE.AnimationAction | null = null, currentKind: ChibiAction | null = null
+    let manualPlayback = false
     let haloFollower: ReturnType<typeof createHaloFollower> | null = null
     let previewScale = 1, restingHolderY = 0
     const mouths: MouthMaterial[] = []
@@ -211,6 +235,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     let renderer: THREE.WebGLRenderer
     try { renderer = studio?.renderer ?? new THREE.WebGLRenderer({ antialias: true, alpha: true }) }
     catch { setError('3D rendering is unavailable. Try a browser with WebGL enabled.'); return }
+    const outlineEffect = studio ? null : new OutlineEffect(renderer, { defaultThickness: 0.0025, defaultColor: [0.04, 0.05, 0.08] })
     if (!studio) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x151925, 0)
       renderer.domElement.setAttribute('aria-label', 'Interactive student model. Drag to rotate, scroll to zoom, or tap the student to react.')
@@ -224,6 +249,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       resetCamera(); scene.add(new THREE.HemisphereLight(0xffffff, 0x8891aa, 2.5))
       const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(2, 4, 5); scene.add(light)
       const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.035, 64), new THREE.MeshStandardMaterial({ color: 0x252d40, roughness: 1 })); pedestal.position.y = -0.03; scene.add(pedestal)
+      pedestal.material.userData.outlineParameters = { visible: false }
       floorRef.current = pedestal; pedestal.visible = floorVisibleRef.current
     }
     const holder = new THREE.Group(); (studio?.group ?? scene).add(holder)
@@ -738,6 +764,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         separateCoincidentSkinLayers(root)
         arrangementGroup.add(root); mixer = new THREE.AnimationMixer(root)
         const clips = new Map(gltf.animations.map((clip) => [clip.name, clip])), inPlaceClips = new Map<string, THREE.AnimationClip>(), missing = new Set<string>()
+        setAvailableClips([...clips.keys()])
         for (const action of CHIBI_ACTIONS) { const interaction = model.profile.interactions[action]; if (interaction.state === 'available' && (!interaction.clip || !clips.has(interaction.clip))) missing.add(action) }
         setMissingClips(missing)
         const playClip = (clipName: string, kind: ChibiAction | null, settings?: { loop?: boolean; hold?: boolean; speed?: number }) => {
@@ -751,24 +778,68 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
             inPlaceClips.set(source.name, playbackClip)
           }
           const next = mixer.clipAction(playbackClip).reset()
+          const staticPose = playbackClip.duration <= 0
           next.setEffectiveTimeScale(settings?.speed || 1)
-          next.setLoop((kind === 'pickup' || (settings?.loop ?? (kind === 'idle' || kind === 'walk'))) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+          next.setLoop(!staticPose && (kind === 'pickup' || (settings?.loop ?? (kind === 'idle' || kind === 'walk'))) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
           next.clampWhenFinished = kind === 'pickup' ? false : settings?.hold ?? false; next.play(); currentAction = next; currentKind = kind; setActive(kind)
+          next.paused = staticPose
+          if (staticPose) mixer.update(0)
+          manualPlayback = false; setPaused(staticPose)
+          setActiveClip(clipName)
           if (kind !== 'pickup') holder.position.y = restingHolderY
           mouthTransforms.forEach((transform, mouth) => { mouth.map?.offset.copy(transform.offset); mouth.map?.repeat.copy(transform.repeat) })
           updateMouths()
           return true
         }
+        const setPlaybackLoop = (loop: boolean) => {
+          if (!currentAction) return
+          currentAction.setLoop(loop && currentAction.getClip().duration > 0 ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+          currentAction.clampWhenFinished = true
+          manualPlayback = true
+        }
+        mediaRef.current = {
+          togglePause: () => {
+            if (!currentAction) return
+            if (currentAction.getClip().duration <= 0) return
+            currentAction.clampWhenFinished = true
+            if (currentAction.paused) {
+              if (currentAction.time >= currentAction.getClip().duration) currentAction.reset().play()
+              currentAction.paused = false
+            } else currentAction.paused = true
+            manualPlayback = true; setPaused(currentAction.paused)
+          },
+          setLoop: loop => { loopingRef.current = loop; setLooping(loop); setPlaybackLoop(loop) },
+          seek: time => {
+            if (!currentAction) return
+            currentAction.time = THREE.MathUtils.clamp(time, 0, currentAction.getClip().duration)
+            currentAction.paused = true; currentAction.enabled = true; currentAction.clampWhenFinished = true
+            manualPlayback = true; mixer?.update(0)
+            updateMouths(); applyArrangement(); haloFollower?.reset(); haloFollower?.update(0, currentAction.getClip())
+            setPaused(true); setPlayback({ time: currentAction.time, duration: currentAction.getClip().duration })
+          },
+        }
         const playInitial = () => {
           const idle = model.profile.interactions.idle, preferred = model.profile.initialPose || (idle.state === 'available' ? idle.clip : null)
-          if (preferred && playClip(preferred, preferred === idle.clip ? 'idle' : null, studio ? { ...idle, loop: true, hold: false } : idle)) return
+          if (preferred && playClip(preferred, preferred === idle.clip ? 'idle' : null, studio ? { ...idle, loop: true, hold: false } : idle)) { if (!studio) setPlaybackLoop(loopingRef.current); return }
           currentAction?.stop(); currentAction = null; currentKind = null; setActive(null)
+          setActiveClip(null)
           mouthTransforms.forEach((transform, mouth) => { mouth.map?.offset.copy(transform.offset); mouth.map?.repeat.copy(transform.repeat) })
           updateRendererState()
         }
         const play = (kind: ChibiAction) => { const interaction = model.profile.interactions[kind]; if (interaction.state === 'available' && interaction.clip && !missing.has(kind)) playClip(interaction.clip, kind, interaction) }
         playRef.current = play
-        mixer.addEventListener('finished', () => { if (!studio && currentKind === 'touch') playInitial() })
+        const playNamedClip = (name: string) => {
+          const kind = CHIBI_ACTIONS.find(action => model.profile.interactions[action].state === 'available' && model.profile.interactions[action].clip === name) ?? null
+          if (!playClip(name, kind, { loop: true })) return
+          if (!studio) setPlaybackLoop(loopingRef.current)
+          mixer?.update(0)
+        }
+        playClipRef.current = playNamedClip
+        mixer.addEventListener('finished', () => {
+          if (studio) return
+          if (manualPlayback) setPaused(true)
+          else if (currentKind === 'touch') playInitial()
+        })
         returnToIdle = playInitial
         playInitial(); resetRef.current = () => { pointerCancel(); holder.rotation.y = 0; holder.position.copy(restingPosition); resetCamera(); playInitial() }; mixer.update(0); root.updateMatrixWorld(true)
         // Fit in actor-local space so the studio placement is not cancelled by centering.
@@ -788,7 +859,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         studio?.ready({
           haloMeshes,
           clips: [...clips.values()].map(clip => ({ name: clip.name, duration: clip.duration })),
-          play: name => { const kind = CHIBI_ACTIONS.find(action => model.profile.interactions[action].clip === name) ?? null; playClip(name, kind, { loop: true }); mixer?.update(0) },
+          play: playNamedClip,
           pause: paused => { if (currentAction) currentAction.paused = paused },
           seek: time => { if (!currentAction) return; currentAction.time = THREE.MathUtils.clamp(time, 0, currentAction.getClip().duration); mixer?.update(0); updateMouths(); applyArrangement(); haloFollower?.reset(); haloFollower?.update(0, currentAction.getClip()) },
           playback: () => ({ clip: currentAction?.getClip().name ?? null, time: currentAction?.time ?? 0, duration: currentAction?.getClip().duration ?? 0, paused: currentAction?.paused ?? true }),
@@ -798,7 +869,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       }
     }
     void load()
-    let previousTime = 0, elapsedSeconds = 0
+    let previousTime = 0, elapsedSeconds = 0, lastTimelineUpdate = 0
     const render = (time: number) => {
       const delta = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0
       previousTime = time
@@ -806,6 +877,12 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         elapsedSeconds += delta
         if (!studio) scene.userData.chibiElapsedSeconds = elapsedSeconds
         mixer?.update(delta)
+        if (!studio && allAnimationsRef.current && time - lastTimelineUpdate >= 100) {
+          lastTimelineUpdate = time
+          const duration = currentAction?.getClip().duration ?? 0
+          const actionTime = currentAction?.time ?? 0
+          setPlayback({ time: Number.isFinite(actionTime) ? Math.max(0, Math.min(actionTime, duration)) : 0, duration })
+        }
         // Formation pickup poses can crouch or sit below the platform even
         // when the standing pose is grounded. Reposition only that held pose
         // from its current lowest rendered point; idle/walk retain the stable
@@ -822,7 +899,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           holder.position.x = restingPosition.x * Math.cos(angle) + restingPosition.z * Math.sin(angle)
           holder.position.z = -restingPosition.x * Math.sin(angle) + restingPosition.z * Math.cos(angle)
         }
-        updateMouths(); applyArrangement(); haloFollower?.update(studio && currentAction?.paused ? 0 : delta, currentAction?.getClip() ?? null); hiddenSceneMeshes.forEach(object => { object.visible = false }); if (!studio) { controls.update(delta); renderer.render(scene, camera) }
+        updateMouths(); applyArrangement(); haloFollower?.update(currentAction?.paused ? 0 : delta, currentAction?.getClip() ?? null); hiddenSceneMeshes.forEach(object => { object.visible = false }); if (!studio) { controls.update(delta); if (outlineEnabledRef.current && outlineEffect) outlineEffect.render(scene, camera); else renderer.render(scene, camera) }
       }
       frame = requestAnimationFrame(render)
     }
@@ -836,7 +913,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       mixer?.stopAllAction(); if (root) mixer?.uncacheRoot(root)
       if (studio) { holder.removeFromParent(); disposeModel(holder) }
       else { controls.dispose(); disposeModel(scene); renderer.dispose(); renderer.domElement.remove() }
-      playRef.current = null; resetRef.current = null; applyArrangementRef.current = null
+      playRef.current = null; playClipRef.current = null; mediaRef.current = null; resetRef.current = null; applyArrangementRef.current = null
     }
   }, [model, retryAttempt, studio])
 
@@ -861,9 +938,11 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         </div>
       </div>}
       <div className={styles.toolbar}>
-        <button type="button" className={styles.rotation} aria-label={rotating ? 'Stop rotation' : 'Start slow rotation'} aria-pressed={rotating} title={rotating ? 'Stop rotation' : 'Start slow rotation'} onClick={() => { rotatingRef.current = !rotating; setRotating(!rotating) }}><RotateCw size={18} /></button>
-        <button type="button" aria-label={floorVisible ? 'Hide floor' : 'Show floor'} aria-pressed={floorVisible} title={floorVisible ? 'Hide floor' : 'Show floor'} onClick={() => setFloorVisible(value => !value)}><Layers size={18} /></button>
-        <button type="button" className={styles.reset} onClick={() => resetRef.current?.()}>Reset view</button>
+        <button type="button" aria-label={controlsVisible ? 'Hide animation controls' : 'Show animation controls'} aria-expanded={controlsVisible} aria-controls={controlsId} title={controlsVisible ? 'Hide animation controls' : 'Show animation controls'} onClick={() => { if (fullscreen) setFullscreenControlsOpen(value => !value); else setControlsOpen(value => !value) }}><SlidersHorizontal size={18} /></button>
+        <button type="button" className={styles.rotation} aria-label={rotating ? 'Stop rotation' : 'Start slow rotation'} aria-pressed={rotating} title={rotating ? 'Stop rotation' : 'Start slow rotation'} onClick={() => { rotatingRef.current = !rotating; setRotating(!rotating) }}><Orbit size={18} /></button>
+        <button type="button" aria-label={floorVisible ? 'Hide floor' : 'Show floor'} aria-pressed={floorVisible} title={floorVisible ? 'Hide floor' : 'Show floor'} onClick={() => setFloorVisible(value => !value)}><Grid2X2 size={18} style={{ transform: 'rotateX(55deg) rotateZ(45deg)' }} /></button>
+        <button type="button" className={styles.outline} aria-label="Model outline" aria-pressed={outlineEnabled} title={outlineEnabled ? 'Turn outline off' : 'Turn outline on'} onClick={() => { outlineEnabledRef.current = !outlineEnabled; setOutlineEnabled(!outlineEnabled) }}><PenTool size={18} /></button>
+        <button type="button" aria-label="Reset view" title="Reset view" onClick={() => resetRef.current?.()}><RotateCw size={18} /></button>
         <button type="button" aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} title={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} onClick={() => void toggleFullscreen()}>{fullscreen ? <Minimize size={18} /> : <Maximize size={18} />}</button>
       </div>
       {error && <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#151925]/95 p-6 text-center text-sm text-rose-200">
@@ -871,14 +950,34 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         <button type="button" onClick={() => setRetryAttempt(value => value + 1)} className="min-h-11 rounded-xl border border-cyan-300/40 bg-cyan-300/15 px-5 py-2 font-medium text-cyan-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">Retry</button>
       </div>}
     </div>
-    <div data-chibi-controls className="border-t border-white/10 p-4">
-      <div className="flex gap-2" aria-label="Student animations">{CHIBI_ACTIONS.map(id => {
+    <div id={controlsId} data-chibi-controls hidden={!controlsVisible} className={`${styles.controls} border-t border-white/10 p-3`}>
+      <div className="mb-2 flex gap-2" aria-label="Animation menu">
+        {([false, true] as const).map(expanded => <button key={String(expanded)} type="button" aria-pressed={allAnimations === expanded} onClick={() => { allAnimationsRef.current = expanded; setAllAnimations(expanded) }} className={`min-h-11 flex-1 rounded-xl border px-3 py-2 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 ${allAnimations === expanded ? 'border-cyan-300/40 bg-cyan-300/15 text-cyan-100' : 'border-white/10 text-slate-300 hover:bg-white/5'}`}>{expanded ? `All animations${availableClips.length ? ` (${availableClips.length})` : ''}` : 'Quick actions'}</button>)}
+      </div>
+      {!allAnimations && <div className="flex gap-2" aria-label="Student animations">{CHIBI_ACTIONS.map(id => {
         const interaction = model.profile.interactions[id]
         const reason = interaction.state !== 'available' ? interaction.reason || `${interaction.state} interaction` : missingClips.has(id) ? 'Published file is missing the assigned clip.' : null
         if (reason && !showDiagnostics) return null
-        return <button key={id} type="button" disabled={!!reason || !!error} title={showDiagnostics ? reason || undefined : undefined} aria-pressed={active === id} onClick={() => playRef.current?.(id)} className={`min-h-11 flex-1 rounded-xl border whitespace-nowrap px-2 py-2 text-xs font-medium transition sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 ${active === id ? 'border-cyan-300/40 bg-cyan-300/15 text-cyan-100' : 'border-white/10 text-slate-300 hover:bg-white/5'}`}>{labels[id]}</button>
-      })}</div>
-      <p className="mt-2 text-center text-[10px] text-slate-400 sm:text-xs">{holding ? 'Release to put down' : <>Drag to rotate · <span className="hidden sm:inline">Right-drag or </span>two fingers to pan / zoom<span className="block mt-1">Hold the student to pick up and drag</span></>}</p>
+        return <button key={id} type="button" disabled={!!reason || !!error || holding} title={showDiagnostics ? reason || undefined : undefined} aria-pressed={active === id} onClick={() => { playRef.current?.(id); mediaRef.current?.setLoop(loopingRef.current) }} className={`min-h-11 flex-1 rounded-xl border whitespace-nowrap px-2 py-2 text-xs font-medium transition sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 ${active === id ? 'border-cyan-300/40 bg-cyan-300/15 text-cyan-100' : 'border-white/10 text-slate-300 hover:bg-white/5'}`}>{labels[id]}</button>
+      })}</div>}
+      {allAnimations && availableClips.length > 0 && <div className={styles.expandedControls}>
+      <label className={styles.clipPicker}>
+        <span className="sr-only">Animation clip</span>
+        <select aria-label="All animations" value={activeClip ?? ''} disabled={!!error || holding} onChange={event => playClipRef.current?.(event.target.value)} className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-[#151925] px-3 py-2 text-sm text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:opacity-40">
+          <option value="" disabled>Choose an animation</option>
+          {availableClips.map(name => <option key={name} value={name}>{name}</option>)}
+        </select>
+      </label>
+      <div className="flex gap-2" aria-label="Animation playback">
+        <button type="button" aria-label={paused ? 'Play animation' : 'Pause animation'} title={paused ? 'Play animation' : 'Pause animation'} disabled={!activeClip || !!error || holding} onClick={() => mediaRef.current?.togglePause()} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 text-slate-100 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:opacity-40">{paused ? <Play size={18} aria-hidden="true" /> : <Pause size={18} aria-hidden="true" />}</button>
+        <button type="button" aria-label="Loop animation" title={looping ? 'Loop on — click to play once' : 'Loop off — click to repeat'} aria-pressed={looping} disabled={!activeClip || !!error || holding} onClick={() => mediaRef.current?.setLoop(!looping)} className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:opacity-40 ${looping ? 'border-cyan-300/40 bg-cyan-300/15 text-cyan-100' : 'border-white/10 text-slate-300 hover:bg-white/5'}`}><Repeat size={18} aria-hidden="true" /></button>
+      </div>
+      <label className="block min-w-0 text-[10px] text-slate-300">
+        <span className="flex justify-end tabular-nums">{playback.time.toFixed(2)} / {playback.duration.toFixed(2)} s</span>
+        <input type="range" aria-label="Animation timeline" aria-valuetext={`${playback.time.toFixed(2)} of ${playback.duration.toFixed(2)} seconds`} min={0} max={playback.duration} step="0.01" value={Math.min(playback.time, playback.duration)} disabled={!activeClip || playback.duration <= 0 || !!error || holding} onChange={event => mediaRef.current?.seek(Number(event.target.value))} className="h-11 w-full cursor-pointer accent-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:opacity-40" />
+      </label>
+      </div>}
+      <p className="mt-1 text-center text-[10px] text-slate-400">{holding ? 'Release to put down' : 'Drag to rotate · Pinch to pan / zoom · Hold to pick up'}</p>
     </div>
   </div>
 }

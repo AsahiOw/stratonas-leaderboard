@@ -4,6 +4,7 @@ from types import SimpleNamespace as NS
 import unittest
 import zlib
 import struct
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('renderer_active', Path(__file__).with_name('export-renderer-active.py'))
 module = importlib.util.module_from_spec(spec)
@@ -36,6 +37,31 @@ class ActivationTest(unittest.TestCase):
         clip = self.fixture()
         clip.m_MuscleClip.m_Clip.data.m_StreamedClip.curveCount = 4
         self.assertEqual(module.constant_active(clip, {42: ['Root/Face']}), [])
+
+    def test_empty_stream_does_not_block_constant_visibility(self):
+        clip = self.fixture()
+        clip.m_MuscleClip.m_Clip.data.m_StreamedClip.data = [0x7F800000, 0]
+        self.assertEqual(module.constant_active(clip, {42: ['Root/Face']}),
+                         [dict(clip='Idle', hierarchyPath='Root/Face', active=False)])
+
+    def test_unrelated_streamed_tracks_are_not_decoded(self):
+        clip = self.fixture()
+        data = clip.m_MuscleClip.m_Clip.data
+        data.m_StreamedClip.curveCount = 3
+        data.m_StreamedClip.data = [123]
+        data.m_ConstantClip.data = [0]
+        with patch.object(module, 'decode_streamed_clip', side_effect=AssertionError('unrelated stream decoded')):
+            self.assertEqual(module.constant_active(clip, {42: ['Root/Face']}),
+                             [dict(clip='Idle', hierarchyPath='Root/Face', active=False)])
+
+    def test_matching_streamed_visibility_still_rejects_invalid_data(self):
+        clip = self.fixture()
+        clip.m_ClipBindingConstant.genericBindings = clip.m_ClipBindingConstant.genericBindings[1:]
+        data = clip.m_MuscleClip.m_Clip.data
+        data.m_StreamedClip.curveCount = 1
+        data.m_StreamedClip.data = [123]
+        with self.assertRaises(ValueError):
+            module.constant_active(clip, {42: ['Root/Face']})
 
     def test_streamed_constant_activation_and_changing_track(self):
         def word(value):

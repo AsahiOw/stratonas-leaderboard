@@ -4,7 +4,7 @@ import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 
 import { artifactIsIntact, annotateProjectMxSourceMeshEvidence, buildFingerprint, CHIBI_CORE_CONVERTER_VERSION, CHIBI_EXPORTER_VERSION, CHIBI_MATERIAL_VERSION, ChibiArtifactValidationError, convertCandidate, getChibiConversionTiming, getChibiCoreConverterIdentity, profilesEqual, selectAnimator, validateGlb, type ChibiConversionTiming } from './engine'
-import { defaultProfile, mapStudentToSources, type ExistingBinding, type MappingStudent } from './mapping'
+import { defaultProfile, mapStudentToSources, sourceAnimationClips, type ExistingBinding, type MappingStudent } from './mapping'
 import type { InventoryReport, SourceCandidate } from './inventory'
 import { buildChibiRenderingProfile, CHIBI_SHADER_ADAPTER_VERSION } from './rendering-profile'
 import { parseChibiArrangementDelta } from './arrangement'
@@ -92,10 +92,22 @@ export class StaleChibiMappingError extends Error {}
 
 export async function recoverExpiredLeases(db: Db, now = new Date()) {
   const stale = new Date(now.getTime() - LEASE_TIMEOUT_MS)
+  await db.chibiImportJob.updateMany({
+    where: { status: 'running', stage: 'pause-requested', OR: [{ heartbeatAt: null }, { heartbeatAt: { lt: stale } }] },
+    data: { status: 'paused', stage: 'paused', leaseToken: null, workerId: null, heartbeatAt: null },
+  })
   return db.chibiImportJob.updateMany({
     where: { status: 'running', OR: [{ heartbeatAt: null }, { heartbeatAt: { lt: stale } }] },
     data: { status: 'queued', stage: 'recovered', leaseToken: null, workerId: null, heartbeatAt: null },
   })
+}
+
+export async function pauseAtCheckpoint(db: Db, jobId: string, leaseToken: string) {
+  const result = await db.chibiImportJob.updateMany({
+    where: { id: jobId, status: 'running', stage: 'pause-requested', leaseToken },
+    data: { status: 'paused', stage: 'paused', leaseToken: null, workerId: null, heartbeatAt: null },
+  })
+  return result.count === 1
 }
 
 export async function claimNextJob(db: Db, workerId: string, now = new Date()) {
@@ -340,6 +352,7 @@ async function processBoundedQueue<T>(
   concurrency: number,
   externalSignal: AbortSignal | undefined,
   worker: (item: T, signal: AbortSignal) => Promise<void>,
+  shouldStop: () => Promise<boolean>,
 ) {
   const controller = new AbortController()
   const abortFromCaller = () => controller.abort(externalSignal?.reason)
@@ -354,6 +367,7 @@ async function processBoundedQueue<T>(
       const index = nextIndex++
       if (index >= items.length) return
       try {
+        if (await shouldStop()) return
         await worker(items[index], controller.signal)
       } catch (error) {
         if (!hasFailure) {
@@ -384,8 +398,9 @@ export async function processJob(db: Db, job: any, report: InventoryReport, opti
     outcome: 'failure',
   }
   try {
-    await processJobWithTiming(db, job, report, options, timing)
+    const paused = await processJobWithTiming(db, job, report, options, timing)
     timing.outcome = 'success'
+    return paused
   } catch (error) {
     timing.outcome = options.signal?.aborted ? 'aborted' : 'failure'
     throw error
@@ -401,6 +416,7 @@ export async function processJob(db: Db, job: any, report: InventoryReport, opti
 
 async function processJobWithTiming(db: Db, job: any, report: InventoryReport, options: ProcessJobOptions, jobTiming: ChibiJobProcessingTiming) {
   const leaseToken = job.leaseToken as string
+  if (await pauseAtCheckpoint(db, job.id, leaseToken)) return true
   const candidates = report.candidates
   const candidateSyncStartedAt = performance.now()
   try { await syncCandidates(db, report) }
@@ -412,8 +428,9 @@ async function processJobWithTiming(db: Db, job: any, report: InventoryReport, o
     if (job.mode === 'update-missing-animations' && !selection.length) throw new Error('Missing-animation updates require an explicit student selection.')
     const roster = await db.student.findMany({ where: { id: selection.length ? { in: selection } : { gte: 10000, lte: 99999 } }, select: { id: true } })
     await db.chibiImportItem.createMany({ data: roster.map((student: { id: number }) => ({ jobId: job.id, studentId: student.id })), skipDuplicates: true })
-    const initialized = await db.chibiImportJob.updateMany({ where: { id: job.id, status: 'running', leaseToken }, data: { total: roster.length, stage: 'mapping' } })
+    const initialized = await db.chibiImportJob.updateMany({ where: { id: job.id, status: 'running', leaseToken }, data: { total: roster.length } })
     if (initialized.count !== 1) throw new Error('Import job lease was lost during initialization.')
+    await db.chibiImportJob.updateMany({ where: { id: job.id, status: 'running', leaseToken, stage: { not: 'pause-requested' } }, data: { stage: 'mapping' } })
     items = await db.chibiImportItem.findMany({ where: { jobId: job.id, status: { in: ['pending', 'running'] } }, orderBy: { studentId: 'asc' }, include: { student: true } })
   } finally { jobTiming.stagesMs.jobInitialization = performance.now() - jobInitializationStartedAt }
   let coreConverterIdentity: string | null = null
@@ -498,7 +515,7 @@ async function processJobWithTiming(db: Db, job: any, report: InventoryReport, o
       return
     }
     let coreFingerprint: string | null = null
-    const clipSelection = effectiveClipSelection(decision.profile)
+    const clipSelection = { ...effectiveClipSelection(decision.profile), clips: sourceAnimationClips(candidate, decision.profile) }
     if (coreConverterIdentity && profileDecision.renderingProfile?.validation.valid) {
       try {
         coreFingerprint = await measureImportStage(timing, 'coreFingerprint', async () => buildCoreFingerprint({
@@ -718,9 +735,14 @@ async function processJobWithTiming(db: Db, job: any, report: InventoryReport, o
         coreFingerprintReleasesByItemId.delete(item.id)
         release?.()
       }
+    }, async () => {
+      const current = await db.chibiImportJob.findUnique({ where: { id: job.id }, select: { stage: true } })
+      return current?.stage === 'pause-requested'
     })
   } finally { jobTiming.stagesMs.itemQueue = performance.now() - itemQueueStartedAt }
+  if (await pauseAtCheckpoint(db, job.id, leaseToken)) return true
   const finalProgressStartedAt = performance.now()
   try { await refreshJobProgress(db, job.id, leaseToken, true) }
   finally { jobTiming.stagesMs.finalProgress = performance.now() - finalProgressStartedAt }
+  return false
 }

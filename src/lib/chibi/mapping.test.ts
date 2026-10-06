@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { defaultProfile, mapStudentToSources } from './mapping'
+import { defaultProfile, mapStudentToSources, sourceAnimationClips } from './mapping'
 import type { SourceCandidate } from './inventory'
 
 const source = (sourceIdentity: string, fingerprint = 'v1'): SourceCandidate => ({ sourceIdentity, fingerprint, conflict: false, parts: [], families: [], revisions: [], clips: [], objectNames: [], materials: [], dependencies: [], events: [] })
+
+test('exports all character clips while excluding shared clips and other outfits', () => {
+  const candidate = { ...source('airi_original'), clips: [
+    'Airi_Original_Cafe_Idle', 'Airi_Original_Exs', 'Airi_Original_Tactical_Start',
+    'Airi_Original_Exs', 'Airi_Original_Exs_Cam', 'Airi_Band_Exs', 'Akane_Original_Exs', 'Victory_Start',
+  ] }
+  const profile = defaultProfile(candidate)
+  profile.interactions.touch = { state: 'available', clip: 'Reviewed_Reaction' }
+  assert.deepEqual(sourceAnimationClips(candidate, profile), [
+    'Airi_Original_Cafe_Idle', 'Reviewed_Reaction', 'Airi_Original_Exs', 'Airi_Original_Tactical_Start', 'Airi_Original_Exs_Cam',
+  ])
+})
 
 test('canonical mapping is exact and display-name changes do not affect it', () => {
   const result = mapStudentToSources({ id: 10002, name: 'Changed display name', pathName: 'haruna' }, [source('haruna_original')])

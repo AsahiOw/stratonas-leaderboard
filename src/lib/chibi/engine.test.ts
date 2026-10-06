@@ -996,6 +996,13 @@ test('captured postprocess failures retain their exact conversion diagnostic', a
   )
 })
 
+test('external helper failures capture the stage and stderr by default', async () => {
+  await assert.rejects(
+    run(process.execPath, ['-e', "process.stderr.write('Selected root animation has conflicting tracks'); process.exitCode = 1"], undefined, undefined, 'Source root rotation export'),
+    /Source root rotation export:.*Selected root animation has conflicting tracks/,
+  )
+})
+
 function tinyProfileGlb(eyeAlphaMode = 'BLEND', mouthAlphaMode = 'BLEND') {
   const sourceRendererReference = { bundleSha256: 'a'.repeat(64), serializedFile: 'CAB-prefab', objectId: '3' }
   const renderingProfile = {
@@ -1827,7 +1834,7 @@ test('fingerprint is stable across object key ordering and changes with source d
   const changedPlayback = structuredClone(profile)
   changedPlayback.interactions.touch = { state: 'unsupported', reason: 'Source has no touch response.', speed: 2 }
   assert.equal(buildFingerprint({ fingerprint: 'a' }, profile, {}), buildFingerprint({ fingerprint: 'a' }, changedPlayback, {}), 'profile-only playback changes reuse geometry exports')
-  assert.match(CHIBI_EXPORTER_VERSION, /weapon-ancestry-v1$/)
+  assert.match(CHIBI_EXPORTER_VERSION, /weapon-ancestry-v1-all-character-clips-v2-source-tracks-v1-null-helpers-v1$/)
   assert.equal(profilesEqual({ a: 1, b: { c: 2 } }, { b: { c: 2 }, a: 1 }), true)
 })
 
@@ -2610,6 +2617,31 @@ test('rejects truncated and externally referenced GLBs', async () => {
   try {
     const file = path.join(root, 'bad.glb'); await writeFile(file, Buffer.from('glTF'))
     await assert.rejects(() => validateGlb(file), /not a GLB/)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
+test('retains moving source camera clips without relaxing character skeletal validation', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'chibi-camera-animation-'))
+  const file = path.join(root, 'model.glb')
+  const document = documentFromGlb(tinyGlb())
+  const binary = Buffer.alloc(44)
+  binary.writeFloatLE(1, 16); binary.writeFloatLE(1, 32)
+  document.buffers[0].byteLength = binary.length
+  document.bufferViews.push({ buffer: 0, byteOffset: 12, byteLength: 8 }, { buffer: 0, byteOffset: 20, byteLength: 24 })
+  document.accessors.push({ bufferView: 1, componentType: 5126, count: 2, type: 'SCALAR' }, { bufferView: 2, componentType: 5126, count: 2, type: 'VEC3' })
+  document.nodes.push({ name: 'Camera001' })
+  document.scenes[0].nodes.push(2)
+  document.animations = [{ name: 'Akane_Original_Exs_Cam', samplers: [{ input: 1, output: 2 }], channels: [{ sampler: 0, target: { node: 2, path: 'translation' } }] }]
+  try {
+    await writeFile(file, glbFromDocumentAndBinary(document, binary))
+    assert.equal((await validateGlb(file)).valid, true)
+    document.animations[0].name = 'Akane_Original_Normal_Attack_Ing'
+    await writeFile(file, glbFromDocumentAndBinary(document, binary))
+    await assert.rejects(() => validateGlb(file), /no skeletal deformation/)
+    document.animations[0].name = 'Akane_Original_Exs_Cam'
+    binary.writeFloatLE(0, 32)
+    await writeFile(file, glbFromDocumentAndBinary(document, binary))
+    await assert.rejects(() => validateGlb(file), /no skeletal deformation/)
   } finally { await rm(root, { recursive: true, force: true }) }
 })
 

@@ -4,10 +4,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, Download, Move, Trash2, Users, Image as ImageIcon, SlidersHorizontal } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, PenTool, Download, Move, Trash2, Users, Image as ImageIcon, SlidersHorizontal } from 'lucide-react'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { imageSrc } from '@/lib/utils'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js'
 import type { ChibiCatalogStudent } from '@/lib/chibi/types'
 import type { StudioBackground } from '@/lib/chibi/studio-backgrounds'
 import { DEFAULT_STUDIO_CAMERA, STUDIO_STORAGE_KEY, parseStudioScene, studioLayers, type StudioActor, type StudioScene, type StudioLayer } from '@/lib/chibi/studio-scene'
@@ -16,7 +17,7 @@ import type { StudioActorController, StudioPlayback, StudioViewerHost } from './
 import { renderStudio } from './studio-render'
 import styles from './PhotoStudio.module.css'
 
-type Stage = Omit<StudioViewerHost, 'group' | 'ready' | 'failed'> & { actors: Map<string, { group: THREE.Group; controller: StudioActorController | null }> }
+type Stage = Omit<StudioViewerHost, 'group' | 'ready' | 'failed'> & { actors: Map<string, { group: THREE.Group; controller: StudioActorController | null }>; outline: OutlineEffect }
 const emptyPlayback: StudioPlayback = { clip: null, time: 0, duration: 0, paused: true }
 
 function ThumbnailChoices({ label, choices, value, onChoose, background = false }: { label: string; choices: { value: string; name: string; image: string }[]; value: string; onChoose: (value: string) => void; background?: boolean }) {
@@ -67,6 +68,8 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
   const canvasRef = useRef<HTMLDivElement>(null)
   const [tab, setTab] = useState<'students' | 'pose' | 'scene'>('students')
   const [cameraMode, setCameraMode] = useState(false)
+  const [outlineEnabled, setOutlineEnabled] = useState(false)
+  const outlineEnabledRef = useRef(false)
   const cameraModeRef = useRef(cameraMode)
   useEffect(() => { cameraModeRef.current = cameraMode }, [cameraMode])
   const [stage, setStage] = useState<Stage | null>(null)
@@ -105,7 +108,8 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
     const controls = new OrbitControls(camera, renderer.domElement)
     camera.position.set(...DEFAULT_STUDIO_CAMERA.position); controls.target.set(...DEFAULT_STUDIO_CAMERA.target)
     controls.enableDamping = true; controls.minDistance = 1; controls.maxDistance = 25; controls.update()
-    const state: Stage = { scene, renderer, camera, controls, actors: new Map() }; setStage(state)
+    const outline = new OutlineEffect(renderer, { defaultThickness: 0.0025, defaultColor: [0.04, 0.05, 0.08] })
+    const state: Stage = { scene, renderer, camera, controls, actors: new Map(), outline }; setStage(state)
     const resize = () => { const w = container.clientWidth, h = container.clientHeight; renderer.setSize(w, h); camera.aspect = w / Math.max(h, 1); camera.updateProjectionMatrix(); fitBackground(scene, camera.aspect) }
     const observer = new ResizeObserver(resize); observer.observe(container); resize()
     const raycaster = new THREE.Raycaster(), plane = new THREE.Plane(), point = new THREE.Vector3(), offset = new THREE.Vector3()
@@ -155,7 +159,7 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
     let frame = 0, previous = 0, elapsed = 0
     const render = (time: number) => {
       const delta = previous ? Math.min((time - previous) / 1000, 0.05) : 0; previous = time
-      if (!document.hidden) { elapsed += delta; scene.userData.chibiElapsedSeconds = elapsed; controls.update(delta); renderStudio(renderer, scene, camera, state.actors, layersRef.current) }
+      if (!document.hidden) { elapsed += delta; scene.userData.chibiElapsedSeconds = elapsed; controls.update(delta); renderStudio(renderer, scene, camera, state.actors, layersRef.current, outlineEnabledRef.current ? outline : undefined) }
       frame = requestAnimationFrame(render)
     }
     frame = requestAnimationFrame(render)
@@ -234,7 +238,7 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
   }
   function exportPhoto() {
     if (!stage || backgroundLoading || actors.some(a => statuses[a.id] !== 'Ready')) return
-    renderStudio(stage.renderer, stage.scene, stage.camera, stage.actors, layers)
+    renderStudio(stage.renderer, stage.scene, stage.camera, stage.actors, layers, outlineEnabledRef.current ? stage.outline : undefined)
     stage.renderer.domElement.toBlob(blob => {
       if (!blob) { setMessage('The photo could not be exported.'); return }
       const url = URL.createObjectURL(blob), link = document.createElement('a')
@@ -252,6 +256,7 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
         {!actors.length && <div className={styles.hint}><Users size={32} /><strong>Start with your favorite students</strong><span>Choose a student in the Students tab, then add them to your scene.</span><button type="button" onClick={() => setTab('students')}>Choose a student</button></div>}
       </div>
       <div className={styles.actions}>
+        <button type="button" aria-label="Model outline" aria-pressed={outlineEnabled} className={outlineEnabled ? styles.primary : undefined} title={outlineEnabled ? 'Turn outline off' : 'Turn outline on'} onClick={() => { outlineEnabledRef.current = !outlineEnabled; setOutlineEnabled(!outlineEnabled) }}><PenTool size={16} />{outlineEnabled ? 'Hide outline' : 'Show outline'}</button>
         <button type="button" onClick={() => setHiddenControls(v => !v)}>{hiddenControls ? 'Show controls' : 'Hide controls'}</button>
         <button type="button" className={styles.export} onClick={exportPhoto} disabled={!stage || backgroundLoading || actors.some(a => statuses[a.id] !== 'Ready')}><Download size={16} />Export PNG</button>
         {!hiddenControls && <><button type="button" onClick={saveScene} disabled={!stage}>Save scene</button><button type="button" onClick={loadScene} disabled={!stage}>Open saved scene</button></>}

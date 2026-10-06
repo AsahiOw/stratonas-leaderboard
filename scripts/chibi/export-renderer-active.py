@@ -18,7 +18,7 @@ def constant_active(clip, paths):
     offset = 0
     constant_start = data.m_StreamedClip.curveCount + data.m_DenseClip.m_CurveCount
     words = getattr(data.m_StreamedClip, 'data', [])
-    stream = decode_streamed_clip(words, data.m_StreamedClip.curveCount) if words else None
+    stream = None
     result = []
     for binding in bindings:
         # Unity transform bindings occupy 3 scalar slots (position/scale/euler)
@@ -32,7 +32,11 @@ def constant_active(clip, paths):
             value = None
             if offset >= constant_start:
                 value = data.m_ConstantClip.data[offset - constant_start]
-            elif offset < data.m_StreamedClip.curveCount and stream:
+            elif offset < data.m_StreamedClip.curveCount and words:
+                # Only streamed visibility bindings need decoding. Unrelated
+                # skeletal tracks are already handled by the animation exporter.
+                if stream is None:
+                    stream = decode_streamed_clip(words, data.m_StreamedClip.curveCount)
                 keys = [key for key in stream['initialKeys'] if key['index'] == offset]
                 keys.extend(key for frame in stream['frames'] for key in frame['keys'] if key['index'] == offset)
                 if (keys and all(key['value'] == keys[0]['value'] and all(coefficient == 0 for coefficient in key['coefficients'][:3]) for key in keys)):
@@ -60,4 +64,4 @@ def export(manifest):
 
 
 if __name__ == '__main__':
-    Path(sys.argv[2]).write_text(json.dumps(export(json.loads(Path(sys.argv[1]).read_text()))))
+    Path(sys.argv[2]).write_text(json.dumps(export(json.loads(Path(sys.argv[1]).read_text(encoding='utf-8')))), encoding='utf-8')

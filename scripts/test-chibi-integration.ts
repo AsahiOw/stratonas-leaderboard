@@ -9,8 +9,8 @@ import { Client } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../src/generated/prisma/client'
 import { prisma } from '../src/lib/prisma'
-import { enqueueChibiJob, getPublicChibiStudents, jsonValue } from '../src/lib/chibi/server'
-import { acquireWorkerLock, claimNextJob, recoverExpiredLeases, renewLease, fencedPublish } from '../src/lib/chibi/engine-db'
+import { controlChibiJob, enqueueChibiJob, getPublicChibiStudents, jsonValue } from '../src/lib/chibi/server'
+import { acquireWorkerLock, claimNextJob, pauseAtCheckpoint, recoverExpiredLeases, renewLease, fencedPublish } from '../src/lib/chibi/engine-db'
 import { publishArtifact } from '../src/lib/chibi/engine'
 import { serveChibiArtifact } from '../src/lib/chibi/serve'
 import { emptyChibiProfile } from '../src/lib/chibi/types'
@@ -41,10 +41,38 @@ async function main() {
     assert.equal(attempts.filter(result => result.status === 'fulfilled').length, 1, `concurrent bulk enqueues must serialize: ${attempts.filter(result => result.status === 'rejected').map(result => result.reason.message).join('; ')}`)
     const rejection = attempts.find(result => result.status === 'rejected') as PromiseRejectedResult
     assert.match(rejection.reason.message, /already active/)
+    const queued = await db.chibiImportJob.findFirstOrThrow({ where: { status: 'queued' } })
+    assert.equal((await controlChibiJob(queued.id, 'pause', db)).status, 'paused')
+    assert.equal(await claimNextJob(db, 'paused-worker'), null, 'paused jobs cannot be claimed')
+    await assert.rejects(() => enqueueChibiJob({ mode: 'update', requesterId: null, studentIds: [] }, db), /already active/)
+    await db.$disconnect()
+    await db.$connect()
+    assert.equal((await db.chibiImportJob.findUniqueOrThrow({ where: { id: queued.id } })).status, 'paused', 'pause survives restarting the database client')
+    await controlChibiJob(queued.id, 'resume', db)
     const claimed = await claimNextJob(db, 'integration-worker')
     assert.ok(claimed?.leaseToken)
     await db.chibiImportItem.create({ data: { jobId: claimed.id, studentId: 10002, status: 'skipped', stage: 'complete' } })
     await db.chibiImportItem.create({ data: { jobId: claimed.id, studentId: 10143, status: 'running' } })
+    assert.equal((await controlChibiJob(claimed.id, 'pause', db)).stage, 'pause-requested')
+    await renewLease(db, claimed.id, claimed.leaseToken, new Date(Date.now() - 180000))
+    await recoverExpiredLeases(db)
+    assert.equal((await db.chibiImportJob.findUniqueOrThrow({ where: { id: claimed.id } })).status, 'paused', 'a worker restart must honor a pending pause instead of auto-resuming')
+    assert.equal(await claimNextJob(db, 'paused-recovery-worker'), null)
+    await controlChibiJob(claimed.id, 'resume', db)
+    const afterPause = await claimNextJob(db, 'resumed-worker')
+    assert.notEqual(afterPause.leaseToken, claimed.leaseToken)
+    await controlChibiJob(claimed.id, 'pause', db)
+    assert.equal(await pauseAtCheckpoint(db, claimed.id, afterPause.leaseToken), true)
+    await assert.rejects(() => renewLease(db, claimed.id, afterPause.leaseToken), /lease was lost/)
+    await controlChibiJob(claimed.id, 'resume', db)
+    const afterCheckpoint = await claimNextJob(db, 'checkpoint-worker')
+    assert.notEqual(afterCheckpoint.leaseToken, afterPause.leaseToken)
+    if (process.argv.includes('--pause-only')) {
+      assert.equal((await db.chibiImportItem.findFirstOrThrow({ where: { jobId: claimed.id, studentId: 10002 } })).status, 'skipped')
+      assert.equal((await db.chibiImportItem.findFirstOrThrow({ where: { jobId: claimed.id, studentId: 10143 } })).status, 'running')
+      console.log('Chibi pause/resume PostgreSQL integration passed: queued pause, duplicate-import blocking, persistence after reconnect, requested-pause recovery, checkpoint pause, fresh resume leases, and retained item results. Live imports were not changed.')
+      return
+    }
     await db.chibiImportJob.update({ where: { id: claimed.id }, data: { heartbeatAt: new Date(Date.now() - 180000) } })
     await recoverExpiredLeases(db)
     const reclaimed = await claimNextJob(db, 'replacement-worker')

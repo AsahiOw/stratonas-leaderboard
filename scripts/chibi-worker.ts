@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { prisma } from '../src/lib/prisma'
 import { chibiRoots } from '../src/lib/chibi/storage'
 import { scanSourceInventory } from '../src/lib/chibi/inventory'
-import { acquireWorkerLock, claimNextJob, processJob, recoverExpiredLeases } from '../src/lib/chibi/engine-db'
+import { acquireWorkerLock, claimNextJob, pauseAtCheckpoint, processJob, recoverExpiredLeases } from '../src/lib/chibi/engine-db'
 import { cleanupChibiFiles } from '../src/lib/chibi/cleanup'
 import { renewLease } from '../src/lib/chibi/engine-db'
 import { mapStudentToSources } from '../src/lib/chibi/mapping'
@@ -44,7 +44,7 @@ async function writeCoverage(report: Awaited<ReturnType<typeof scanSourceInvento
 }
 
 async function heartbeat(ready: boolean, details: Record<string, unknown>) {
-  details = { ...jobProgress, ...details }
+  details = { ...jobProgress, ...details, importPauseSupported: true }
   await prisma.chibiWorkerState.upsert({
     where: { id: workerId },
     create: { id: workerId, platform: `${process.platform}/${process.arch}`, lastHeartbeat: new Date(), ready, details: details as any },
@@ -152,11 +152,12 @@ async function main() {
           reportProgress(`Inventory complete: ${report.files.length} source files, ${report.candidates.length} model candidates. Preparing students…`)
           await writeCoverage(report)
           await heartbeat(true, { state: 'running', jobId: activeJob.id, sourceFiles: report.files.length, sourceCandidates: report.candidates.length, sourceErrors: report.errors, preflight })
-          await processJob(prisma, activeJob, report, { signal: abort.signal })
-          cleanupDue = true
+          const paused = await processJob(prisma, activeJob, report, { signal: abort.signal })
+          if (renewal) { clearInterval(renewal); renewal = null }
+          cleanupDue = !paused
           if (fatalError) throw fatalError
-          reportProgress('Import processing finished. See the student results below.')
-          await heartbeat(true, { state: 'idle', jobId: activeJob.id, stage: 'completed', preflight })
+          reportProgress(paused ? 'Import paused. Progress is saved; resume from Admin when ready.' : 'Import processing finished. See the student results below.')
+          await heartbeat(true, { state: 'idle', jobId: activeJob.id, stage: paused ? 'paused' : 'completed', preflight })
         }
       }
       if (cleanupDue && !abort.signal.aborted) {
@@ -171,7 +172,8 @@ async function main() {
       }
     } catch (error) {
       console.error(error)
-      if (activeJob?.leaseToken) await prisma.chibiImportJob.updateMany({
+      const paused = activeJob?.leaseToken ? await pauseAtCheckpoint(prisma, activeJob.id, activeJob.leaseToken) : false
+      if (activeJob?.leaseToken && !paused) await prisma.chibiImportJob.updateMany({
         where: { id: activeJob.id, status: 'running', leaseToken: activeJob.leaseToken },
         data: { status: 'failed', stage: 'failed', error: error instanceof Error ? error.message : String(error), completedAt: new Date() },
       })

@@ -5,10 +5,26 @@ from types import SimpleNamespace as NS
 from unittest.mock import patch
 from tempfile import TemporaryDirectory
 import hashlib
+import json
+import subprocess
+import sys
 spec = importlib.util.spec_from_file_location('halo_follow', Path(__file__).with_name('export-halo-follow.py'))
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 class HaloFollowTest(unittest.TestCase):
+    def test_helpers_read_utf8_manifests_with_legacy_windows_encoding(self):
+        manifest = {'bundles': {}, 'renderers': [], 'animationBundles': [], 'paths': [], 'clips': [], 'note': 'あ'}
+        with TemporaryDirectory() as directory:
+            source = Path(directory) / 'manifest.json'
+            source.write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
+            for name in ['export-halo-follow.py', 'export-face-skin.py', 'export-root-rotations.py', 'export-renderer-active.py']:
+                with self.subTest(helper=name):
+                    target = Path(directory) / (name + '.json')
+                    result = subprocess.run([sys.executable, '-X', 'utf8=0', str(Path(__file__).with_name(name)), str(source), str(target)],
+                                            capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
+                    json.loads(target.read_text(encoding='utf-8'))
+
     def test_reflects_source_vectors_and_rotation(self):
         self.assertEqual(module.vector({'x': 2, 'y': 3, 'z': 4}), [-2, 3, 4])
         self.assertEqual(module.rotation({'x': 0, 'y': 2, 'z': 0, 'w': 0}), [0, -1, 0, 0])

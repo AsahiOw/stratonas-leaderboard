@@ -18,7 +18,7 @@ type RosterStudent = {
 }
 type Candidate = { sourceIdentity: string; fingerprint: string; conflict: boolean; clips: string[] }
 type JobItem = { id: string; studentId: number; status: string; stage: string; diagnostic: string | null; asset: null | { validation: unknown } }
-type Status = { checkedAt: number; ready: boolean; readiness: { ready: boolean; diagnostics: ChibiReadinessDiagnostic[] }; lastSuccessfulImport: string | null; job: Job | null; processingStartedAt: string | null; progress: ChibiProgressEntry[]; activeItems: { studentId: number; stage: string; student: { name: string } }[]; workers: { id: string; platform: string; online: boolean; ready: boolean; details: unknown; readiness: ChibiWorkerReadiness }[] }
+type Status = { checkedAt: number; ready: boolean; pauseSupported: boolean; readiness: { ready: boolean; diagnostics: ChibiReadinessDiagnostic[] }; lastSuccessfulImport: string | null; job: Job | null; processingStartedAt: string | null; progress: ChibiProgressEntry[]; activeItems: { studentId: number; stage: string; student: { name: string } }[]; workers: { id: string; platform: string; online: boolean; ready: boolean; details: unknown; readiness: ChibiWorkerReadiness }[] }
 type AdminDataLoadState = 'loading' | 'error' | 'loaded'
 
 export function getAdminChibiDataLabels(state: AdminDataLoadState, workerReady: boolean | null) {
@@ -258,6 +258,11 @@ export function AdminChibi() {
     await fetchJson<{ jobId: string }>('/api/admin/chibi/import', jsonRequest('POST', { mode, studentIds: mode === 'force-rebuild' ? selected : [] }))
     setPage(1); setMessage(mode === 'download-assets' ? 'Japan AssetBundle download queued. When it finishes, choose an update option to import the new assets.' : mode === 'force-rebuild' ? `Rebuild queued for ${selected.length} selected students. Your selection stays visible below.` : mode === 'update-missing-animations' ? 'Update queued for students missing Idle, Walk, Pickup or Touch. Students with all four are skipped.' : mode === 'update' ? 'Full-roster update queued. Only new or changed models need processing.' : mode === 'audit' ? 'Source scan queued. This checks which models are available.' : 'Retry queued for students whose last import failed.')
   })
+  const controlJob = (action: 'pause' | 'resume') => run(async () => {
+    if (!status?.job) return
+    await fetchJson(`/api/admin/chibi/import/jobs/${status.job.id}/control`, jsonRequest('POST', { action }))
+    setMessage(action === 'pause' ? 'Pause requested. Wait for Paused before shutting down; current characters will finish first.' : 'Resume queued. Completed characters are kept; processing continues with the remaining students.')
+  })
   const exportRecords = () => run(async () => {
     const result = await fetchJson<{ folder: string; students: number; models: number }>('/api/admin/chibi/records', jsonRequest('POST', { action: 'export' }))
     setMessage(`Exported ${result.students} students and ${result.models} model records to ${result.folder}. Copy this folder and the published model files to your host, then import the records folder there.`)
@@ -295,7 +300,7 @@ export function AdminChibi() {
     const body = await fetchJson<{ jobId: string }>('/api/admin/chibi/preview', jsonRequest('POST', { studentId: review.id, sourceIdentity: identity, profile }))
     setPreviewJob(body.jobId); setMessage('Candidate preview queued. Open the preview to follow conversion.')
   })
-  const active = ['queued', 'running'].includes(status?.job?.status || '')
+  const active = ['queued', 'running', 'paused'].includes(status?.job?.status || '')
   const controlsDisabled = busy || active || dataLoadState !== 'loaded'
   const dataLabels = getAdminChibiDataLabels(dataLoadState, status?.ready ?? null)
   return <section className="space-y-6">
@@ -332,8 +337,11 @@ export function AdminChibi() {
         {!!status?.workers.some(worker => !worker.online) && <details className="mt-3 text-xs text-muted2"><summary className="cursor-pointer">Previous service sessions ({status.workers.filter(worker => !worker.online).length})</summary><p className="mt-1">Historical records; you do not need to start an extra service for each entry.</p>{status.workers.filter(worker => !worker.online).map(worker => <p key={worker.id} className="mt-1">{worker.id} · {worker.platform} · offline</p>)}</details>}
       </details>
     </section>
-    {status?.job && <section className="space-y-3 rounded-2xl border border-border p-5" aria-label="Latest update"><h3 className="font-semibold">{active ? 'Update in progress' : 'Latest update'}</h3>
+    {status?.job && <section className="space-y-3 rounded-2xl border border-border p-5" aria-label="Latest update"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold">{status.job.status === 'paused' ? 'Update paused' : active ? 'Update in progress' : 'Latest update'}</h3>
+      {active && status.job.mode !== 'download-assets' && <button className={button} disabled={busy || dataLoadState !== 'loaded' || status.job.stage === 'pause-requested'} onClick={() => void controlJob(status.job!.status === 'paused' ? 'resume' : 'pause')}>{status.job.stage === 'pause-requested' ? 'Pausing…' : status.job.status === 'paused' ? 'Resume process' : 'Pause process'}</button>}
+      </div>
       <ChibiImportProgress job={status.job} progress={status.progress} activeItems={status.activeItems} now={status.checkedAt} processingStartedAt={status.processingStartedAt} />
+      {status.job.status === 'running' && status.pauseSupported === false && <p className="text-xs text-amber-200">This worker started before pause support was added. Request a pause, then restart the worker once to apply it. Saved character results are kept.</p>}
       {status.job.mode !== 'download-assets' && <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted2">{(['imported', 'updated', 'reused', 'skipped', 'unavailable', 'reviewRequired', 'failed'] as const).map(key => <span key={key}>{({ imported: 'New models', updated: 'Updated', reused: 'Already up to date', skipped: 'Skipped', unavailable: 'Source unavailable', reviewRequired: 'Needs review', failed: 'Failed' })[key]}: {status.job![key]}</span>)}</div>}
       {status.job.error && <p className="text-sm text-red-300">{status.job.error}</p>}
       <details><summary className="cursor-pointer text-xs text-muted2">Technical results ({itemTotal})</summary><p className="mt-2 text-xs text-muted2">Job {status.job.id} · {status.job.mode} · {status.job.status} · {status.job.stage}</p><div className="mt-3 space-y-3 text-xs">{items.map(item => <div key={item.id}><p><Link className="text-violet-300" href={`/3D?student=${item.studentId}`}>{students.find(student => student.id === item.studentId)?.name || item.studentId}</Link> · {item.status} / {item.stage} · {item.diagnostic || 'No item diagnostic.'}</p><ValidationDiagnostics value={item.asset?.validation} compact /></div>)}</div><div className="mt-3 flex items-center gap-3"><button className={button} disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous page</button><span className="text-xs">Page {page}</span><button className={button} disabled={page * 25 >= itemTotal} onClick={() => setPage(page + 1)}>Next page</button></div></details>

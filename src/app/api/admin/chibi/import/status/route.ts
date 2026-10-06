@@ -23,13 +23,14 @@ export async function GET() {
     if (!workerRows.length) diagnostics.push({ id: 'worker-missing', label: 'worker', detail: 'No Chibi worker has reported a heartbeat.', remediation: 'Start the Chibi worker after completing npm run chibi:setup.' })
     const job = active ?? latest
     const worker = workerRows.find(worker => worker.id === job?.workerId)
-    const [activeItems, processingTiming] = active ? await Promise.all([prisma.chibiImportItem.findMany({
+    const [activeItems, processingTiming] = active?.status === 'running' ? await Promise.all([prisma.chibiImportItem.findMany({
       where: { jobId: active.id, status: 'running' }, orderBy: { updatedAt: 'desc' }, take: 10,
       select: { studentId: true, stage: true, student: { select: { name: true } } },
     }), prisma.chibiImportItem.aggregate({ where: { jobId: active.id }, _min: { createdAt: true } })]) : [[], null]
     return noStoreJson({
       checkedAt: now,
       job: job ? publicJob(job) : null,
+      pauseSupported: job?.status !== 'running' || (!!worker?.details && typeof worker.details === 'object' && 'importPauseSupported' in worker.details && worker.details.importPauseSupported === true),
       progress: job && worker ? readChibiProgress(worker.details, job.id) : [],
       activeItems,
       processingStartedAt: processingTiming?._min.createdAt ?? null,

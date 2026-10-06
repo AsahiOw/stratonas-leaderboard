@@ -22,4 +22,10 @@ test('draws isolated body and halo passes in order, then restores source visibil
   assert.equal(scene.background, background); assert.equal(renderer.autoClear, true)
   for (const object of [aris, kei, arisBody, keiBody, keiHalo]) assert.equal(object.visible, true)
   assert.equal(hidden.visible, false)
+  passes.length = 0; depth.length = 0
+  const outline = { renderOutline: () => renderer.render(scene, camera) } as unknown as NonNullable<Parameters<typeof renderStudio>[5]>
+  renderStudio(renderer, scene, camera, actors, [{ actorId: 'kei', part: 'body' }, { actorId: 'aris', part: 'body' }, { actorId: 'kei', part: 'halo' }], outline)
+  assert.deepEqual(passes, [[], ['Kei'], ['Kei'], ['Aris'], ['Aris'], ['Kei halo'], ['Kei halo']])
+  assert.deepEqual(depth, [1, 3, 5], 'each outline draws with its own body or halo before the next layer clears depth')
+  assert.equal(scene.background, background); assert.equal(renderer.autoClear, true)
 })

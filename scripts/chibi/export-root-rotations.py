@@ -59,8 +59,8 @@ def export(manifest):
     for path in roots:
         tokens = path.split('/')[1:]
         paths.setdefault(zlib.crc32('/'.join(tokens).encode()), []).append({'pathTokens': tokens, 'sourceReference': {}})
-    result = []
-    seen = set()
+    result = {}
+    ambiguous = set()
     for bundle in manifest['animationBundles']:
         for obj in UnityPy.load(bundle).objects:
             if obj.type.name != 'AnimationClip':
@@ -68,9 +68,6 @@ def export(manifest):
             clip = obj.read()
             if clip.m_Name not in manifest['clips']:
                 continue
-            if clip.m_Name in seen:
-                raise ValueError('Selected root animation is ambiguous')
-            seen.add(clip.m_Name)
             tracks, _, _ = _decode_transform_bindings(clip, paths)
             stop = clip.m_MuscleClip.m_StopTime
             for track in tracks:
@@ -92,10 +89,24 @@ def export(manifest):
                             values[i] = [-v for v in values[i]]
                 else:
                     values = [[-x, y, z] for x, y, z in values]
-                result.append({'clip': clip.m_Name, 'hierarchyPath': matches[0], 'targetPath': track['property'],
-                               'restRotation': roots[matches[0]], 'restTranslation': positions[matches[0]], 'times': times, 'values': values})
-    return result
+                record = {'clip': clip.m_Name, 'hierarchyPath': matches[0], 'targetPath': track['property'],
+                          'restRotation': roots[matches[0]], 'restTranslation': positions[matches[0]], 'times': times, 'values': values}
+                key = (clip.m_Name, matches[0], track['property'])
+                if key in ambiguous:
+                    continue
+                if key in result and result[key] != record:
+                    # Retain the FBX-exported channel when name-only matching
+                    # cannot identify which distinct source clip it belongs to.
+                    ambiguous.add(key)
+                    del result[key]
+                    continue
+                result[key] = record
+    warnings = [f'Source bone restoration retained exported track because duplicate clips conflict: {clip} / {path} / {prop}'
+                for clip, path, prop in sorted(ambiguous)]
+    return {'tracks': list(result.values()), 'warnings': warnings}
 
 
 if __name__ == '__main__':
-    Path(sys.argv[2]).write_text(json.dumps(export(json.loads(Path(sys.argv[1]).read_text()))))
+    result = export(json.loads(Path(sys.argv[1]).read_text(encoding='utf-8')))
+    Path(sys.argv[2]).write_text(json.dumps(result['tracks']), encoding='utf-8')
+    Path(sys.argv[2] + '.warnings.json').write_text(json.dumps(result['warnings']), encoding='utf-8')

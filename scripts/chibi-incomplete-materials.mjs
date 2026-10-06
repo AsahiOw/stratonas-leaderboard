@@ -5,6 +5,21 @@ import fs from 'node:fs';
 export function applyIncompleteMaterials(json, config, appendView, nodePaths) {
   const warnings = [...config.incompleteImport.warnings];
   const slots = config.incompleteImport.materialSlots;
+  // FBX can synthesize geometry for a Unity renderer with no mesh or material.
+  // Retain other incomplete geometry; omit only uniquely bound exact nulls.
+  const sourceRenderers = config.incompleteImport.sourceRenderers ?? [];
+  for (const renderer of sourceRenderers) {
+    const owner = renderer.sourceReference?.serializedFile;
+    const isNull = pointer => owner && pointer?.file === owner && pointer.pathId === '0'
+      && !pointer.externalGuid && !pointer.builtinResource;
+    if (!renderer.sourceReference || renderer.meshSourceReference || !isNull(renderer.mesh)
+      || !(renderer.materialSlots ?? []).every(slot => !slot.sourceMaterialReference && isNull(slot.material))
+      || !renderer.hierarchyPath || sourceRenderers.filter(item => item.hierarchyPath === renderer.hierarchyPath).length !== 1) continue;
+    const matches = (json.nodes ?? []).filter((node, index) => Number.isInteger(node.mesh) && nodePaths[index] === renderer.hierarchyPath);
+    if (matches.length !== 1) continue;
+    delete matches[0].mesh;
+    warnings.push(`Omitted ${renderer.hierarchyPath}: source mesh and material pointers are exact nulls.`);
+  }
   json.images ??= [];
   json.textures ??= [];
   for (const renderer of config.incompleteImport.renderers ?? []) {

@@ -63,3 +63,9 @@ test('status remains admin guarded', async () => {
   assert.equal((await route.GET()).status, 401)
   assert.equal(state.itemQuery, null)
 })
+
+test('status distinguishes old workers that need a restart before a pause can take effect', async () => {
+  assert.equal((await (await route.GET()).json()).pauseSupported, false)
+  Object.assign(state.workers[0].details, { importPauseSupported: true })
+  assert.equal((await (await route.GET()).json()).pauseSupported, true)
+})

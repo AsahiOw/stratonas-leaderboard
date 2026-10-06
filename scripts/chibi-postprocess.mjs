@@ -4679,8 +4679,9 @@ const skinSkeletonRepairs = repairNonAncestorSkinSkeletons();
 if (skinSkeletonRepairs.length) console.log(`Repaired ${skinSkeletonRepairs.length} non-ancestor skin.skeleton root(s)`);
 const joints = new Set((json.skins ?? []).flatMap((skin) => skin.joints ?? []));
 for (const animation of json.animations) {
+  const cameraClip = /_Cam$/i.test(animation.name ?? '');
   const hasMovingJoint = animation.channels.some((channel) => {
-    if (!joints.has(channel.target.node)) return false;
+    if (!joints.has(channel.target.node) && !cameraClip) return false;
     const sampler = animation.samplers[channel.sampler];
     const values = readAccessor(sampler.output);
     const keyframes = sampler.interpolation === "CUBICSPLINE"

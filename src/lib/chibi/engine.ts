@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process'
 import sharp from 'sharp'
 
 import { artifactPath, chibiRoots } from './storage'
+import { sourceAnimationClips } from './mapping'
 import { unityBuiltinQuadReference } from './inventory'
 import type { InventoryAssembly, InventorySourceReference, SourceCandidate, SourcePart } from './inventory'
 import { CHIBI_SKIN_SKELETON_METADATA_VERSION, validateFxExclusionDiagnostics, validateSkinSkeletonMetadata } from './core-cache'
@@ -347,7 +348,7 @@ const PROJECTMX_SHADER_PASSES = {
   },
 } as const
 
-export const CHIBI_EXPORTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-render-profile-v7-policy-v7-material-claims-v2-weapon-ancestry-v1'
+export const CHIBI_EXPORTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-render-profile-v7-policy-v7-material-claims-v2-weapon-ancestry-v1-all-character-clips-v2-source-tracks-v1-null-helpers-v1'
 export const CHIBI_MATERIAL_VERSION = 'mx-materials-v65-preserve-collapsed-face-uv'
 /** Bump only when conversion bytes can change; rendering policy versions stay out of this identity. */
 export const CHIBI_CORE_CONVERTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-postprocess-core-v1'
@@ -3131,8 +3132,9 @@ export async function validateGlb(filePath: string): Promise<GlbValidation> {
     }
   }
   for (const animation of json.animations ?? []) {
+    const cameraClip = /_Cam$/i.test(animation.name ?? '')
     const deforms = animation.channels?.some((channel: any) => {
-      if (!joints.has(channel.target?.node)) return false
+      if (!joints.has(channel.target?.node) && !cameraClip) return false
       const sampler = animation.samplers?.[channel.sampler]
       if (!sampler) return false
       const values = readAccessor(sampler.output)
@@ -3240,7 +3242,7 @@ const externalTimeoutMs = Number.parseInt(process.env.CHIBI_EXTERNAL_TIMEOUT_MS 
   ? Number.parseInt(process.env.CHIBI_EXTERNAL_TIMEOUT_MS ?? '', 10)
   : 30 * 60 * 1000
 
-export function run(command: string, args: string[], cwd?: string, signal?: AbortSignal, stage = 'External conversion', captureErrorOutput = false) {
+export function run(command: string, args: string[], cwd?: string, signal?: AbortSignal, stage = 'External conversion', captureErrorOutput = true) {
   return new Promise<void>((resolve, reject) => {
     const controller = new AbortController()
     let child: ReturnType<typeof spawn> | undefined
@@ -3298,7 +3300,7 @@ export function run(command: string, args: string[], cwd?: string, signal?: Abor
       else if (code === 0) finish()
       else {
         const detail = captureErrorOutput ? capturedOutput.trim() : ''
-        finish(new Error(`${path.basename(command)} exited with ${code}${detail ? `: ${detail}` : ''}`))
+        finish(new Error(`${stage}: ${path.basename(command)} exited with ${code}${detail ? `: ${detail}` : ''}`))
       }
     })
   })
@@ -3913,11 +3915,7 @@ export async function convertCandidate(options: ConvertOptions) {
       return mouthTexturePath
     })
 
-    const selectedClips = [options.profile.initialPose, ...Object.values(options.profile.interactions)
-      .filter(interaction => interaction.state === 'available' && interaction.clip)
-      .map(interaction => interaction.clip)]
-      .filter((clip): clip is string => typeof clip === 'string')
-    const uniqueSelectedClips = [...new Set(selectedClips)]
+    const uniqueSelectedClips = sourceAnimationClips(options.candidate, options.profile)
     const activeManifest = path.join(work!, 'renderer-active-manifest.json')
     const activeOutput = path.join(work!, 'renderer-active.json')
     await writeFile(activeManifest, JSON.stringify({
@@ -3946,10 +3944,16 @@ export async function convertCandidate(options: ConvertOptions) {
       }))
       await run(python, [path.resolve('scripts/chibi/export-root-rotations.py'), rotationManifest, rotationOutput], undefined, options.signal, 'Source root rotation export')
       rootRotations = JSON.parse(await readFile(rotationOutput, 'utf8'))
+      const rotationWarnings = JSON.parse(await readFile(`${rotationOutput}.warnings.json`, 'utf8'))
+      if (rotationWarnings.length) {
+        renderingProfile.validation.valid = false
+        renderingProfile.validation.unresolved.push(...rotationWarnings)
+      }
     }
     const arrangementDefault = await measureStage('postprocess', async () => {
       const incompleteSettings = () => ({
         incompleteImport: {
+          sourceRenderers: renderingProfile.assembly?.renderers ?? [],
           warnings: [...renderingProfile.validation.unresolved, ...(options.candidate.unresolvedDependencies ?? []).map(value => `Missing dependency: ${value}`), 'Source completeness is unresolved. Exported geometry is retained; unsupported renderer events are omitted.'],
           materialSlots: renderingProfile.renderers.flatMap(renderer => renderer.materialSlots),
           renderers: renderingProfile.renderers.map(renderer => ({

@@ -11,6 +11,18 @@ const job = {
   heartbeatAt: '2026-09-28T02:29:50Z',
 }
 
+test('pausing tells users to wait; paused confirms shutdown is safe without a stale worker warning or ETA', () => {
+  const props = { job: { ...job, stage: 'pause-requested', total: 276, processed: 93 }, now, activeItems: [], progress: [] }
+  const pausing = renderToStaticMarkup(createElement(ChibiImportProgress, props))
+  assert.match(pausing, /Wait for Paused before/)
+  assert.doesNotMatch(pausing, /Estimated remaining/)
+  const paused = renderToStaticMarkup(createElement(ChibiImportProgress, { ...props, job: { ...props.job, status: 'paused', stage: 'paused', heartbeatAt: null } }))
+  assert.match(paused, /Progress is saved/)
+  assert.match(paused, /shut down now/)
+  assert.match(paused, /93 \/ 276 students processed/)
+  assert.doesNotMatch(paused, /stopped reporting|Estimated remaining/)
+})
+
 test('download jobs show source activity and the separate import next step', () => {
   const markup = renderToStaticMarkup(createElement(ChibiImportProgress, {
     job: { ...job, mode: 'download-assets', stage: 'download' }, now, activeItems: [], progress: [],
