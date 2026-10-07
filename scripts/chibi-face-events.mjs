@@ -1,20 +1,47 @@
 // Compatibility rule for the numbered alternate-face convention. This is an
 // inference, not a reconstruction of the unavailable Unity callback code.
+import { inferInactiveAlternateHair } from './chibi-alternate-hair.mjs';
+
 export function embedAlternateFaceEvents(json, config, paths, readAccessor) {
   const metadata = json.scenes?.[json.scene ?? 0]?.extras?.chibi;
-  const events = (config.alternateFaceEvents ?? []).filter(event =>
+  let events = (config.alternateFaceEvents ?? []).filter(event =>
     (event.function === 'AniEvt_EnableChildRenderer' || event.function === 'AniEvt_DisableChildRenderer')
     && (json.animations ?? []).some(clip => clip.name === event.clip));
   if (!metadata?.incompleteImport || !events.length) return false;
   if (events.some(event => !Number.isInteger(event.int) || event.int < 0 || !Number.isFinite(event.time) || event.time < 0)) return false;
-  const ids = [...new Set(events.map(event => event.int))].sort((a, b) => a - b);
-  const faces = (config.incompleteImport.renderers ?? []).flatMap(renderer => {
+  let ids = [...new Set(events.map(event => event.int))].sort((a, b) => a - b);
+  let faces = (config.incompleteImport.renderers ?? []).flatMap(renderer => {
     const match = renderer.hierarchyPath?.match(/^(.*\/[^/]*?Face)_?(\d*)(?:_(?:Mesh|Outline))?$/i);
     if (!match || !renderer.sourceReference) return [];
     const nodes = (json.nodes ?? []).flatMap((node, index) =>
       Number.isInteger(node.mesh) && paths[index] === renderer.hierarchyPath ? [index] : []);
     return [{ ...renderer, group: match[1], rank: Number(match[2] || 0), nodes }];
   }).sort((a, b) => a.rank - b.rank);
+  // Unrelated prop callbacks must not invalidate an independently complete
+  // face group. Anchor its IDs to the complete initial face-state batch.
+  const initialIds = [...new Set(events.filter(event => event.clip === config.profile?.initialPose && event.time <= 1e-4)
+    .map(event => event.int))].sort((a, b) => a - b);
+  if (faces.length >= 2 && initialIds.length === faces.length && ids.length > faces.length) {
+    ids = initialIds;
+    events = events.filter(event => ids.includes(event.int));
+  }
+  let hairSwitching = false;
+  if (!faces.length && ids.length === 2 && readAccessor && config.profile?.initialPose) {
+    const choices = inferInactiveAlternateHair(json, config.incompleteImport.renderers, paths, [config.profile.initialPose], readAccessor);
+    if (choices.length === 1) {
+      const inactive = choices[0].hierarchyPath;
+      const parent = inactive.slice(0, inactive.lastIndexOf('/'));
+      const pair = config.incompleteImport.renderers.filter(renderer => renderer.hairMaterial
+        && renderer.hierarchyPath?.slice(0, renderer.hierarchyPath.lastIndexOf('/')) === parent);
+      if (pair.length === 2) {
+        faces = pair.map(renderer => ({ ...renderer, group: parent,
+          rank: renderer.hierarchyPath === inactive ? 1 : 0, eyeMouth: renderer.hierarchyPath !== inactive,
+          nodes: json.nodes.flatMap((node, index) => Number.isInteger(node.mesh) && paths[index] === renderer.hierarchyPath ? [index] : []),
+        })).sort((a, b) => a.rank - b.rank);
+        hairSwitching = true;
+      }
+    }
+  }
   // Some prefabs embed the normal face in the body and provide one separate
   // expression overlay. Only support clips that consistently keep the body on;
   // switching the entire body off would need a different primitive-level rule.
@@ -110,10 +137,17 @@ export function embedAlternateFaceEvents(json, config, paths, readAccessor) {
   }));
   metadata.rendererEvents = events.map(({ clip, time, int, function: fn }) => ({ clip, time, int, function: fn }))
     .sort((a, b) => a.time - b.time);
-  metadata.faceSwitching = { method: integratedNormal ? 'integrated-normal-face-convention-v1' : 'alternate-face-convention-v2', sourceVerified: false,
-    initialPose: config.profile.initialPose, basis: 'Normal EyeMouth face (paired eye geometry when shared with a wink) anchored to idle; remaining numbered variants follow ascending event IDs.' };
+  metadata[hairSwitching ? 'hairSwitching' : 'faceSwitching'] = {
+    method: hairSwitching ? 'animation-bound-alternate-hair-v1' : integratedNormal ? 'integrated-normal-face-convention-v1' : 'alternate-face-convention-v2', sourceVerified: false,
+    initialPose: config.profile.initialPose, basis: hairSwitching
+      ? 'The idle clip animates the weighted unique joints of one hair skin and none of the alternate skin; this anchors the initially enabled event ID.'
+      : 'Normal EyeMouth face (paired eye geometry when shared with a wink) anchored to idle; remaining numbered variants follow ascending event IDs.',
+  };
   metadata.incompleteImport.warnings = metadata.incompleteImport.warnings
-    .filter(warning => !warning.startsWith('Selected child-renderer event '));
-  metadata.incompleteImport.warnings.push('Alternate face switching uses the inferred numbered-face convention; original game callback mapping is not verified.');
+    .filter(warning => !events.some(event => warning.startsWith(`Selected child-renderer event ${event.clip} at ${event.time} `)
+      && warning.includes(`index ${event.int} without`)));
+  metadata.incompleteImport.warnings.push(hairSwitching
+    ? 'Alternate hair switching uses the inferred animation-bound skin convention; original game callback mapping is not verified.'
+    : 'Alternate face switching uses the inferred numbered-face convention; original game callback mapping is not verified.');
   return true;
 }

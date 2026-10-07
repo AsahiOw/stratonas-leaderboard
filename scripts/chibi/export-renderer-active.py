@@ -1,5 +1,6 @@
 """Preserve constant GameObject and Renderer visibility curves lost by FBX conversion."""
 import json
+import math
 import sys
 import zlib
 from pathlib import Path
@@ -9,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from chibi_v12_motion_proof_unitypy import decode_streamed_clip
 
 
-def constant_active(clip, paths):
+def constant_active(clip, paths, include_timed=False):
     pointer = getattr(getattr(clip, 'm_MuscleClip', None), 'm_Clip', None)
     data = getattr(pointer, 'data', None)
     bindings = getattr(getattr(clip, 'm_ClipBindingConstant', None), 'genericBindings', [])
@@ -41,6 +42,17 @@ def constant_active(clip, paths):
                 keys.extend(key for frame in stream['frames'] for key in frame['keys'] if key['index'] == offset)
                 if (keys and all(key['value'] == keys[0]['value'] and all(coefficient == 0 for coefficient in key['coefficients'][:3]) for key in keys)):
                     value = keys[0]['value']
+                elif (include_timed and keys and all(key['value'] in (0.0, 1.0)
+                      and all(coefficient == 0 for coefficient in key['coefficients'][:3]) for key in keys)):
+                    samples = [(0, key) for key in stream['initialKeys'] if key['index'] == offset]
+                    samples.extend((frame['time'], key) for frame in stream['frames']
+                                   for key in frame['keys'] if key['index'] == offset)
+                    if all(math.isfinite(time) and time >= 0 for time, _ in samples):
+                        by_time = dict(samples)
+                        if 0 in by_time:
+                            result.extend({'clip': clip.m_Name, 'hierarchyPath': matches[0],
+                                           'active': bool(key['value']), 'time': time}
+                                          for time, key in sorted(by_time.items()))
             if value in (0.0, 1.0):
                 result.append({'clip': clip.m_Name, 'hierarchyPath': matches[0], 'active': bool(value)})
         offset += width
@@ -59,7 +71,7 @@ def export(manifest):
                 continue
             clip = obj.read()
             if clip.m_Name in manifest['clips']:
-                result.extend(constant_active(clip, paths))
+                result.extend(constant_active(clip, paths, include_timed=True))
     return result
 
 

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import * as THREE from 'three'
 import ts from 'typescript'
+import { previewPlacement } from '@/lib/chibi/preview-bounds'
 
 const source = readFileSync(new URL('./ChibiViewer.tsx', import.meta.url), 'utf8')
 
@@ -100,7 +101,7 @@ test('pickup repeats past clip end even when the source profile requests a held 
   const js = ts.transpileModule(`${block}; return playClip`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const root = new THREE.Group(), mixer = new THREE.AnimationMixer(root)
   const clip = new THREE.AnimationClip('Pickup', 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [0, 1])])
-  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', 'setActiveClip', 'setPaused', `let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
+  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', 'setActiveClip', 'setPaused', `const studio = undefined, placementReady = false; let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
     THREE, new Map([['Pickup', clip]]), mixer, root, root, 0, new Map(), () => {}, () => {}, () => {}, () => {},
   )
   assert.equal(play('Pickup', 'pickup', { loop: false, hold: true }), true)
@@ -116,7 +117,7 @@ test('extra clips play and switch without a quick-action mapping', () => {
   const root = new THREE.Group(), mixer = new THREE.AnimationMixer(root)
   const clips = new Map(['Victory', 'Skill'].map(name => [name, new THREE.AnimationClip(name, 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [0, 1])])]))
   let activeClip: string | null = null
-  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', 'setActiveClip', 'setPaused', `let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
+  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', 'setActiveClip', 'setPaused', `const studio = undefined, placementReady = false; let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
     THREE, clips, mixer, root, root, 0, new Map(), () => {}, () => {}, (name: string) => { activeClip = name }, () => {},
   )
   assert.equal(play('Victory', null, { loop: true }), true)
@@ -131,6 +132,46 @@ test('extra clips play and switch without a quick-action mapping', () => {
   assert.equal(activeClip, 'Skill')
 })
 
+test('clips center only their starting pose and retain subsequent movement during playback and seeking', () => {
+  const block = source.slice(source.indexOf('        const playClip ='), source.indexOf('        const setPlaybackLoop ='))
+  const js = ts.transpileModule(`${block}; return playClip`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const root = new THREE.Group(), holder = new THREE.Group(), mixer = new THREE.AnimationMixer(root)
+  root.add(new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), new THREE.MeshBasicMaterial())); holder.add(root)
+  const clip = new THREE.AnimationClip('Balcony', 1, [new THREE.VectorKeyframeTrack('.position', [0, 1], [3, -20, -8, 5, -17, -6])])
+  const restingPosition = new THREE.Vector3()
+  const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingPosition', 'previewPlacement',
+    `const studio = undefined, placementReady = true, previewScale = 1, mouthTransforms = new Map();
+     let restingHolderY = 0, currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false;
+     const updateMouths = () => {}, setActive = () => {}, setActiveClip = () => {}, setPaused = () => {};
+     ${js}`)(THREE, new Map([[clip.name, clip]]), mixer, root, holder, restingPosition, previewPlacement)
+  assert.equal(play(clip.name, null, { loop: true }), true)
+  assert.equal(holder.position.y, 22)
+  assert.deepEqual(restingPosition.toArray(), [-3, 22, 8])
+  const start = source.lastIndexOf('        if (!dragging) {', source.indexOf('if (rotatingRef.current)'))
+  const end = source.indexOf('\n        updateMouths();', start)
+  const frame = new Function('holder', 'restingPosition', 'rotatingRef', 'dragging', 'delta',
+    ts.transpileModule(source.slice(start, end), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText)
+  frame(holder, restingPosition, { current: false }, false, 0)
+  holder.updateMatrixWorld(true)
+  assert.deepEqual(root.getWorldPosition(new THREE.Vector3()).toArray(), [0, 2, 0])
+  mixer.update(.5)
+  assert.equal(root.position.y, -18.5)
+  assert.equal(holder.position.y, 22)
+  frame(holder, restingPosition, { current: false }, false, .5)
+  holder.updateMatrixWorld(true)
+  assert.deepEqual(root.getWorldPosition(new THREE.Vector3()).toArray(), [1, 3.5, 1])
+  mixer.existingAction(clip)!.time = .75; mixer.update(0)
+  frame(holder, restingPosition, { current: false }, false, 0)
+  holder.updateMatrixWorld(true)
+  assert.deepEqual(root.getWorldPosition(new THREE.Vector3()).toArray(), [1.5, 4.25, 1.5])
+  assert.deepEqual(restingPosition.toArray(), [-3, 22, 8])
+  assert.equal(play(clip.name, 'walk', { loop: true }), true)
+  assert.equal(holder.position.y, 22)
+  assert.deepEqual(restingPosition.toArray(), [-3, 22, 8])
+  mixer.update(.5)
+  assert.deepEqual(root.position.toArray(), [4, -18.5, -7])
+})
+
 test('zero-duration cut-in clips retain their pose and finite time through loop and pause controls', () => {
   const block = source.slice(source.indexOf('        const playClip ='), source.indexOf('        const playInitial ='))
   const js = ts.transpileModule(`${block}; return playClip`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
@@ -139,7 +180,7 @@ test('zero-duration cut-in clips retain their pose and finite time through loop 
   const mediaRef = { current: null as null | { togglePause: () => void; setLoop: (loop: boolean) => void; seek: (time: number) => void } }
   let paused = false
   const play = new Function('THREE', 'clips', 'mixer', 'root', 'holder', 'restingHolderY', 'mouthTransforms', 'updateMouths', 'setActive', 'setActiveClip', 'setPaused', 'mediaRef', 'loopingRef', 'setLooping', 'applyArrangement', 'setPlayback',
-    `let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
+    `const studio = undefined, placementReady = false; let currentAction = null, currentKind = null, haloFollower = null, manualPlayback = false; ${js}`)(
     THREE, new Map([[clip.name, clip]]), mixer, root, root, 0, new Map(), () => {}, () => {}, () => {}, (value: boolean) => { paused = value }, mediaRef, { current: true }, () => {}, () => {}, () => {},
   )
   assert.equal(play(clip.name, null, { loop: true }), true)

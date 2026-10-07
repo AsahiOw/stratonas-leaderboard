@@ -2,7 +2,51 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as THREE from 'three'
 
-import { alternateFaceVisibilityAtTime, inPlaceClip, rendererVisibilityAtTime } from './chibi-viewer-state'
+import { alternateFaceVisibilityAtTime, applyHoshinoShieldPreview, applyMakotoHairPreview, inPlaceClip, rendererVisibilityAtTime } from './chibi-viewer-state'
+
+test('Hoshino shield preview enables the exact source renderer in EX and restores idle visibility', () => {
+  const root = new THREE.Group(), shield = new THREE.Group(), unrelated = new THREE.Group()
+  shield.userData.chibi = { sourceReference: {
+    bundleSha256: '553b7fe20e78793df20939c307d5b8cfb979be7e84edad08b3e3fd03a9f5cd26',
+    serializedFile: 'CAB-1d74217275224e4ba8d7167893fe01e5', objectId: '5492241791769865631',
+  } }
+  unrelated.userData.chibi = { sourceReference: { ...shield.userData.chibi.sourceReference, objectId: 'other-student' } }
+  shield.visible = unrelated.visible = false
+  root.add(shield, unrelated)
+  for (const clip of ['Hoshino_Original_Exs', 'Hoshino_Original_Cafe_Idle', 'Hoshino_Original_Exs', 'Hoshino_Original_Cafe_Walk']) {
+    applyHoshinoShieldPreview(root, clip)
+    assert.equal(shield.visible, clip === 'Hoshino_Original_Exs')
+    assert.equal(unrelated.visible, false)
+  }
+  shield.userData.chibi.sourceReference.bundleSha256 = 'different-source'
+  applyHoshinoShieldPreview(root, 'Hoshino_Original_Exs')
+  assert.equal(shield.visible, false)
+})
+
+test('Makoto EX hair preview follows collapsed hat scale and reverses on seeking', () => {
+  const root = new THREE.Group(), normal = new THREE.Group(), alternate = new THREE.Group(), hat = new THREE.Bone()
+  hat.name = 'bone_hat'
+  for (const [object, objectId] of [[normal, '3218009238889943685'], [alternate, '3134145453237654149']] as const) {
+    object.userData.chibi = { sourceReference: {
+      bundleSha256: 'a1017c71727b4955f2051868456e618026674e078b3843e2649d8943873c457f',
+      serializedFile: 'CAB-1469fcd164501c78fabde162fa4f06c4', objectId,
+    } }
+  }
+  root.add(normal, alternate, hat)
+  for (const scale of [1, 0.02358, 1]) {
+    hat.scale.setScalar(scale)
+    applyMakotoHairPreview(root, 'CH0079_Exs')
+    assert.equal(normal.visible, scale === 1)
+    assert.equal(alternate.visible, scale !== 1)
+  }
+  hat.scale.setScalar(0.02358)
+  applyMakotoHairPreview(root, 'CH0079_Cafe_Idle')
+  assert.equal(normal.visible, true)
+  assert.equal(alternate.visible, false)
+  alternate.userData.chibi.sourceReference.bundleSha256 = 'different-source'
+  applyMakotoHairPreview(root, 'CH0079_Exs')
+  assert.equal(alternate.visible, false)
+})
 
 const reference = (objectId: string) => ({ bundleSha256: 'a'.repeat(64), serializedFile: 'CAB-prefab', objectId })
 const body = reference('1')

@@ -1834,7 +1834,7 @@ test('fingerprint is stable across object key ordering and changes with source d
   const changedPlayback = structuredClone(profile)
   changedPlayback.interactions.touch = { state: 'unsupported', reason: 'Source has no touch response.', speed: 2 }
   assert.equal(buildFingerprint({ fingerprint: 'a' }, profile, {}), buildFingerprint({ fingerprint: 'a' }, changedPlayback, {}), 'profile-only playback changes reuse geometry exports')
-  assert.match(CHIBI_EXPORTER_VERSION, /weapon-ancestry-v1-all-character-clips-v2-source-tracks-v1-null-helpers-v1$/)
+  assert.match(CHIBI_EXPORTER_VERSION, /weapon-ancestry-v1-all-character-clips-v2-source-tracks-v1-null-helpers-v1-fallback-visibility-lenses-v1-props-rest-v1$/)
   assert.equal(profilesEqual({ a: 1, b: { c: 2 } }, { b: { c: 2 }, a: 1 }), true)
 })
 
@@ -2253,6 +2253,17 @@ test('mouth atlas selection follows the source material instead of assuming Char
     ],
   }]), 'Character_Mouth')
   assert.equal(selectMouthTextureName([]), 'Character_Mouth')
+})
+
+test('retains exact vehicle main textures when the damage shader adapter is unavailable', () => {
+  const textureReference = { bundleSha256: 'a'.repeat(64), serializedFile: 'CAB', objectId: '1' }
+  const slot = { sourceMaterialName: 'Vehicle', sourceMaterialReference: { ...textureReference, objectId: '2' },
+    adapterId: null, sourceShaderParsedName: 'ProjectMX/WeaponTest1Damage',
+    materialProperties: { textures: [{ name: '_mainTex', texture: { pathId: '1' }, textureReference }] } }
+  const profile = { renderers: [{ materialSlots: [slot] }] } as any
+  assert.deepEqual(missingSourceTextureExports(profile, [{ name: 'Vehicle' }]).map(binding => binding.textureProperty), ['_mainTex'])
+  slot.sourceShaderParsedName = 'Unknown/Vehicle'
+  assert.deepEqual(missingSourceTextureExports(profile, [{ name: 'Vehicle' }]), [])
 })
 
 test('finds dropped profile MainTex slots by their selected source material and texture identities', () => {

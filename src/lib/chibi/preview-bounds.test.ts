@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as THREE from 'three'
-import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround } from './preview-bounds'
+import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround, previewPlacement } from './preview-bounds'
 
 test('Hifumi idle-to-pickup keeps the skinned weapon drawable with a stale bound', () => {
   const root = new THREE.Group()
@@ -263,4 +263,45 @@ test('pickup bounds follow bones after standing bounds were cached', () => {
   bone.position.y = -3; root.updateMatrixWorld(true)
   assert.equal(previewGround(root, previewBounds(root)), -2)
   assert.equal(previewGround(root, previewBounds(root, true)), -5)
+})
+
+test('Miyu swimsuit fit uses the body surface rather than oversized integrated hair bounds', () => {
+  const root = new THREE.Group()
+  for (const [index, height] of [4, 12].entries()) {
+    const geometry = new THREE.BoxGeometry(2, height, 2), count = geometry.getAttribute('position').count
+    geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Array(count * 4).fill(0), 4))
+    geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Array(count * 4).fill(0).map((_, i) => i % 4 === 0 ? 1 : 0), 4))
+    const material = new THREE.MeshBasicMaterial()
+    material.name = index === 0 ? 'CH0218_Body' : 'CH0218_Hair'
+    const mesh = new THREE.SkinnedMesh(geometry, material)
+    mesh.name = `CH0218_Body_${index + 1}`
+    const bone = new THREE.Bone()
+    mesh.add(bone); root.add(mesh); mesh.bind(new THREE.Skeleton([bone]))
+  }
+  root.updateMatrixWorld(true)
+  assert.equal(previewBounds(root).getSize(new THREE.Vector3()).y, 12)
+  assert.equal(previewFitBounds(root).getSize(new THREE.Vector3()).y, 4)
+  assert.equal(root.children[1].visible, true)
+})
+
+test('animation placement refreshes the body pose in actor-local space without chasing equipment', () => {
+  const holder = new THREE.Group(), root = new THREE.Group(), bone = new THREE.Bone()
+  holder.position.set(10, -3, 20); holder.scale.setScalar(2); holder.rotation.y = .7; holder.add(root)
+  const geometry = new THREE.BoxGeometry(2, 4, 2), count = geometry.getAttribute('position').count
+  geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Array(count * 4).fill(0), 4))
+  geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Array(count * 4).fill(0).map((_, i) => i % 4 === 0 ? 1 : 0), 4))
+  const body = new THREE.SkinnedMesh(geometry, new THREE.MeshBasicMaterial()); body.name = 'Character_Body'
+  root.add(body, bone); body.bind(new THREE.Skeleton([bone]))
+  const equipment = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+  equipment.position.set(100, -100, 100); root.add(equipment)
+  holder.updateMatrixWorld(true)
+  previewBounds(root)
+  for (const position of [[3, -20, -8], [-4, 2, 6], [0, 0, 0]]) {
+    bone.position.fromArray(position)
+    const placement = previewPlacement(root)
+    assert.ok(placement.anchor.distanceTo(new THREE.Vector3(...position)) < 1e-6)
+    assert.ok(Math.abs(placement.ground - (position[1] - 2)) < 1e-6)
+  }
+  assert.deepEqual(holder.position.toArray(), [10, -3, 20])
+  assert.equal(equipment.visible, true)
 })

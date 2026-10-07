@@ -90,7 +90,7 @@ export function previewFitBounds(root: THREE.Object3D) {
   return bounds
 }
 
-function bodyBounds(root: THREE.Object3D) {
+function bodyBounds(root: THREE.Object3D, refreshPose = false) {
   const bodyMeshes: THREE.Object3D[] = []
   root.traverse((object) => {
     if (!isBodyMesh(object) || !visibleInHierarchy(root, object)) return
@@ -100,8 +100,15 @@ function bodyBounds(root: THREE.Object3D) {
     bodyMeshes.push(object)
   })
   if (!bodyMeshes.length) return null
+  // GLTF splits a source Body renderer into material primitives. Hair/effect
+  // primitives can have oversized bounds even when their texture hides them.
+  // Use the actual body surface for framing, grounding and horizontal centering.
+  const bodySurfaces = bodyMeshes.filter(object => {
+    const material = (object as THREE.Mesh).material
+    return (Array.isArray(material) ? material : [material]).some(item => /(?:^|_)Body(?:$|\.\d+$)/i.test(item.name))
+  })
   const bounds = new THREE.Box3()
-  for (const mesh of bodyMeshes) bounds.union(meshBounds(mesh as THREE.Mesh))
+  for (const mesh of bodySurfaces.length ? bodySurfaces : bodyMeshes) bounds.union(meshBounds(mesh as THREE.Mesh, refreshPose))
   return bounds.isEmpty() ? null : bounds
 }
 
@@ -127,4 +134,12 @@ export function previewGround(root: THREE.Object3D, fallback: THREE.Box3) {
  */
 export function previewAnchor(root: THREE.Object3D, fallback: THREE.Box3) {
   return bodyBounds(root)?.getCenter(new THREE.Vector3()) ?? fallback.getCenter(new THREE.Vector3())
+}
+
+/** Animated actor placement excludes viewer scale, rotation and scene offsets. */
+export function previewPlacement(root: THREE.Object3D) {
+  root.updateWorldMatrix(true, true)
+  const bounds = bodyBounds(root, true) ?? previewBounds(root, true)
+  bounds.applyMatrix4(root.parent?.matrixWorld.clone().invert() ?? new THREE.Matrix4())
+  return { anchor: bounds.getCenter(new THREE.Vector3()), ground: bounds.min.y }
 }

@@ -48,7 +48,10 @@ export function applyIncompleteMaterials(json, config, appendView, nodePaths) {
       && /^(?:mx\/c-face(?:\/|$)|mxcharacterface)/i.test(slot.sourceShaderParsedName || slot.sourceShaderName || '')) {
       material.extras = { ...material.extras, chibi: { ...material.extras?.chibi, adapterId: slot.adapterId } };
     }
-    const textures = (config.sourceTextureExports ?? []).filter(binding => binding.sourceMaterialName === material.name && binding.textureProperty === '_MainTex');
+    const textureProperty = slot.sourceShaderParsedName === 'ProjectMX/WeaponTest1Damage' ? '_mainTex' : '_MainTex';
+    const textures = (config.sourceTextureExports ?? []).filter(binding => binding.sourceMaterialName === material.name
+      && ['bundleSha256', 'serializedFile', 'objectId'].every(key => binding.sourceMaterialReference?.[key] === slot.sourceMaterialReference[key])
+      && binding.textureProperty === textureProperty);
     if (textures.length === 1) {
       const image = json.images.push({ mimeType: 'image/png', bufferView: appendView(fs.readFileSync(textures[0].path)) }) - 1;
       const texture = json.textures.push({ source: image }) - 1;
@@ -65,6 +68,13 @@ export function applyIncompleteMaterials(json, config, appendView, nodePaths) {
         polygonOffsetFactor: state.polygonOffsetFactor ?? 0, polygonOffsetUnits: state.polygonOffsetUnits ?? 0,
       } };
     }
+    // The requested fan preview uses the same surface on its reverse face.
+    if (slot.sourceMaterialReference.bundleSha256 === '375d16e823615ca18e08ada1abc9550890a4e30b58fc05e60e63005ab9740dc8'
+      && slot.sourceMaterialReference.serializedFile === 'CAB-e8051bb32f3c20ea4b804aa6613978c9'
+      && slot.sourceMaterialReference.objectId === '1024908930424722841') {
+      material.doubleSided = true;
+      material.extras = { ...material.extras, chibi: { ...material.extras?.chibi, previewTwoSided: true } };
+    }
     // MX/C-Hair shaders ignore vertex RGB and use alpha only for rim lighting.
     // The unlit fallback keeps texture color/alpha without that lighting mask.
     const hairLightingMask = slot.adapterId === 'mx-character-hair'
@@ -77,6 +87,16 @@ export function applyIncompleteMaterials(json, config, appendView, nodePaths) {
     // rim lighting. glTF would multiply both and erase zero-mask fabric.
     const transparentRimMask = slot.adapterId === 'mx-character-general'
       && ['mx/c-simple-transparent', 'mx/c-general/transparent'].includes((slot.sourceShaderParsedName || slot.sourceShaderName || '').toLowerCase());
+    if (transparentRimMask && state?.alphaMode === 'BLEND'
+      && typeof state.depthTest === 'boolean' && typeof state.depthWrite === 'boolean') {
+      const tint = slot.adapterSettings?.baseColorTint;
+      if (Array.isArray(tint) && tint.length === 4 && tint.every(Number.isFinite)) {
+        material.pbrMetallicRoughness ??= {};
+        material.pbrMetallicRoughness.baseColorFactor = [...tint];
+      }
+      // Draw transparent surfaces over the late EyeMouth cutout layer.
+      material.extras.chibi.renderOrder = 10000;
+    }
     if (slot.adapterId === 'mx-character-eyemouth' || hairLightingMask || bodyLightingMask || transparentRimMask) {
       for (const mesh of json.meshes ?? []) for (const primitive of mesh.primitives ?? []) {
         if (primitive.material === index) delete primitive.attributes.COLOR_0;

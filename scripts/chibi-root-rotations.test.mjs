@@ -1,6 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { restoreRootRotations } from './chibi-root-rotations.mjs';
+import { restoreRootRotations, restoreStaticMeshTranslations } from './chibi-root-rotations.mjs';
+
+test('restores static mesh offsets only for unanimated source positions and generated zero channels', () => {
+  for (const mutation of ['valid', 'authored', 'moving', 'wrong-rest', 'skin', 'ambiguous']) {
+    const json = { nodes: [{ mesh: 0, translation: [0, -.01, .002] }], animations: [{ name: 'Idle',
+      channels: [{ target: { node: 0, path: 'translation' }, sampler: 0 }], samplers: [{ output: 0 }] }] };
+    const source = { hierarchyPath: 'Root/Mesh', sourceReference: { objectId: '1' }, restTranslation: [0, -1, .2], clips: ['Idle'] };
+    const arrays = [[[0, 0, 0], [0, 0, 0]]], paths = ['Root/Mesh'];
+    if (mutation === 'authored') source.clips = [];
+    if (mutation === 'moving') arrays[0][1][1] = .1;
+    if (mutation === 'wrong-rest') source.restTranslation = [0, 1, .2];
+    if (mutation === 'skin') json.nodes[0].skin = 0;
+    if (mutation === 'ambiguous') { json.nodes.push({ ...json.nodes[0] }); paths.push(paths[0]); }
+    const count = restoreStaticMeshTranslations(json, [source], paths, i => arrays[i], rows => { arrays.push(rows); return arrays.length - 1; });
+    assert.equal(count, mutation === 'valid' ? 1 : 0);
+    if (count) assert.deepEqual(arrays[1], [[0, -.01, .002], [0, -.01, .002]]);
+  }
+});
 function fixture() {
   const json = { nodes: [{ rotation: [0, 0, 0, 1] }], accessors: [{}, {}], animations: [{ name: 'Pickup', channels: [{ target: { node: 0, path: 'rotation' }, sampler: 0 }], samplers: [{ input: 0, output: 1, interpolation: 'LINEAR' }] }] };
   const arrays = [[[0], [1]], [[0, 0, 0, 1], [.70710678, 0, 0, .70710678]]];

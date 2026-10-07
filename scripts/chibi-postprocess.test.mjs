@@ -801,7 +801,8 @@ test('incomplete imports preserve source eye bytes and depth without inventing n
       incompleteImport: { warnings: ['Numeric renderer targets unresolved'], materialSlots: [slot], renderers: [{
         hierarchyPath: 'Fixture/Body', sourceReference: renderingProfile().renderers[0].sourceReference, defaultVisible: false,
       }] },
-      sourceTextureExports: [{ sourceMaterialName: slot.sourceMaterialName, textureProperty: '_MainTex', path: texture }],
+      sourceTextureExports: [{ sourceMaterialName: slot.sourceMaterialName, sourceMaterialReference: slot.sourceMaterialReference,
+        textureProperty: '_MainTex', path: texture }],
       childRendererEvents: [{ clip: 'Idle', function: 'AniEvt_EnableChildRenderer', int: 2, time: 0 }],
     }));
     const result = await runPostprocess(path.resolve('scripts/chibi-postprocess.mjs'), input, output, config);

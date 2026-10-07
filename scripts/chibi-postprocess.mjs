@@ -1,8 +1,8 @@
 import { bindHaloFollow } from './chibi-halo-follow.mjs';
 import { applyIncompleteMaterials } from './chibi-incomplete-materials.mjs';
 import { embedAlternateFaceEvents } from './chibi-face-events.mjs';
-import { restoreRootRotations } from './chibi-root-rotations.mjs';
-import { embedRendererActive } from './chibi-renderer-active.mjs';
+import { restoreRootRotations, restoreStaticMeshTranslations } from './chibi-root-rotations.mjs';
+import { embedRendererActive, embedExCostumePreview } from './chibi-renderer-active.mjs';
 import { repairFaceSkin } from './chibi-face-skin.mjs';
 import { inferInactiveAlternateHair } from './chibi-alternate-hair.mjs';
 import fs from "node:fs";
@@ -4652,7 +4652,10 @@ if (config.expectedMouthTriangles && mouthTriangles !== config.expectedMouthTria
 if (config.incompleteImport) applyIncompleteMaterials(json, config, appendView, nodeHierarchyPaths());
 if (config.incompleteImport) embedAlternateFaceEvents(json, config, nodeHierarchyPaths(), readAccessor);
 embedRendererActive(json, config, nodeHierarchyPaths());
+embedExCostumePreview(json);
 const rootRotationRepairs = restoreRootRotations(json, config.rootRotations ?? [], nodeHierarchyPaths(), readAccessor, appendAccessor);
+const staticMeshRepairs = restoreStaticMeshTranslations(json, config.haloFollow?.staticMeshTranslations ?? [], nodeHierarchyPaths(), readAccessor, appendAccessor);
+if (staticMeshRepairs) console.log(`Restored ${staticMeshRepairs} source-static mesh position tracks`);
   if (rootRotationRepairs) console.log(`Restored ${rootRotationRepairs} exact source bone transform tracks`);
 if (config.incompleteImport) {
   for (const choice of inferInactiveAlternateHair(json, config.incompleteImport.renderers, nodeHierarchyPaths(), config.exportClips, readAccessor)) {

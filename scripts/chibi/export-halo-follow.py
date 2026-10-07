@@ -3,6 +3,7 @@ import hashlib
 import json
 import math
 import sys
+import zlib
 from pathlib import Path
 import UnityPy
 
@@ -35,6 +36,20 @@ def rotation(value):
 
 def export(manifest):
     bindings, warnings = [], []
+    static_translations = []
+    animation_paths = {}
+    for bundle in manifest.get('animationBundles', []):
+        for obj in UnityPy.load(bundle).objects:
+            if obj.type.name != 'AnimationClip':
+                continue
+            clip = obj.read()
+            if clip.m_Name not in manifest.get('clips', []):
+                continue
+            paths = animation_paths.setdefault(clip.m_Name, set())
+            for binding in getattr(getattr(clip, 'm_ClipBindingConstant', None), 'genericBindings', []):
+                if binding.typeID == 4 and binding.attribute == 1:
+                    paths.add(binding.path)
+            paths.update(zlib.crc32(curve.path.encode()) for curve in getattr(clip, 'm_PositionCurves', []))
     for digest in {r['sourceReference']['bundleSha256'] for r in manifest['renderers']}:
         data = Path(manifest['bundles'][digest]).read_bytes()
         if hashlib.sha256(data).hexdigest() != digest:
@@ -42,6 +57,23 @@ def export(manifest):
         env = UnityPy.load(data)
         roots = {(r['sourceReference']['serializedFile'], r['hierarchyPath'].split('/')[0])
                  for r in manifest['renderers'] if r['sourceReference']['bundleSha256'] == digest}
+        for renderer in manifest['renderers']:
+            ref = renderer['sourceReference']
+            if ref['bundleSha256'] != digest:
+                continue
+            matches = [o for o in env.objects if o.type.name == 'MeshRenderer'
+                       and o.assets_file.name == ref['serializedFile'] and str(o.path_id) == ref.get('objectId')]
+            if len(matches) != 1:
+                continue
+            go = matches[0].read().m_GameObject.read()
+            transforms = [c.component.read() for c in go.m_Component if c.component.type.name == 'Transform']
+            if len(transforms) != 1 or hierarchy(transforms[0]) != renderer['hierarchyPath']:
+                continue
+            transform = transforms[0]
+            relative = renderer['hierarchyPath'].split('/', 1)[1]
+            clips = [clip for clip, paths in animation_paths.items() if zlib.crc32(relative.encode()) not in paths]
+            static_translations.append({'hierarchyPath': renderer['hierarchyPath'], 'sourceReference': ref,
+                'restTranslation': vector({k: getattr(transform.m_LocalPosition, k) for k in ['x', 'y', 'z']}), 'clips': clips})
         for obj in env.objects:
             if obj.type.name != 'MonoBehaviour':
                 continue
@@ -90,7 +122,7 @@ def export(manifest):
                     'fixYRotation': bool(tree['FixYRotation'])})
             except (ValueError, KeyError) as error:
                 warnings.append(f'Halo follow {path}: {error}')
-    return {'bindings': bindings, 'warnings': warnings}
+    return {'bindings': bindings, 'warnings': warnings, 'staticMeshTranslations': static_translations}
 
 
 if __name__ == '__main__':

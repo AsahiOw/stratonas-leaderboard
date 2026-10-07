@@ -56,4 +56,28 @@ class HaloFollowTest(unittest.TestCase):
     def test_rejects_changed_prefab_bytes(self):
         manifest = {'bundles': {'0'*64: __file__}, 'renderers': [{'sourceReference': {'bundleSha256': '0'*64}}]}
         with self.assertRaisesRegex(ValueError, 'hash mismatch'): module.export(manifest)
+
+    def test_static_mesh_rest_requires_exact_renderer_and_no_source_position_binding(self):
+        root = NS(object_reader=NS(path_id=1), m_GameObject=NS(read=lambda: NS(m_Name='Prefab')), m_Father=NS(path_id=0))
+        transform = NS(object_reader=NS(path_id=2), m_GameObject=NS(read=lambda: NS(m_Name='Halo')),
+                       m_Father=NS(path_id=1, read=lambda: root), m_LocalPosition=NS(x=0, y=-1, z=.2))
+        go = NS(m_Component=[NS(component=NS(type=NS(name='Transform'), read=lambda: transform))])
+        renderer = NS(type=NS(name='MeshRenderer'), assets_file=NS(name='CAB'), path_id=3,
+                      read=lambda: NS(m_GameObject=NS(read=lambda: go)))
+        clips = [NS(type=NS(name='AnimationClip'), read=lambda: NS(m_Name='Idle', m_PositionCurves=[],
+                    m_ClipBindingConstant=NS(genericBindings=[]))),
+                 NS(type=NS(name='AnimationClip'), read=lambda: NS(m_Name='Moving', m_PositionCurves=[],
+                    m_ClipBindingConstant=NS(genericBindings=[NS(typeID=4, attribute=1, path=module.zlib.crc32(b'Halo'))])))]
+        with TemporaryDirectory() as directory:
+            bundle = Path(directory) / 'prefab'; bundle.write_bytes(b'fixture')
+            digest = hashlib.sha256(b'fixture').hexdigest()
+            ref = {'bundleSha256': digest, 'serializedFile': 'CAB', 'objectId': '3'}
+            manifest = {'bundles': {digest: str(bundle)}, 'renderers': [{'sourceReference': ref, 'hierarchyPath': 'Prefab/Halo'}],
+                        'animationBundles': ['animations'], 'clips': ['Idle', 'Moving']}
+            with patch.object(module.UnityPy, 'load', side_effect=lambda data: NS(objects=clips if data == 'animations' else [renderer])):
+                result = module.export(manifest)['staticMeshTranslations']
+                self.assertEqual(result, [{'hierarchyPath': 'Prefab/Halo', 'sourceReference': ref,
+                                          'restTranslation': [0, -1, .2], 'clips': ['Idle']}])
+                ref['objectId'] = '4'
+                self.assertEqual(module.export(manifest)['staticMeshTranslations'], [])
 if __name__ == '__main__': unittest.main()

@@ -12,9 +12,9 @@ import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js'
 import { CHIBI_ACTIONS, type ChibiAction, type ChibiCatalogStudent } from '@/lib/chibi/types'
 import { sourceObjectKey, type ChibiRenderingProfile } from '@/lib/chibi/rendering-profile'
 import { mouthTileAtTime, mouthTileTextureTransform, mouthTileStateAtTime, normalizePlaybackTime } from '@/lib/chibi-mouth'
-import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround } from '@/lib/chibi/preview-bounds'
+import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround, previewPlacement } from '@/lib/chibi/preview-bounds'
 import { applyChibiProfileMaterialState, createDsfxAdditivePass, createDsfxAlphaBlendAddPass, createDsfxGlitchTexPass, createDsfxMatcapPass, createMxCTransparentPasses, createMxEStandardPass, createMxUnlitOutlinePass, createProjectMxWeaponPasses, patchEyebrowCameraShader, type ChibiViewerMaterialMetadata } from './chibi-viewer-material'
-import { alternateFaceVisibilityAtTime, inPlaceClip, rendererVisibilityAtTime } from './chibi-viewer-state'
+import { alternateFaceVisibilityAtTime, applyHoshinoShieldPreview, applyMakotoHairPreview, inPlaceClip, rendererVisibilityAtTime } from './chibi-viewer-state'
 import { CHIBI_MODEL_NODE_KEY, type ChibiArrangementDocument, type ChibiArrangementNode } from './chibi-arrangement'
 import { captureChibiFaceLayer, chibiFaceLayerKey, chibiArrangementCorrectionMatrix, chibiArrangementRendererVisibility } from './chibi-viewer-arrangement'
 import { createHaloFollower, type HaloFollowBinding } from './chibi-halo-follow'
@@ -60,8 +60,14 @@ function disposeModel(root: THREE.Object3D) {
   })
 }
 
-function setMouthTile(material: MouthMaterial, clip: string, time: number) {
-  const events = material.userData.mouthTiles?.[clip]
+function setMouthTile(material: MouthMaterial, clip: string, time: number, initialPose?: string | null) {
+  let events = material.userData.mouthTiles?.[clip]
+  // Eventless standalone clips retain the initial pose's expression instead
+  // of resetting to a prefab mouth that the idle event already replaced.
+  if (!events?.length && initialPose) {
+    events = material.userData.mouthTiles?.[initialPose]
+    time = 0
+  }
   if (!material.map) return
   const atlas = material.userData.mouthAtlas
   if (typeof atlas?.scaleX === 'number' && typeof atlas.scaleY === 'number') {
@@ -224,6 +230,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     let manualPlayback = false
     let haloFollower: ReturnType<typeof createHaloFollower> | null = null
     let previewScale = 1, restingHolderY = 0
+    let placementReady = false
     const mouths: MouthMaterial[] = []
     const mouthTransforms = new Map<MouthMaterial, MouthTransform>()
     const rendererSlots = new Map<number, THREE.Object3D[]>()
@@ -409,12 +416,16 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       const visibility = alternateFaceVisibilityAtTime(rendererSlotDefaults, rendererEvents,
         clip.name, currentAction.time, clip.duration, currentAction.loop === THREE.LoopRepeat)
       rendererSlots.forEach((objects, id) => objects.forEach(object => { object.visible = visibility.get(id) ?? true }))
+      if (root && !rendererEvents.some(event => event.clip === clip.name)) applyHoshinoShieldPreview(root, clip.name)
+      if (root && !rendererEvents.some(event => event.clip === clip.name)) applyMakotoHairPreview(root, clip.name)
     }
     const updateMouths = () => {
       if (currentAction) {
         const clip = currentAction.getClip()
         const time = normalizePlaybackTime(currentAction.time, clip.duration, currentAction.loop === THREE.LoopRepeat)
-        for (const mouth of mouths) setMouthTile(mouth, clip.name, time)
+        const idle = model.profile.interactions.idle
+        const initialPose = model.profile.initialPose || (idle.state === 'available' ? idle.clip : null)
+        for (const mouth of mouths) setMouthTile(mouth, clip.name, time, initialPose)
       }
       updateRendererState()
     }
@@ -773,7 +784,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           currentAction?.stop()
           haloFollower?.reset()
           let playbackClip = source
-          if (kind === 'walk') {
+          if (kind === 'walk' && studio) {
             playbackClip = inPlaceClips.get(source.name) || inPlaceClip(source, root)
             inPlaceClips.set(source.name, playbackClip)
           }
@@ -784,6 +795,12 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           next.clampWhenFinished = kind === 'pickup' ? false : settings?.hold ?? false; next.play(); currentAction = next; currentKind = kind; setActive(kind)
           next.paused = staticPose
           if (staticPose) mixer.update(0)
+          if (!studio && placementReady) {
+            mixer.update(0)
+            const placement = previewPlacement(root)
+            restingHolderY = -placement.ground * previewScale
+            restingPosition.set(-placement.anchor.x * previewScale, restingHolderY, -placement.anchor.z * previewScale)
+          }
           manualPlayback = false; setPaused(staticPose)
           setActiveClip(clipName)
           if (kind !== 'pickup') holder.position.y = restingHolderY
@@ -847,6 +864,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         const bounds = previewBounds(root), fitBounds = previewFitBounds(root), size = fitBounds.getSize(new THREE.Vector3()), anchor = previewAnchor(root, bounds), ground = previewGround(root, bounds), scale = 1.8 / Math.max(size.y, 0.01)
         previewScale = scale; restingHolderY = -ground * scale
         holder.scale.setScalar(scale); holder.position.set(-anchor.x * scale, restingHolderY, -anchor.z * scale); restingPosition.copy(holder.position); applyArrangement(); setStatus('Model ready')
+        placementReady = true
         if (studio) studio.group.add(holder)
         const haloMeshes: THREE.Mesh[] = []
         if (studio && sceneData?.haloFollow?.schemaVersion === 1) {

@@ -74,6 +74,22 @@ class ActivationTest(unittest.TestCase):
         self.assertEqual(module.constant_active(clip, {42: ['Root/Face']}), [dict(clip='Idle', hierarchyPath='Root/Face', active=False)])
         data.m_StreamedClip.data[-3] = word(1)
         self.assertEqual(module.constant_active(clip, {42: ['Root/Face']}), [])
+        self.assertEqual(module.constant_active(clip, {42: ['Root/Face']}, include_timed=True),
+                         [dict(clip='Idle', hierarchyPath='Root/Face', active=True, time=0)])
+
+    def test_timed_boolean_steps_preserve_expression_changes(self):
+        clip = self.fixture()
+        clip.m_ClipBindingConstant.genericBindings = clip.m_ClipBindingConstant.genericBindings[1:]
+        data = clip.m_MuscleClip.m_Clip.data
+        data.m_StreamedClip.curveCount = 1
+        data.m_StreamedClip.data = [123]
+        key = lambda value: dict(index=0, value=value, coefficients=[0, 0, 0, value])
+        stream = dict(initialKeys=[key(0)], frames=[dict(time=0, keys=[key(0)]),
+                      dict(time=7, keys=[key(1)]), dict(time=9, keys=[key(0)])])
+        with patch.object(module, 'decode_streamed_clip', return_value=stream):
+            self.assertEqual(module.constant_active(clip, {42: ['Root/Face']}, include_timed=True),
+                             [dict(clip='Idle', hierarchyPath='Root/Face', active=active, time=time)
+                              for time, active in [(0, False), (7, True), (9, False)]])
 
 
 if __name__ == '__main__':

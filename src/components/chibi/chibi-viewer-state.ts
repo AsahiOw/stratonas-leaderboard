@@ -7,6 +7,36 @@ export interface ViewerRendererDefault {
   defaultVisible: boolean
 }
 
+/** EX preview only; the source does not expose Hoshino's shield-enable callback. */
+export function applyHoshinoShieldPreview(root: THREE.Object3D, clip: string) {
+  root.traverse(object => {
+    const ref = object.userData.chibi?.sourceReference
+    if (ref?.bundleSha256 === '553b7fe20e78793df20939c307d5b8cfb979be7e84edad08b3e3fd03a9f5cd26'
+      && ref.serializedFile === 'CAB-1d74217275224e4ba8d7167893fe01e5'
+      && ref.objectId === '5492241791769865631') {
+      object.visible = clip === 'Hoshino_Original_Exs'
+    }
+  })
+}
+
+/** Makoto preview fallback: the original hair-switch callback is unavailable. */
+export function applyMakotoHairPreview(root: THREE.Object3D, clip: string) {
+  if (clip !== 'CH0079_Exs') return
+  const hair = new Map<string, THREE.Object3D>()
+  root.traverse(object => {
+    const ref = object.userData.chibi?.sourceReference
+    if (ref?.bundleSha256 === 'a1017c71727b4955f2051868456e618026674e078b3843e2649d8943873c457f'
+      && ref.serializedFile === 'CAB-1469fcd164501c78fabde162fa4f06c4') hair.set(ref.objectId, object)
+  })
+  const normal = hair.get('3218009238889943685'), alternate = hair.get('3134145453237654149')
+  const hat = root.getObjectByName('bone_hat')
+  if (!normal || !alternate || !hat) return
+  // The authored EX scale collapses the hat before the afro reaction.
+  const afro = Math.max(...hat.scale.toArray().map(Math.abs)) < 0.1
+  normal.visible = !afro
+  alternate.visible = afro
+}
+
 /** Reset to the imported idle face before evaluating each action-local timeline. */
 export function alternateFaceVisibilityAtTime(
   defaults: ReadonlyMap<number, boolean>,

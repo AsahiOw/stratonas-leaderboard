@@ -348,7 +348,7 @@ const PROJECTMX_SHADER_PASSES = {
   },
 } as const
 
-export const CHIBI_EXPORTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-render-profile-v7-policy-v7-material-claims-v2-weapon-ancestry-v1-all-character-clips-v2-source-tracks-v1-null-helpers-v1'
+export const CHIBI_EXPORTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-render-profile-v7-policy-v7-material-claims-v2-weapon-ancestry-v1-all-character-clips-v2-source-tracks-v1-null-helpers-v1-fallback-visibility-lenses-v1-props-rest-v1'
 export const CHIBI_MATERIAL_VERSION = 'mx-materials-v65-preserve-collapsed-face-uv'
 /** Bump only when conversion bytes can change; rendering policy versions stay out of this identity. */
 export const CHIBI_CORE_CONVERTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-postprocess-core-v1'
@@ -3384,7 +3384,8 @@ export function missingSourceTextureExports(
     const projectMxExtraction = (slot as any).projectMxShaderExtraction
     const projectMxActivePass = projectMxExtraction?.activeVariant
       ? projectMxExtraction.passes?.[projectMxExtraction.activeVariant] : null
-    const textureProperties = slot.adapterId === 'dsfx-static' ? ['_Texture']
+    const projectMxFallback = !slot.adapterId && slot.sourceShaderParsedName === 'ProjectMX/WeaponTest1Damage'
+    const textureProperties = projectMxFallback ? ['_mainTex'] : slot.adapterId === 'dsfx-static' ? ['_Texture']
       : slot.adapterId === 'dsfx-glitch-tex' ? ['_NoiseTex']
       : slot.adapterId === 'dsfx-matcap' ? ['_Main_Tex', '_Matcap_Tex']
       : slot.adapterId === 'mx-c-transparent-st' ? ['_MainTex', '_MaskTex']
@@ -3929,6 +3930,8 @@ export async function convertCandidate(options: ConvertOptions) {
     await writeFile(haloManifest, JSON.stringify({
       bundles: Object.fromEntries(parts.map(part => [part.sha256, path.join(source, path.basename(part.entryPath))])),
       renderers: renderingProfile.renderers.filter(renderer => renderer.sourceReference),
+      animationBundles: parts.filter(part => part.family === 'animationclips').map(part => path.join(source, path.basename(part.entryPath))),
+      clips: uniqueSelectedClips,
     }))
     await run(python, [path.resolve('scripts/chibi/export-halo-follow.py'), haloManifest, haloOutput], undefined, options.signal, 'Source halo follow export')
     const haloFollow = JSON.parse(await readFile(haloOutput, 'utf8'))
@@ -3956,11 +3959,13 @@ export async function convertCandidate(options: ConvertOptions) {
           sourceRenderers: renderingProfile.assembly?.renderers ?? [],
           warnings: [...renderingProfile.validation.unresolved, ...(options.candidate.unresolvedDependencies ?? []).map(value => `Missing dependency: ${value}`), 'Source completeness is unresolved. Exported geometry is retained; unsupported renderer events are omitted.'],
           materialSlots: renderingProfile.renderers.flatMap(renderer => renderer.materialSlots),
-          renderers: renderingProfile.renderers.map(renderer => ({
+          renderers: [...renderingProfile.renderers.map(renderer => ({
             hierarchyPath: renderer.hierarchyPath, sourceReference: renderer.sourceReference, defaultVisible: renderer.defaultVisible,
             eyeMouth: renderer.materialSlots.some(slot => slot.adapterId === 'mx-character-eyemouth'),
             hairMaterial: renderer.materialSlots.some(slot => slot.adapterId === 'mx-character-hair'),
-          })),
+          })), ...renderingProfile.excludedRenderers.map(renderer => ({
+            hierarchyPath: renderer.hierarchyPath, sourceReference: renderer.sourceReference, defaultVisible: false,
+          }))],
         },
         mouthDefaultTile: renderingProfile.mouth?.defaultTile,
         mouthAtlas: renderingProfile.mouth ? {
