@@ -1,11 +1,11 @@
 import type * as THREE from 'three'
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
-export type StudioPlayback = { clip: string | null; time: number; duration: number; paused: boolean }
+export type StudioPlayback = { clip: string | null; time: number; duration: number; paused: boolean; loadingClip?: string; animationError?: boolean }
 export type StudioActorController = {
   haloMeshes: THREE.Mesh[]
   clips: { name: string; duration: number }[]
-  play: (clip: string) => void
+  play: (clip: string) => Promise<boolean>
   pause: (paused: boolean) => void
   seek: (time: number) => void
   playback: () => StudioPlayback

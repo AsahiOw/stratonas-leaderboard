@@ -31,7 +31,7 @@ test('showcase rotation turns clockwise around the centered model and pauses dur
 // The fake event target and clock let us check hold/cancel boundaries precisely.
 function gestureHarness(pickupAvailable = true) {
   const handlers: Record<string, (event: Record<string, unknown>) => void> = {}
-  const timers = new Map<number, () => void>()
+  const timers = new Map<number, () => Promise<void>>()
   const calls: string[] = []
   const camera = new THREE.PerspectiveCamera(35, 1, .01, 100)
   camera.position.z = 4; camera.updateMatrixWorld()
@@ -45,7 +45,7 @@ function gestureHarness(pickupAvailable = true) {
   } }
   const block = source.slice(source.indexOf('    const raycaster ='), source.indexOf('    const updateRendererState ='))
   const js = ts.transpileModule(`let currentKind = null, disposed = false; const studio = undefined;
-    const playRef = { current: kind => { currentKind = kind; calls.push(kind) } };
+    const playRef = { current: kind => { currentKind = kind; calls.push(kind); return true } };
     const setHolding = value => calls.push(value ? 'holding' : 'released');
     ${block}
     returnToIdle = () => calls.push('idle');
@@ -53,17 +53,17 @@ function gestureHarness(pickupAvailable = true) {
   `, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const state = new Function('THREE', 'root', 'holder', 'camera', 'controls', 'renderer', 'model', 'calls', 'setTimeout', 'clearTimeout', 'window', 'document', js)(
     THREE, root, holder, camera, controls, renderer, { profile: { interactions: { pickup: { state: pickupAvailable ? 'available' : 'unavailable' } } } }, calls,
-    (callback: () => void) => { timers.set(1, callback); return 1 }, (id: number) => timers.delete(id), { addEventListener: () => {} }, { addEventListener: () => {} },
+    (callback: () => Promise<void>) => { timers.set(1, callback); return 1 }, (id: number) => timers.delete(id), { addEventListener: () => {} }, { addEventListener: () => {} },
   ) as { isDragging: () => boolean }
   const pointer = (name: string, x = 200, y = 200, primary = true) => handlers[name]({ clientX: x, clientY: y, pointerId: primary ? 1 : 2, isPrimary: primary, button: 0, stopImmediatePropagation() {} })
-  const hold = () => { for (const callback of timers.values()) callback(); timers.clear() }
+  const hold = async () => { const pending = [...timers.values()].map(callback => callback()); timers.clear(); await Promise.all(pending) }
   return { pointer, hold, calls, holder, root, controls, state }
 }
 
-test('hold picks up, follows the camera plane, then release restores position and idle', () => {
+test('hold picks up, follows the camera plane, then release restores position and idle', async () => {
   const h = gestureHarness()
   h.pointer('pointerdown'); assert.deepEqual(h.calls, [])
-  h.hold(); assert.equal(h.state.isDragging(), true); assert.equal(h.controls.enabled, false)
+  await h.hold(); assert.equal(h.state.isDragging(), true); assert.equal(h.controls.enabled, false)
   h.pointer('pointermove', 260, 160)
   assert.ok(h.holder.position.x > 0); assert.ok(h.holder.position.y > 0)
   h.pointer('pointerup', 260, 160)
@@ -79,9 +79,9 @@ test('a tap reacts, while a normal camera drag cancels pending pickup', () => {
   assert.deepEqual(drag.calls, []); assert.equal(drag.controls.enabled, true)
 })
 
-test('cancel, loss of pointer capture, and a second finger release held models', () => {
+test('cancel, loss of pointer capture, and a second finger release held models', async () => {
   for (const cancel of ['pointercancel', 'lostpointercapture', 'second-finger']) {
-    const h = gestureHarness(); h.pointer('pointerdown'); h.hold()
+    const h = gestureHarness(); h.pointer('pointerdown'); await h.hold()
     if (cancel === 'second-finger') h.pointer('pointerdown', 250, 250, false)
     else h.pointer(cancel)
     assert.equal(h.controls.enabled, true); assert.equal(h.state.isDragging(), false)
@@ -130,6 +130,39 @@ test('extra clips play and switch without a quick-action mapping', () => {
   assert.equal(mixer.existingAction(clips.get('Skill')!)!.isRunning(), true)
   assert.equal(play('OtherCharacter', null, { loop: true }), false)
   assert.equal(activeClip, 'Skill')
+})
+
+test('releasing while a pickup animation loads cannot start dragging later', async () => {
+  const h = gestureHarness()
+  h.pointer('pointerdown')
+  const pending = h.hold()
+  h.pointer('pointercancel')
+  await pending
+  assert.equal(h.state.isDragging(), false)
+  assert.equal(h.controls.enabled, true)
+  assert.deepEqual(h.calls, ['pickup'])
+})
+
+test('only the latest downloaded selection plays, and cancelled holds or failed clips can retry safely', async () => {
+  const block = source.slice(source.indexOf('        const requestClip ='), source.indexOf('        const play = async'))
+  const js = ts.transpileModule(`let selection = 0, disposed = false; let status;
+    const reportAnimation = value => { status = value }; ${block}; return { requestClip, status: () => status, dispose: () => { disposed = true } }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const pending = new Map<string, { resolve: (value: unknown) => void; reject: (cause: Error) => void }>(), played: string[] = []
+  const animations = { get: (name: string) => new Promise((resolve, reject) => pending.set(name, { resolve, reject })) }
+  const h = new Function('clips', 'animations', 'clipNames', 'playClip', 'studio', 'loopingRef', 'setPlaybackLoop', 'mixer', js)(
+    new Map(), animations, new Set(['A', 'B']), (name: string) => { played.push(name); return true }, false, { current: true }, () => {}, { update: () => {} },
+  ) as { requestClip: (name: string, kind: null, settings: object, valid?: () => boolean) => Promise<boolean>; status: () => unknown; dispose: () => void }
+  const a = h.requestClip('A', null, {}), b = h.requestClip('B', null, {})
+  pending.get('B')!.resolve({}); assert.equal(await b, true)
+  pending.get('A')!.resolve({}); assert.equal(await a, false); assert.deepEqual(played, ['B'])
+  const cancelled = h.requestClip('A', null, {}, () => false)
+  pending.get('A')!.resolve({}); assert.equal(await cancelled, false); assert.equal(h.status(), null)
+  const failed = h.requestClip('A', null, {})
+  pending.get('A')!.reject(new Error('offline')); assert.equal(await failed, false); assert.deepEqual(h.status(), { name: 'A', failed: true })
+  const retry = h.requestClip('A', null, {})
+  pending.get('A')!.resolve({}); assert.equal(await retry, true); assert.deepEqual(played, ['B', 'A'])
+  const abandoned = h.requestClip('B', null, {}); h.dispose()
+  pending.get('B')!.resolve({}); assert.equal(await abandoned, false); assert.deepEqual(played, ['B', 'A'])
 })
 
 test('clips center only their starting pose and retain subsequent movement during playback and seeking', () => {

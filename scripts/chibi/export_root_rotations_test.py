@@ -12,7 +12,7 @@ class RootRotationTest(unittest.TestCase):
     def duplicate_export(self, tracks):
         root = NS(m_GameObject=NS(read=lambda: NS(m_Name='Root')), m_Father=NS(path_id=0))
         bone = NS(m_GameObject=NS(read=lambda: NS(m_Name='Bone')), m_Father=NS(path_id=1, read=lambda: root),
-                  m_LocalRotation=NS(x=0, y=0, z=0, w=1), m_LocalPosition=NS(x=0, y=0, z=0))
+                  m_LocalRotation=NS(x=0, y=0, z=0, w=1), m_LocalPosition=NS(x=0, y=0, z=0), m_LocalScale=NS(x=1, y=1, z=1))
         renderer = NS(m_RootBone=NS(path_id=2, read=lambda: bone), m_Bones=[])
         reader = NS(assets_file=NS(name='CAB'), path_id=1, read=lambda: renderer)
         clips = [NS(type=NS(name='AnimationClip'), read=lambda: NS(m_Name='Idle', m_MuscleClip=NS(m_StopTime=1)))
@@ -51,6 +51,14 @@ class RootRotationTest(unittest.TestCase):
     def test_reflects_source_axes_and_normalizes(self):
         self.assertEqual(module.reflected([0, 0, 2, 0]), [0, 0, -1, 0])
         self.assertEqual(module.reflected([2, 0, 0, 0]), [1, 0, 0, 0])
+    def test_scale_preserves_source_axes_and_negative_component(self):
+        track = self.track()
+        track['property'] = 'scale'
+        for curve, value in zip(track['componentCurves'], [.3256, .0008336, -.11075]):
+            curve['initialValue'] = value
+        result = self.duplicate_export([[track]])['tracks'][0]
+        self.assertEqual(result['restScale'], [1, 1, 1])
+        self.assertEqual(result['values'][0], [.3256, .0008336, -.11075])
     def test_rejects_invalid_rotation(self):
         for values in [[0, 0, 0, 0], [float('nan'), 0, 0, 1]]:
             with self.assertRaises(ValueError):

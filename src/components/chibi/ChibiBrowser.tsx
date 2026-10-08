@@ -159,7 +159,11 @@ function adminCatalogStudent(value: unknown): AdminCatalogStudent | null {
 function mergeAdminStudents(publicStudents: ChibiCatalogStudent[], adminStudents: AdminCatalogStudent[]) {
   if (!adminStudents.length) return publicStudents
   const byId = new Map(publicStudents.map(student => [student.id, student]))
-  for (const student of adminStudents) if (student.model) byId.set(student.id, student)
+  for (const student of adminStudents) if (student.model) {
+    const published = byId.get(student.id)?.model
+    const sameRevision = published?.assetId === student.model.assetId && published.revision === student.model.revision
+    byId.set(student.id, sameRevision ? { ...student, model: { ...student.model, url: published.url } } : student)
+  }
   return [...byId.values()].sort((left, right) => left.name.localeCompare(right.name) || left.id - right.id)
 }
 

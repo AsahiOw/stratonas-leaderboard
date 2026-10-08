@@ -22,6 +22,7 @@ def export(manifest):
     environments = {}
     roots = {}
     positions = {}
+    scales = {}
     for item in manifest['renderers']:
         ref = item['sourceReference']
         digest = ref['bundleSha256']
@@ -55,6 +56,8 @@ def export(manifest):
                 roots[path] = reflected([rotation.x, rotation.y, rotation.z, rotation.w])
                 position = transform.m_LocalPosition
                 positions[path] = [-position.x, position.y, position.z]
+                scale = transform.m_LocalScale
+                scales[path] = [scale.x, scale.y, scale.z]
     paths = {}
     for path in roots:
         tokens = path.split('/')[1:]
@@ -72,7 +75,7 @@ def export(manifest):
             stop = clip.m_MuscleClip.m_StopTime
             for track in tracks:
                 tokens = track.get('pathTokens')
-                if not tokens or track['property'] not in ['rotation', 'translation'] or track['valueClass'] == 'unresolved':
+                if not tokens or track['property'] not in ['rotation', 'translation', 'scale'] or track['valueClass'] == 'unresolved':
                     continue
                 matches = [path for path in roots if path.split('/')[1:] == tokens]
                 curves = track['componentCurves']
@@ -87,10 +90,12 @@ def export(manifest):
                     for i in range(1, len(values)):
                         if sum(a*b for a, b in zip(values[i-1], values[i])) < 0:
                             values[i] = [-v for v in values[i]]
-                else:
+                elif track['property'] == 'translation':
                     values = [[-x, y, z] for x, y, z in values]
                 record = {'clip': clip.m_Name, 'hierarchyPath': matches[0], 'targetPath': track['property'],
                           'restRotation': roots[matches[0]], 'restTranslation': positions[matches[0]], 'times': times, 'values': values}
+                if track['property'] == 'scale':
+                    record['restScale'] = scales[matches[0]]
                 key = (clip.m_Name, matches[0], track['property'])
                 if key in ambiguous:
                     continue

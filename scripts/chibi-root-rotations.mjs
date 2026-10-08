@@ -36,6 +36,13 @@ export function restoreRootRotations(json, sources, paths, read, append) {
     const targetPath = source.targetPath ?? 'rotation';
     let sourceValues = source.values;
     const equal = targetPath === 'rotation' ? same : (a, b) => a.every((value, i) => Math.abs(value - b[i]) < 1e-8);
+    if (targetPath === 'scale') {
+      const rest = source.restScale, exported = json.nodes[nodes[0]].scale ?? [1, 1, 1];
+      if (!rest || rest.some(value => !Number.isFinite(value) || value === 0)) continue;
+      const unitScale = exported[0] / rest[0];
+      if (!Number.isFinite(unitScale) || unitScale <= 0 || !equal(exported, rest.map(value => value * unitScale))) continue;
+      sourceValues = source.values.map(row => row.map(value => value * unitScale));
+    }
     if (targetPath === 'translation') {
       const rest = source.restTranslation, exported = json.nodes[nodes[0]].translation ?? [0, 0, 0];
       const lengthSquared = rest.reduce((sum, value) => sum + value * value, 0);
@@ -58,7 +65,7 @@ export function restoreRootRotations(json, sources, paths, read, append) {
     sampler.input = append(source.times.map(time => [time]), 'SCALAR', 1);
     json.accessors[sampler.input].min = [source.times[0]];
     json.accessors[sampler.input].max = [source.times.at(-1)];
-    sampler.output = append(sourceValues, targetPath === 'translation' ? 'VEC3' : 'VEC4', targetPath === 'translation' ? 3 : 4);
+    sampler.output = append(sourceValues, targetPath === 'rotation' ? 'VEC4' : 'VEC3', targetPath === 'rotation' ? 4 : 3);
     sampler.interpolation = 'LINEAR';
     repaired += 1;
   }

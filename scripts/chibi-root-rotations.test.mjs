@@ -53,3 +53,15 @@ test('does not guess translation scale for a zero or incompatible rest position'
   f.source.restTranslation = [0, 0, 1]; f.json.nodes[0].translation = [1, 0, 0];
   assert.equal(f.run(), 0);
 });
+
+test('restores corrupted hair scale from source without flattening authored scale animation', () => {
+  const f = fixture();
+  f.json.animations[0].channels[0].target.path = 'scale';
+  Object.assign(f.source, { targetPath: 'scale', restScale: [1, 1, 1], values: [[1, 1, 1], [.3256, .0008336, -.11075]] });
+  f.arrays[1] = [[366.8436, .178497, 39.02856], [366.8436, .178497, 39.02856]];
+  assert.equal(f.run(), 1);
+  assert.deepEqual(f.arrays[f.json.animations[0].samplers[0].output], f.source.values);
+  assert.equal(f.run(), 0);
+  f.json.nodes[0].scale = [2, 1, 1];
+  assert.equal(f.run(), 0, 'incompatible rest scale must not be guessed');
+});

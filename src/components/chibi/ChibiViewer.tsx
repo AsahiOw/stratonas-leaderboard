@@ -20,6 +20,7 @@ import { captureChibiFaceLayer, chibiFaceLayerKey, chibiArrangementCorrectionMat
 import { createHaloFollower, type HaloFollowBinding } from './chibi-halo-follow'
 import { separateCoincidentSkinLayers } from './chibi-coincident-skin-layers'
 import { downloadChibiModel, type ModelDownloadProgress } from './chibi-model-download'
+import { chibiPartUrl, createChibiAnimationLoader, type ChibiDelivery } from './chibi-animation-download'
 import type { StudioViewerHost } from './studio-types'
 
 export type ChibiViewerModel = NonNullable<ChibiCatalogStudent['model']>
@@ -120,7 +121,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLDivElement>(null)
   const floorRef = useRef<THREE.Mesh | null>(null)
-  const playRef = useRef<((action: ChibiAction) => void) | null>(null)
+  const playRef = useRef<((action: ChibiAction, valid?: () => boolean, usePlaybackLoop?: boolean) => Promise<boolean>) | null>(null)
   const playClipRef = useRef<((name: string) => void) | null>(null)
   const mediaRef = useRef<{ togglePause: () => void; setLoop: (loop: boolean) => void; seek: (time: number) => void } | null>(null)
   const allAnimationsRef = useRef(false)
@@ -134,6 +135,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   const [active, setActive] = useState<ChibiAction | null>(null)
   const [availableClips, setAvailableClips] = useState<string[]>([])
   const [activeClip, setActiveClip] = useState<string | null>(null)
+  const [animationRequest, setAnimationRequest] = useState<{ name: string; failed: boolean } | null>(null)
   const [paused, setPaused] = useState(false)
   const [looping, setLooping] = useState(true)
   const [allAnimations, setAllAnimations] = useState(false)
@@ -221,7 +223,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     const container = containerRef.current
     if (!container) return
     setStatus('Downloading model…'); setDownload({ loaded: 0, total: null }); setError(null); setActive(null); setMissingClips(new Set()); setHolding(false)
-    setAvailableClips([]); setActiveClip(null); playClipRef.current = null
+    setAvailableClips([]); setActiveClip(null); setAnimationRequest(null); playClipRef.current = null
     setPaused(false); mediaRef.current = null
     setPlayback({ time: 0, duration: 0 })
     const abortController = new AbortController()
@@ -352,9 +354,11 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       })
       down = { x: event.clientX, y: event.clientY, id: event.pointerId, hit: hit?.point.clone() ?? null }
       if (!hit || model.profile.interactions.pickup.state !== 'available') return
-      holdTimer = setTimeout(() => {
+      holdTimer = setTimeout(async () => {
         if (!down?.hit || disposed) return
-        playRef.current?.('pickup')
+        const start = down
+        const played = await playRef.current?.('pickup', () => !disposed && down === start && !!start.hit)
+        if (!played || disposed || down !== start || !down?.hit) return
         if (currentKind !== 'pickup') return
         dragging = true; controls.enabled = false; setHolding(true)
         dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), down.hit)
@@ -433,7 +437,8 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     const load = async () => {
       try {
         let lastProgressTime = 0
-        const buffer = await downloadChibiModel(model.url, abortController.signal, progress => {
+        const initial = model.profile.initialPose || (model.profile.interactions.idle.state === 'available' ? model.profile.interactions.idle.clip : null) || ''
+        const buffer = await downloadChibiModel(chibiPartUrl(model.url, 'initial', initial), abortController.signal, progress => {
           const now = performance.now()
           if (!disposed && (progress.loaded === 0 || progress.loaded === progress.total || now - lastProgressTime >= 100)) {
             setDownload(progress); lastProgressTime = now
@@ -774,9 +779,13 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         })
         separateCoincidentSkinLayers(root)
         arrangementGroup.add(root); mixer = new THREE.AnimationMixer(root)
-        const clips = new Map(gltf.animations.map((clip) => [clip.name, clip])), inPlaceClips = new Map<string, THREE.AnimationClip>(), missing = new Set<string>()
-        setAvailableClips([...clips.keys()])
-        for (const action of CHIBI_ACTIONS) { const interaction = model.profile.interactions[action]; if (interaction.state === 'available' && (!interaction.clip || !clips.has(interaction.clip))) missing.add(action) }
+        const animations = createChibiAnimationLoader(gltf, model.url, abortController.signal)
+        const clips = animations.clips, inPlaceClips = new Map<string, THREE.AnimationClip>(), missing = new Set<string>()
+        const delivery = root.userData.chibiDelivery as ChibiDelivery | undefined
+        const catalog = delivery?.version === 1 ? delivery.clips : gltf.animations.map(clip => ({ name: clip.name, duration: clip.duration }))
+        const clipNames = new Set(catalog.map(clip => clip.name))
+        setAvailableClips([...clipNames])
+        for (const action of CHIBI_ACTIONS) { const interaction = model.profile.interactions[action]; if (interaction.state === 'available' && (!interaction.clip || !clipNames.has(interaction.clip))) missing.add(action) }
         setMissingClips(missing)
         const playClip = (clipName: string, kind: ChibiAction | null, settings?: { loop?: boolean; hold?: boolean; speed?: number }) => {
           const source = clips.get(clipName)
@@ -835,7 +844,11 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
             setPaused(true); setPlayback({ time: currentAction.time, duration: currentAction.getClip().duration })
           },
         }
+        let selection = 0
+        let pendingAnimation: { name: string; failed: boolean } | null = null
+        const reportAnimation = (value: typeof pendingAnimation) => { pendingAnimation = value; setAnimationRequest(value) }
         const playInitial = () => {
+          selection++; reportAnimation(null)
           const idle = model.profile.interactions.idle, preferred = model.profile.initialPose || (idle.state === 'available' ? idle.clip : null)
           if (preferred && playClip(preferred, preferred === idle.clip ? 'idle' : null, studio ? { ...idle, loop: true, hold: false } : idle)) { if (!studio) setPlaybackLoop(loopingRef.current); return }
           currentAction?.stop(); currentAction = null; currentKind = null; setActive(null)
@@ -843,19 +856,37 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           mouthTransforms.forEach((transform, mouth) => { mouth.map?.offset.copy(transform.offset); mouth.map?.repeat.copy(transform.repeat) })
           updateRendererState()
         }
-        const play = (kind: ChibiAction) => { const interaction = model.profile.interactions[kind]; if (interaction.state === 'available' && interaction.clip && !missing.has(kind)) playClip(interaction.clip, kind, interaction) }
+        const requestClip = async (name: string, kind: ChibiAction | null, settings: { loop?: boolean; hold?: boolean; speed?: number }, valid = () => true, usePlaybackLoop = false) => {
+          const request = ++selection
+          if (!clipNames.has(name)) return false
+          reportAnimation(clips.has(name) ? null : { name, failed: false })
+          try {
+            await animations.get(name)
+            if (disposed || request !== selection || !valid()) {
+              if (!disposed && request === selection) reportAnimation(null)
+              return false
+            }
+            reportAnimation(null)
+            if (!playClip(name, kind, settings)) return false
+            if (!studio && usePlaybackLoop) setPlaybackLoop(loopingRef.current)
+            mixer?.update(0)
+            return true
+          } catch {
+            if (!disposed && request === selection) reportAnimation({ name, failed: true })
+            return false
+          }
+        }
+        const play = async (kind: ChibiAction, valid?: () => boolean, usePlaybackLoop = false) => { const interaction = model.profile.interactions[kind]; return interaction.state === 'available' && interaction.clip && !missing.has(kind) ? requestClip(interaction.clip, kind, interaction, valid, usePlaybackLoop) : false }
         playRef.current = play
         const playNamedClip = (name: string) => {
           const kind = CHIBI_ACTIONS.find(action => model.profile.interactions[action].state === 'available' && model.profile.interactions[action].clip === name) ?? null
-          if (!playClip(name, kind, { loop: true })) return
-          if (!studio) setPlaybackLoop(loopingRef.current)
-          mixer?.update(0)
+          return requestClip(name, kind, { loop: true }, undefined, true)
         }
         playClipRef.current = playNamedClip
         mixer.addEventListener('finished', () => {
           if (studio) return
           if (manualPlayback) setPaused(true)
-          else if (currentKind === 'touch') playInitial()
+          else if (currentKind === 'touch' && !pendingAnimation) playInitial()
         })
         returnToIdle = playInitial
         playInitial(); resetRef.current = () => { pointerCancel(); holder.rotation.y = 0; holder.position.copy(restingPosition); resetCamera(); playInitial() }; mixer.update(0); root.updateMatrixWorld(true)
@@ -876,11 +907,11 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         }
         studio?.ready({
           haloMeshes,
-          clips: [...clips.values()].map(clip => ({ name: clip.name, duration: clip.duration })),
+          clips: catalog,
           play: playNamedClip,
           pause: paused => { if (currentAction) currentAction.paused = paused },
           seek: time => { if (!currentAction) return; currentAction.time = THREE.MathUtils.clamp(time, 0, currentAction.getClip().duration); mixer?.update(0); updateMouths(); applyArrangement(); haloFollower?.reset(); haloFollower?.update(0, currentAction.getClip()) },
-          playback: () => ({ clip: currentAction?.getClip().name ?? null, time: currentAction?.time ?? 0, duration: currentAction?.getClip().duration ?? 0, paused: currentAction?.paused ?? true }),
+          playback: () => ({ clip: currentAction?.getClip().name ?? null, time: currentAction?.time ?? 0, duration: currentAction?.getClip().duration ?? 0, paused: currentAction?.paused ?? true, loadingClip: pendingAnimation?.name, animationError: pendingAnimation?.failed }),
         })
       } catch (cause) {
         if (!disposed && !(cause instanceof DOMException && cause.name === 'AbortError')) { setError('The model could not be loaded. Check your connection and try again.'); studio?.failed('The model could not be loaded. Check your connection and try again.') }
@@ -976,12 +1007,12 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         const interaction = model.profile.interactions[id]
         const reason = interaction.state !== 'available' ? interaction.reason || `${interaction.state} interaction` : missingClips.has(id) ? 'Published file is missing the assigned clip.' : null
         if (reason && !showDiagnostics) return null
-        return <button key={id} type="button" disabled={!!reason || !!error || holding} title={showDiagnostics ? reason || undefined : undefined} aria-pressed={active === id} onClick={() => { playRef.current?.(id); mediaRef.current?.setLoop(loopingRef.current) }} className={`min-h-11 flex-1 rounded-xl border whitespace-nowrap px-2 py-2 text-xs font-medium transition sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 ${active === id ? 'border-cyan-300/40 bg-cyan-300/15 text-cyan-100' : 'border-white/10 text-slate-300 hover:bg-white/5'}`}>{labels[id]}</button>
+        return <button key={id} type="button" disabled={!!reason || !!error || holding} title={showDiagnostics ? reason || undefined : undefined} aria-pressed={active === id} onClick={() => { void playRef.current?.(id, undefined, true) }} className={`min-h-11 flex-1 rounded-xl border whitespace-nowrap px-2 py-2 text-xs font-medium transition sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 ${active === id ? 'border-cyan-300/40 bg-cyan-300/15 text-cyan-100' : 'border-white/10 text-slate-300 hover:bg-white/5'}`}>{labels[id]}</button>
       })}</div>}
       {allAnimations && availableClips.length > 0 && <div className={styles.expandedControls}>
       <label className={styles.clipPicker}>
         <span className="sr-only">Animation clip</span>
-        <select aria-label="All animations" value={activeClip ?? ''} disabled={!!error || holding} onChange={event => playClipRef.current?.(event.target.value)} className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-[#151925] px-3 py-2 text-sm text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:opacity-40">
+        <select aria-label="All animations" value={animationRequest?.name ?? activeClip ?? ''} disabled={!!error || holding} onChange={event => playClipRef.current?.(event.target.value)} className="min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-[#151925] px-3 py-2 text-sm text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:opacity-40">
           <option value="" disabled>Choose an animation</option>
           {availableClips.map(name => <option key={name} value={name}>{name}</option>)}
         </select>
@@ -995,6 +1026,10 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         <input type="range" aria-label="Animation timeline" aria-valuetext={`${playback.time.toFixed(2)} of ${playback.duration.toFixed(2)} seconds`} min={0} max={playback.duration} step="0.01" value={Math.min(playback.time, playback.duration)} disabled={!activeClip || playback.duration <= 0 || !!error || holding} onChange={event => mediaRef.current?.seek(Number(event.target.value))} className="h-11 w-full cursor-pointer accent-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:opacity-40" />
       </label>
       </div>}
+      {animationRequest && <p role="status" className="mt-2 text-center text-xs text-cyan-100">
+        {animationRequest.failed ? 'Animation could not be loaded. ' : 'Loading animation…'}
+        {animationRequest.failed && <button type="button" onClick={() => playClipRef.current?.(animationRequest.name)} className="underline">Retry animation</button>}
+      </p>}
       <p className="mt-1 text-center text-[10px] text-slate-400">{holding ? 'Release to put down' : 'Drag to rotate · Pinch to pan / zoom · Hold to pick up'}</p>
     </div>
   </div>

@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { prisma } from '@/lib/prisma'
 import { existingArtifactPath } from './storage'
+import { chibiDeliveryFile } from './delivery'
 
 export async function serveChibiArtifact(request: Request, assetId: string, revision: string, preview = false, db = prisma) {
   const missing = () => new Response('Model not found', { status: 404, headers: { 'Cache-Control': 'no-store' } })
@@ -12,8 +13,15 @@ export async function serveChibiArtifact(request: Request, assetId: string, revi
     || (asset.validation as { valid?: boolean }).valid !== true) return missing()
   let filename: string
   let size: number
+  let etag = asset.checksum
   try {
     filename = await existingArtifactPath(asset.fileKey)
+    const params = new URL(request.url).searchParams, part = params.get('part'), clip = params.get('clip') ?? ''
+    if (part) {
+      if ((part !== 'initial' && part !== 'animation') || clip.length > 256 || params.get('v') !== '1') return missing()
+      const delivery = await chibiDeliveryFile(filename, asset.checksum, part, clip)
+      filename = delivery.filename; etag = delivery.key
+    }
     const info = await stat(/*turbopackIgnore: true*/ filename)
     if (!info.isFile()) return missing()
     size = info.size
@@ -21,7 +29,7 @@ export async function serveChibiArtifact(request: Request, assetId: string, revi
   const headers = new Headers({
     'Content-Type': 'model/gltf-binary', 'X-Content-Type-Options': 'nosniff',
     'Cache-Control': preview ? 'private, no-store' : 'public, max-age=31536000, immutable',
-    ETag: `"${asset.checksum}"`,
+    ETag: `"${etag}"`,
   })
   if (!preview && request.headers.get('if-none-match')?.split(',').map(value => value.trim()).includes(headers.get('ETag')!)) {
     return new Response(null, { status: 304, headers })

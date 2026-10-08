@@ -6,6 +6,88 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import ts from 'typescript'
 import { downloadChibiModel, type ModelDownloadProgress } from './chibi-model-download'
 
+function publicUrl(id: string, revision = 'a') {
+  return `/assets/chibi/${id}/${revision.repeat(64)}.glb`
+}
+
+test('admin browsing keeps the public URL only for the same published model revision', () => {
+  const source = readFileSync(new URL('./ChibiBrowser.tsx', import.meta.url), 'utf8')
+  const start = source.indexOf('function mergeAdminStudents(')
+  const end = source.indexOf('\nfunction Message(', start)
+  const js = ts.transpileModule(`${source.slice(start, end)}; return mergeAdminStudents`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
+  const merge = new Function(js)()
+  const published = { id: 1, name: 'A', model: { assetId: 'asset', revision: 'a', url: publicUrl('asset') } }
+  const preview = { ...published, model: { ...published.model, url: '/api/admin/chibi/assets/asset/a.glb', arrangement: { edited: true } } }
+  assert.equal(merge([published], [preview])[0].model.url, published.model.url)
+  assert.deepEqual(merge([published], [preview])[0].model.arrangement, { edited: true })
+  assert.equal(merge([], [preview])[0].model.url, preview.model.url)
+  assert.equal(merge([published], [{ ...preview, model: { ...preview.model, revision: 'b' } }])[0].model.url, preview.model.url)
+  assert.equal(merge([published], [{ ...preview, model: { ...preview.model, assetId: 'other' } }])[0].model.url, preview.model.url)
+})
+
+test('switching public models A to B to A reuses completed bytes without fetching A again', async t => {
+  const requests: string[] = []
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    requests.push(url)
+    return new Response(new Uint8Array([1, 2, 3]))
+  })
+  const load = (url: string) => downloadChibiModel(url, new AbortController().signal, () => {})
+  const first = await load(publicUrl('switch-a'))
+  await load(publicUrl('switch-b'))
+  const progress: ModelDownloadProgress[] = []
+  const again = await downloadChibiModel(publicUrl('switch-a'), new AbortController().signal, value => progress.push(value))
+  assert.equal(again, first)
+  assert.deepEqual(requests, [publicUrl('switch-a'), publicUrl('switch-b')])
+  assert.deepEqual(progress, [{ loaded: 3, total: 3 }])
+  await load(publicUrl('switch-a', 'b'))
+  assert.equal(requests.length, 3, 'a new checksum must fetch the new revision')
+  const aborted = new AbortController(); aborted.abort()
+  await assert.rejects(downloadChibiModel(publicUrl('switch-a'), aborted.signal, () => {}), { name: 'AbortError' })
+})
+
+test('small animation files do not evict the initial model after three entries', async t => {
+  const requests: string[] = []
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    requests.push(url); return new Response(new Uint8Array([1]))
+  })
+  const load = (id: string) => downloadChibiModel(publicUrl(id), new AbortController().signal, () => {})
+  await load('lru-a'); await load('lru-b'); await load('lru-c')
+  await load('lru-a'); await load('lru-d'); await load('lru-a'); await load('lru-b')
+  assert.deepEqual(requests.map(url => url.split('/')[3]), ['lru-a', 'lru-b', 'lru-c', 'lru-d'])
+})
+
+test('revision-bound initial and animation payloads are cached independently within the byte budget', async t => {
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async () => { requests++; return new Response(new Uint8Array([1, 2])) })
+  const base = `${publicUrl('parts')}?part=initial&clip=Idle&v=1`, clip = `${publicUrl('parts')}?part=animation&clip=Action&v=1`
+  const load = (url: string) => downloadChibiModel(url, new AbortController().signal, () => {})
+  await load(base); await load(clip); await load(base); await load(clip)
+  assert.equal(requests, 2)
+  const large = new ArrayBuffer(70 * 1024 * 1024)
+  t.mock.method(globalThis, 'fetch', async () => {
+    requests++
+    return { ok: true, headers: new Headers(), body: null, arrayBuffer: async () => large } as Response
+  })
+  await load(publicUrl('budget-a')); await load(publicUrl('budget-b')); await load(publicUrl('budget-a'))
+  assert.equal(requests, 5, 'the 128 MiB limit evicts old bytes even with fewer than three files')
+})
+
+test('admin previews are fetched again and aborted public downloads are not cached', async t => {
+  let requests = 0
+  t.mock.method(globalThis, 'fetch', async () => {
+    requests++; return new Response(new Uint8Array([1, 2]))
+  })
+  const preview = `/api/admin/chibi/assets/preview/${'a'.repeat(64)}.glb`
+  for (let i = 0; i < 2; i++) await downloadChibiModel(preview, new AbortController().signal, () => {})
+  assert.equal(requests, 2)
+  const aborted = new AbortController()
+  await assert.rejects(downloadChibiModel(publicUrl('abort-cache'), aborted.signal, value => {
+    if (value.loaded) aborted.abort()
+  }), { name: 'AbortError' })
+  await downloadChibiModel(publicUrl('abort-cache'), new AbortController().signal, () => {})
+  assert.equal(requests, 4)
+})
+
 function loadingPanel(status: string, download: ModelDownloadProgress) {
   const source = readFileSync(new URL('./ChibiViewer.tsx', import.meta.url), 'utf8')
   const start = source.indexOf("      {!error && status !== 'Model ready'")

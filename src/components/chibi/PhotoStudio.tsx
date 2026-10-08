@@ -52,8 +52,14 @@ function Actor({ stage, actor, student, report }: { stage: Stage; actor: StudioA
     return { ...stage, group, ready: controller => {
       stage.actors.set(actor.id, { group, controller })
       const saved = initial.current
-      if (saved.clip && controller.clips.some(clip => clip.name === saved.clip)) { controller.play(saved.clip); controller.seek(saved.time); controller.pause(saved.paused) }
-      report(actor.id, 'Ready')
+      if (saved.clip && controller.clips.some(clip => clip.name === saved.clip)) {
+        report(actor.id, 'Loading pose…')
+        void controller.play(saved.clip).then(played => {
+          if (stage.actors.get(actor.id)?.controller !== controller) return
+          if (played) { controller.seek(saved.time); controller.pause(saved.paused) }
+          report(actor.id, played ? 'Ready' : 'Saved animation could not be loaded.')
+        })
+      } else report(actor.id, 'Ready')
     }, failed: message => report(actor.id, message) }
   }, [stage, actor.id, report])
   useEffect(() => {
@@ -237,7 +243,7 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
     } catch { setMessage('The saved scene could not be restored.') }
   }
   function exportPhoto() {
-    if (!stage || backgroundLoading || actors.some(a => statuses[a.id] !== 'Ready')) return
+    if (!stage || backgroundLoading || actors.some(a => statuses[a.id] !== 'Ready' || stage.actors.get(a.id)?.controller?.playback().loadingClip)) return
     renderStudio(stage.renderer, stage.scene, stage.camera, stage.actors, layers, outlineEnabledRef.current ? stage.outline : undefined)
     stage.renderer.domElement.toBlob(blob => {
       if (!blob) { setMessage('The photo could not be exported.'); return }
@@ -258,7 +264,7 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
       <div className={styles.actions}>
         <button type="button" aria-label="Model outline" aria-pressed={outlineEnabled} className={outlineEnabled ? styles.primary : undefined} title={outlineEnabled ? 'Turn outline off' : 'Turn outline on'} onClick={() => { outlineEnabledRef.current = !outlineEnabled; setOutlineEnabled(!outlineEnabled) }}><PenTool size={16} />{outlineEnabled ? 'Hide outline' : 'Show outline'}</button>
         <button type="button" onClick={() => setHiddenControls(v => !v)}>{hiddenControls ? 'Show controls' : 'Hide controls'}</button>
-        <button type="button" className={styles.export} onClick={exportPhoto} disabled={!stage || backgroundLoading || actors.some(a => statuses[a.id] !== 'Ready')}><Download size={16} />Export PNG</button>
+        <button type="button" className={styles.export} onClick={exportPhoto} disabled={!stage || backgroundLoading || !!playback.loadingClip || actors.some(a => statuses[a.id] !== 'Ready')}><Download size={16} />Export PNG</button>
         {!hiddenControls && <><button type="button" onClick={saveScene} disabled={!stage}>Save scene</button><button type="button" onClick={loadScene} disabled={!stage}>Open saved scene</button></>}
       </div>
       <p role="status" className={styles.message}>{backgroundLoading ? 'Loading background…' : message}</p>
@@ -308,7 +314,8 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
         <div className={styles.media}><button type="button" onClick={() => updateActor({ tilt: Math.min(90, (current.tilt ?? 0) + 10) })}>Tilt forward</button><button type="button" onClick={() => updateActor({ tilt: Math.max(-90, (current.tilt ?? 0) - 10) })}>Tilt backward</button><button type="button" onClick={() => updateActor({ tilt: 0 })}>Reset tilt</button></div>
         <p className={styles.note}>Rotation and tilt affect only this student, including their halo. Move camera changes the view of the whole scene.</p>
         <label>Size <output>{current.scale.toFixed(2)}×</output><input aria-label="Student size" type="range" min="0.1" max="3" step="0.05" value={current.scale} onChange={e => updateActor({ scale: Number(e.target.value) })} /></label>
-        <label>Animation<select value={playback.clip ?? ''} disabled={!runtime?.controller?.clips.length} onChange={e => { runtime?.controller?.play(e.target.value); setPlayback(runtime?.controller?.playback() ?? emptyPlayback) }}><option value="" disabled>{runtime?.controller?.clips.length ? 'Choose an animation' : 'No animations available'}</option>{runtime?.controller?.clips.map(clip => <option key={clip.name} value={clip.name}>{clip.name.replace(/^(CH\d+|[^_]+_Original)_?/i, '').replaceAll('_', ' ').replace(/([a-z])([A-Z])/g, '$1 $2')}</option>)}</select></label>
+        <label>Animation<select value={playback.loadingClip ?? playback.clip ?? ''} disabled={!runtime?.controller?.clips.length} onChange={e => { runtime?.controller?.play(e.target.value); setPlayback(runtime?.controller?.playback() ?? emptyPlayback) }}><option value="" disabled>{runtime?.controller?.clips.length ? 'Choose an animation' : 'No animations available'}</option>{runtime?.controller?.clips.map(clip => <option key={clip.name} value={clip.name}>{clip.name.replace(/^(CH\d+|[^_]+_Original)_?/i, '').replaceAll('_', ' ').replace(/([a-z])([A-Z])/g, '$1 $2')}</option>)}</select></label>
+        {playback.loadingClip && <p role="status" className={styles.note}>{playback.animationError ? 'Animation could not be loaded. ' : 'Loading animation…'}{playback.animationError && <button type="button" onClick={() => { if (playback.loadingClip) void runtime?.controller?.play(playback.loadingClip) }}>Retry animation</button>}</p>}
         <div className={styles.media}><button type="button" disabled={!playback.clip} onClick={() => { runtime?.controller?.pause(!playback.paused); setPlayback(runtime?.controller?.playback() ?? emptyPlayback) }}>{playback.paused ? 'Play animation' : 'Pause pose'}</button><button type="button" disabled={!playback.clip} onClick={() => { runtime?.controller?.seek(0); setPlayback(runtime?.controller?.playback() ?? emptyPlayback) }}>Rewind</button></div>
         <label>Pose timeline <output>{playback.time.toFixed(2)} / {playback.duration.toFixed(2)} s</output><input aria-label="Pose timeline" type="range" min="0" max={playback.duration || 1} step="0.01" disabled={!playback.clip} value={Math.min(playback.time, playback.duration)} onChange={e => { runtime?.controller?.pause(true); runtime?.controller?.seek(Number(e.target.value)); setPlayback(runtime?.controller?.playback() ?? emptyPlayback) }} /></label>
         <p className={styles.note}>Pause or scrub to keep a pose. Each student has independent playback.</p>
