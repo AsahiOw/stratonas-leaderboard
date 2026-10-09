@@ -21,7 +21,7 @@ export function RadioMiniPlayer() {
     return () => window.cancelAnimationFrame(frame)
   }, [pathname, player.backgroundMode, player.currentTrack, player.playbackRate])
 
-  if (!player.backgroundMode || !player.currentTrack || ['/radio', '/login', '/admin'].includes(pathname)) return null
+  if (!player.backgroundMode || !player.currentTrack || ['/radio', '/playground', '/login', '/admin'].includes(pathname)) return null
   const open = () => router.push('/radio')
   return (
     <aside className={styles.miniPlayer} aria-label="Radio mini player">

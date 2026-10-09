@@ -349,9 +349,9 @@ const PROJECTMX_SHADER_PASSES = {
 } as const
 
 export const CHIBI_EXPORTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-render-profile-v7-policy-v7-material-claims-v2-weapon-ancestry-v1-all-character-clips-v2-source-tracks-v1-null-helpers-v1-fallback-visibility-lenses-v1-props-rest-v1'
-export const CHIBI_MATERIAL_VERSION = 'mx-materials-v65-preserve-collapsed-face-uv'
+export const CHIBI_MATERIAL_VERSION = 'mx-materials-v66-exact-halo-transform-paths'
 /** Bump only when conversion bytes can change; rendering policy versions stay out of this identity. */
-export const CHIBI_CORE_CONVERTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-postprocess-core-v1'
+export const CHIBI_CORE_CONVERTER_VERSION = 'assetstudio-0.19.0_fbx2gltf-0.13.1-postprocess-core-v2-exact-halo-paths'
 
 const REMOVED_MESHES: Readonly<Record<string, readonly string[]>> = {
   haruna_original: ['Haruna_Original_Fishshapedbun_Weapon', 'Haruna_Original_Orangebox', 'Haruna_Original_Weapon'],

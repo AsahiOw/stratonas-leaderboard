@@ -1,4 +1,28 @@
 // Bind exact source paths after the importer has finalized the GLB hierarchy.
+export function removeUnboundHaloTransforms(json, source, paths) {
+  let removed = 0;
+  for (const record of source.unboundHaloTransforms ?? []) {
+    if (!(source.bindings ?? []).some(binding => record.hierarchyPath.startsWith(binding.haloPath + '/'))) continue;
+    const nodes = paths.flatMap((path, index) => {
+      const node = json.nodes[index], ref = node.extras?.chibi?.sourceRenderer?.sourceReference ?? node.extras?.chibi?.sourceReference;
+      return path === record.hierarchyPath && Number.isInteger(node.mesh) && node.skin === undefined
+        && ref && ['bundleSha256', 'serializedFile', 'objectId'].every(key => ref[key] === record.sourceReference?.[key]) ? [index] : [];
+    });
+    if (nodes.length !== 1 || !['translation', 'rotation', 'scale'].includes(record.targetPath)) continue;
+    for (const animation of json.animations ?? []) {
+      if (!record.clips.includes(animation.name)) continue;
+      animation.channels = animation.channels.filter(channel => {
+        if (channel.target.node !== nodes[0] || channel.target.path !== record.targetPath) return true;
+        // Name-only FBX binding applied a different source path to this child.
+        // Keep its prefab rest transform; the verified parent follower positions it.
+        removed++;
+        return false;
+      });
+    }
+  }
+  return removed;
+}
+
 export function bindHaloFollow(json, source) {
   const paths = [];
   const visit = (index, parent = '') => {

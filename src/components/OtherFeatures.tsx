@@ -11,7 +11,7 @@ interface Props {
 }
 
 const features: {
-  tab: FeatureTab | 'chibi' | 'studio'
+  tab: FeatureTab | 'chibi' | 'studio' | 'playground'
   title: string
   description: string
   image: string
@@ -63,6 +63,12 @@ const features: {
       title: 'Photo Studio (Beta)',
       description: 'Arrange students, choose a background, and capture your own scene.',
       image: '/assets/others/photo-studio.jpg',
+    },
+    {
+      tab: 'playground',
+      title: 'Student Playground (Beta)',
+      description: 'Invite students to Schale.',
+      image: '/assets/others/playground.jpg',
     }
   ]
 
@@ -83,7 +89,7 @@ export function OtherFeatures({ onSelect }: Props) {
           <button
             key={feature.tab}
             type="button"
-            onClick={() => feature.tab === 'chibi' ? router.push('/3D') : feature.tab === 'studio' ? router.push('/studio') : onSelect(feature.tab)}
+            onClick={() => feature.tab === 'chibi' ? router.push('/3D') : feature.tab === 'studio' ? router.push('/studio') : feature.tab === 'playground' ? router.push('/playground') : onSelect(feature.tab)}
             className="group relative min-h-[280px] overflow-hidden rounded-2xl border border-border bg-card text-left shadow-[0_14px_35px_rgba(0,0,0,0.2)] outline-none transition duration-300 hover:-translate-y-1 hover:border-border2 hover:shadow-[0_20px_45px_rgba(0,0,0,0.35)] focus-visible:ring-2 focus-visible:ring-accent/70 md:aspect-[4/5]"
             aria-label={`Open ${feature.title}`}
           >

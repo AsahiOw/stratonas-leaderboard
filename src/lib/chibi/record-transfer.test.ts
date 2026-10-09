@@ -6,6 +6,8 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { exportChibiRecords, importChibiRecords, readChibiRecords } from './record-transfer'
+import { initialPlaygroundMapping } from './playground-mapping'
+import { emptyChibiProfile } from './types'
 
 const bytes = Buffer.from('isolated copied model')
 const asset = {
@@ -22,6 +24,14 @@ const binding = {
   arrangementOverride: { schemaVersion: 1, nodes: {} }, catalogVisible: false, status: 'available', diagnostic: null,
 }
 const records = () => structuredClone({ format: 'stratonas-chibi-records', schemaVersion: 1, exportedAt: asset.createdAt, students: [student], assets: [asset], bindings: [binding] })
+test('new exports retain reviewed playground roles while older exports omit the setting', () => {
+  const value = records() as ReturnType<typeof records> & { bindings: Array<typeof binding & { playgroundMapping?: unknown }> }
+  const mapping = initialPlaygroundMapping(asset.sourceIdentity, emptyChibiProfile())
+  mapping.roles.greeting = [{ clip: 'Idle', loop: false }]
+  value.bindings[0].playgroundMapping = mapping
+  assert.deepEqual(readChibiRecords(value).bindings[0].playgroundMapping, mapping)
+  assert.equal(Object.hasOwn(readChibiRecords(records()).bindings[0], 'playgroundMapping'), false)
+})
 function database() {
   const state = { active: null as { id: string } | null, pathName: 'Haruna', models: [] as any[], bindings: [] as any[], transactions: 0 }
   const tx = {

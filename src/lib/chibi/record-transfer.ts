@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { ChibiInputError, record } from './api-input'
 import { CHIBI_ENQUEUE_LOCK, activeJobWhere, ChibiJobConflict } from './server'
 import { existingArtifactPath, artifactPath } from './storage'
+import { readPlaygroundMapping } from './playground-mapping'
 
 export const CHIBI_RECORD_LIMIT = 64 * 1024 * 1024
 type StudentIdentity = { id: number; name: string; pathName: string | null }
@@ -18,7 +19,7 @@ type Records = {
   bindings: Omit<StudentChibiBinding, 'updatedAt'>[]
 }
 const assetFields = ['id', 'sourceIdentity', 'fingerprint', 'coreFingerprint', 'coreFingerprintSchemaVersion', 'dependencyFingerprint', 'exporterVersion', 'checksum', 'fileKey', 'clips', 'materials', 'validation', 'arrangementDefault', 'published', 'createdAt'] as const
-const bindingFields = ['studentId', 'assetId', 'sourceIdentity', 'identityPath', 'profile', 'provenance', 'overrides', 'arrangementOverride', 'catalogVisible', 'status', 'diagnostic'] as const
+const bindingFields = ['studentId', 'assetId', 'sourceIdentity', 'identityPath', 'profile', 'provenance', 'overrides', 'arrangementOverride', 'playgroundMapping', 'catalogVisible', 'status', 'diagnostic'] as const
 const pick = (row: Record<string, unknown>, fields: readonly string[]) => Object.fromEntries(fields.map(key => [key, row[key]]))
 function ensure(valid: unknown, message: string): asserts valid { if (!valid) throw new ChibiInputError(message) }
 const text = (value: unknown) => typeof value === 'string' && value.length > 0 && value.length <= 2000
@@ -61,7 +62,11 @@ export function readChibiRecords(input: unknown): Records {
     ensure(row.sourceIdentity === assetMap.get(row.assetId as string)!.sourceIdentity, 'Binding and model source identities differ.')
     ensure(text(row.provenance) && typeof row.catalogVisible === 'boolean' && ['available', 'unavailable', 'failed', 'review-required', 'unresolved', 'blocked', 'pending'].includes(String(row.status)), 'Invalid binding settings.')
     for (const key of ['profile', 'overrides', 'arrangementOverride']) ensure(object(row[key]), `Invalid binding ${key}.`)
-    return pick(row, bindingFields) as Records['bindings'][number]
+    if (row.playgroundMapping !== undefined) {
+      ensure(object(row.playgroundMapping), 'Invalid playground animation mapping.')
+      if (Object.keys(row.playgroundMapping as object).length) readPlaygroundMapping(row.playgroundMapping, row.sourceIdentity as string, assetMap.get(row.assetId as string)!.clips as string[])
+    }
+    return pick(row, bindingFields.filter(key => key !== 'playgroundMapping' || row.playgroundMapping !== undefined)) as Records['bindings'][number]
   })
   ensure(new Set(bindings.map(row => row.studentId)).size === bindings.length && bindings.length === students.length, 'Duplicate or unmatched bindings.')
   ensure(new Set(bindings.map(row => row.assetId)).size === assets.length, 'Unreferenced model records.')

@@ -13,6 +13,8 @@ import { CHIBI_ACTIONS, type ChibiAction, type ChibiCatalogStudent } from '@/lib
 import { sourceObjectKey, type ChibiRenderingProfile } from '@/lib/chibi/rendering-profile'
 import { mouthTileAtTime, mouthTileTextureTransform, mouthTileStateAtTime, normalizePlaybackTime } from '@/lib/chibi-mouth'
 import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround, previewPlacement } from '@/lib/chibi/preview-bounds'
+import { playgroundBodyBounds, playgroundModelScale } from './playground-footprint'
+import { STUDENT_RADIUS } from '@/lib/chibi/playground-constants'
 import { applyChibiProfileMaterialState, createDsfxAdditivePass, createDsfxAlphaBlendAddPass, createDsfxGlitchTexPass, createDsfxMatcapPass, createMxCTransparentPasses, createMxEStandardPass, createMxUnlitOutlinePass, createProjectMxWeaponPasses, patchEyebrowCameraShader, type ChibiViewerMaterialMetadata } from './chibi-viewer-material'
 import { alternateFaceVisibilityAtTime, applyHoshinoShieldPreview, applyMakotoHairPreview, inPlaceClip, rendererVisibilityAtTime } from './chibi-viewer-state'
 import { CHIBI_MODEL_NODE_KEY, type ChibiArrangementDocument, type ChibiArrangementNode } from './chibi-arrangement'
@@ -790,25 +792,30 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         const playClip = (clipName: string, kind: ChibiAction | null, settings?: { loop?: boolean; hold?: boolean; speed?: number }) => {
           const source = clips.get(clipName)
           if (!source || !mixer || !root) return false
+          const firstPlacement = !currentAction
           currentAction?.stop()
           haloFollower?.reset()
           let playbackClip = source
-          if (kind === 'walk' && studio) {
+          if (studio?.playground || (kind === 'walk' && studio)) {
             playbackClip = inPlaceClips.get(source.name) || inPlaceClip(source, root)
             inPlaceClips.set(source.name, playbackClip)
           }
           const next = mixer.clipAction(playbackClip).reset()
           const staticPose = playbackClip.duration <= 0
+          const repeatPickup = kind === 'pickup' && !studio?.playground
           next.setEffectiveTimeScale(settings?.speed || 1)
-          next.setLoop(!staticPose && (kind === 'pickup' || (settings?.loop ?? (kind === 'idle' || kind === 'walk'))) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
-          next.clampWhenFinished = kind === 'pickup' ? false : settings?.hold ?? false; next.play(); currentAction = next; currentKind = kind; setActive(kind)
+          next.setLoop(!staticPose && (repeatPickup || (settings?.loop ?? (kind === 'idle' || kind === 'walk'))) ? THREE.LoopRepeat : THREE.LoopOnce, Infinity)
+          next.clampWhenFinished = repeatPickup ? false : settings?.hold ?? false; next.play(); currentAction = next; currentKind = kind; setActive(kind)
           next.paused = staticPose
           if (staticPose) mixer.update(0)
-          if (!studio && placementReady) {
+          if ((!studio || studio.playground) && placementReady) {
             mixer.update(0)
+            if (studio?.playground) holder.updateMatrixWorld(true)
             const placement = previewPlacement(root)
             restingHolderY = -placement.ground * previewScale
-            restingPosition.set(-placement.anchor.x * previewScale, restingHolderY, -placement.anchor.z * previewScale)
+            // Pose-dependent body centers must not move the playground's walking anchor.
+            if (!studio?.playground || firstPlacement) restingPosition.set(-placement.anchor.x * previewScale, restingHolderY, -placement.anchor.z * previewScale)
+            else restingPosition.y = restingHolderY
           }
           manualPlayback = false; setPaused(staticPose)
           setActiveClip(clipName)
@@ -878,9 +885,9 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         }
         const play = async (kind: ChibiAction, valid?: () => boolean, usePlaybackLoop = false) => { const interaction = model.profile.interactions[kind]; return interaction.state === 'available' && interaction.clip && !missing.has(kind) ? requestClip(interaction.clip, kind, interaction, valid, usePlaybackLoop) : false }
         playRef.current = play
-        const playNamedClip = (name: string) => {
-          const kind = CHIBI_ACTIONS.find(action => model.profile.interactions[action].state === 'available' && model.profile.interactions[action].clip === name) ?? null
-          return requestClip(name, kind, { loop: true }, undefined, true)
+        const playNamedClip = (name: string, options?: { loop?: boolean; movement?: boolean }) => {
+          const kind = options?.movement ? 'walk' : CHIBI_ACTIONS.find(action => model.profile.interactions[action].state === 'available' && model.profile.interactions[action].clip === name) ?? null
+          return requestClip(name, kind, { loop: options?.loop ?? true, hold: studio?.playground ?? false }, undefined, !studio?.playground)
         }
         playClipRef.current = playNamedClip
         mixer.addEventListener('finished', () => {
@@ -892,7 +899,17 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         playInitial(); resetRef.current = () => { pointerCancel(); holder.rotation.y = 0; holder.position.copy(restingPosition); resetCamera(); playInitial() }; mixer.update(0); root.updateMatrixWorld(true)
         // Fit in actor-local space so the studio placement is not cancelled by centering.
         if (studio) { holder.removeFromParent(); holder.updateMatrixWorld(true) }
-        const bounds = previewBounds(root), fitBounds = previewFitBounds(root), size = fitBounds.getSize(new THREE.Vector3()), anchor = previewAnchor(root, bounds), ground = previewGround(root, bounds), scale = 1.8 / Math.max(size.y, 0.01)
+        let standingBounds: THREE.Box3 | null = null
+        const walk = model.profile.interactions.walk
+        if (studio?.playground && walk.state === 'available' && walk.clip && clipNames.has(walk.clip)) {
+          // Crouched/seated idle poses must not magnify the student and its props.
+          await animations.get(walk.clip)
+          if (disposed) return
+          playClip(walk.clip, 'walk', walk); mixer.update(0); root.updateMatrixWorld(true)
+          standingBounds = playgroundBodyBounds(root, true)
+          playInitial(); mixer.update(0); root.updateMatrixWorld(true)
+        }
+        const bounds = previewBounds(root), bodyBounds = studio?.playground ? playgroundBodyBounds(root, true) : null, fitBounds = bodyBounds ?? previewFitBounds(root), size = fitBounds.getSize(new THREE.Vector3()), anchor = bodyBounds?.getCenter(new THREE.Vector3()) ?? previewAnchor(root, bounds), ground = previewGround(root, bounds), scale = studio?.playground ? playgroundModelScale(standingBounds ?? fitBounds) : 1.8 / Math.max(size.y, 0.01)
         previewScale = scale; restingHolderY = -ground * scale
         holder.scale.setScalar(scale); holder.position.set(-anchor.x * scale, restingHolderY, -anchor.z * scale); restingPosition.copy(holder.position); applyArrangement(); setStatus('Model ready')
         placementReady = true
@@ -907,9 +924,10 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         }
         studio?.ready({
           haloMeshes,
+          footprintRadius: studio.playground ? STUDENT_RADIUS : undefined,
           clips: catalog,
           play: playNamedClip,
-          pause: paused => { if (currentAction) currentAction.paused = paused },
+          pause: paused => { if (currentAction) currentAction.paused = paused || currentAction.getClip().duration <= 0 },
           seek: time => { if (!currentAction) return; currentAction.time = THREE.MathUtils.clamp(time, 0, currentAction.getClip().duration); mixer?.update(0); updateMouths(); applyArrangement(); haloFollower?.reset(); haloFollower?.update(0, currentAction.getClip()) },
           playback: () => ({ clip: currentAction?.getClip().name ?? null, time: currentAction?.time ?? 0, duration: currentAction?.getClip().duration ?? 0, paused: currentAction?.paused ?? true, loadingClip: pendingAnimation?.name, animationError: pendingAnimation?.failed }),
         })
@@ -918,11 +936,14 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       }
     }
     void load()
-    let previousTime = 0, elapsedSeconds = 0, lastTimelineUpdate = 0
+    let previousTime = 0, elapsedSeconds = 0, lastTimelineUpdate = 0, animationDelta = 0
     const render = (time: number) => {
-      const delta = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0
+      const frameDelta = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0
       previousTime = time
-      if (!document.hidden) {
+      if (!document.hidden && !studio?.paused?.()) {
+        animationDelta += frameDelta
+        if (animationDelta + 0.00001 < (studio?.animationInterval?.() ?? 0)) { if (!studio?.registerFrame) frame = requestAnimationFrame(render); return }
+        const delta = animationDelta; animationDelta = 0
         elapsedSeconds += delta
         if (!studio) scene.userData.chibiElapsedSeconds = elapsedSeconds
         mixer?.update(delta)
@@ -949,11 +970,13 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           holder.position.z = -restingPosition.x * Math.sin(angle) + restingPosition.z * Math.cos(angle)
         }
         updateMouths(); applyArrangement(); haloFollower?.update(currentAction?.paused ? 0 : delta, currentAction?.getClip() ?? null); hiddenSceneMeshes.forEach(object => { object.visible = false }); if (!studio) { controls.update(delta); if (outlineEnabledRef.current && outlineEffect) outlineEffect.render(scene, camera); else renderer.render(scene, camera) }
-      }
-      frame = requestAnimationFrame(render)
+      } else animationDelta = 0
+      if (!studio?.registerFrame) frame = requestAnimationFrame(render)
     }
-    frame = requestAnimationFrame(render)
+    const unregisterFrame = studio?.registerFrame?.(render)
+    if (!studio?.registerFrame) frame = requestAnimationFrame(render)
     return () => {
+      unregisterFrame?.()
       disposed = true; abortController.abort(); cancelAnimationFrame(frame); observer.disconnect()
       clearHoldTimer(); window.removeEventListener('blur', pointerCancel); document.removeEventListener('visibilitychange', visibilityChanged)
       renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove, true); renderer.domElement.removeEventListener('pointerup', pointerUp, true); renderer.domElement.removeEventListener('pointercancel', pointerCancel, true); renderer.domElement.removeEventListener('lostpointercapture', pointerCancel)

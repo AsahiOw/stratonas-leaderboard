@@ -284,6 +284,25 @@ test('Miyu swimsuit fit uses the body surface rather than oversized integrated h
   assert.equal(root.children[1].visible, true)
 })
 
+test('Kirino swimsuit placement includes separately skinned legs below the body', () => {
+  const root = new THREE.Group(), bone = new THREE.Bone()
+  root.add(bone)
+  for (const [name, height, y] of [['CH0262_Body_4', 4, 4], ['CH0262_Leg', 2, 1]] as const) {
+    const geometry = new THREE.BoxGeometry(2, height, 2), count = geometry.getAttribute('position').count
+    geometry.translate(0, y, 0)
+    geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Array(count * 4).fill(0), 4))
+    geometry.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Array(count * 4).fill(0).map((_, i) => i % 4 === 0 ? 1 : 0), 4))
+    const material = new THREE.MeshBasicMaterial(); material.name = 'CH0262_Body'
+    const mesh = new THREE.SkinnedMesh(geometry, material); mesh.name = name
+    root.add(mesh); mesh.bind(new THREE.Skeleton([bone]))
+  }
+  root.updateMatrixWorld(true)
+  assert.equal(previewPlacement(root).ground, 0)
+  assert.equal(previewFitBounds(root).getSize(new THREE.Vector3()).y, 6)
+  bone.position.y = -3
+  assert.equal(previewPlacement(root).ground, -3)
+})
+
 test('animation placement refreshes the body pose in actor-local space without chasing equipment', () => {
   const holder = new THREE.Group(), root = new THREE.Group(), bone = new THREE.Bone()
   holder.position.set(10, -3, 20); holder.scale.setScalar(2); holder.rotation.y = .7; holder.add(root)

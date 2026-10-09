@@ -34,10 +34,25 @@ def rotation(value):
     return [q[0]/length, -q[1]/length, -q[2]/length, q[3]/length]
 
 
+def unbound_halo_transforms(renderers, bindings, transform_paths):
+    result = []
+    for renderer in renderers:
+        if not any(renderer['hierarchyPath'].startswith(binding['haloPath'] + '/') for binding in bindings):
+            continue
+        path_hash = zlib.crc32(renderer['hierarchyPath'].split('/', 1)[1].encode())
+        for prop, attributes in [('translation', [1]), ('rotation', [2, 4]), ('scale', [3])]:
+            clips = [clip for clip, paths in transform_paths.items() if not any((path_hash, attr) in paths for attr in attributes)]
+            if clips:
+                result.append({**renderer, 'targetPath': prop, 'clips': clips})
+    return result
+
+
 def export(manifest):
     bindings, warnings = [], []
     static_translations = []
+    renderer_transforms = []
     animation_paths = {}
+    transform_paths = {}
     for bundle in manifest.get('animationBundles', []):
         for obj in UnityPy.load(bundle).objects:
             if obj.type.name != 'AnimationClip':
@@ -46,10 +61,15 @@ def export(manifest):
             if clip.m_Name not in manifest.get('clips', []):
                 continue
             paths = animation_paths.setdefault(clip.m_Name, set())
+            transforms = transform_paths.setdefault(clip.m_Name, set())
             for binding in getattr(getattr(clip, 'm_ClipBindingConstant', None), 'genericBindings', []):
+                if binding.typeID == 4:
+                    transforms.add((binding.path, binding.attribute))
                 if binding.typeID == 4 and binding.attribute == 1:
                     paths.add(binding.path)
             paths.update(zlib.crc32(curve.path.encode()) for curve in getattr(clip, 'm_PositionCurves', []))
+            for field, attribute in [('m_PositionCurves', 1), ('m_RotationCurves', 2), ('m_ScaleCurves', 3), ('m_EulerCurves', 4)]:
+                transforms.update((zlib.crc32(curve.path.encode()), attribute) for curve in getattr(clip, field, []))
     for digest in {r['sourceReference']['bundleSha256'] for r in manifest['renderers']}:
         data = Path(manifest['bundles'][digest]).read_bytes()
         if hashlib.sha256(data).hexdigest() != digest:
@@ -71,6 +91,7 @@ def export(manifest):
                 continue
             transform = transforms[0]
             relative = renderer['hierarchyPath'].split('/', 1)[1]
+            renderer_transforms.append({'hierarchyPath': renderer['hierarchyPath'], 'sourceReference': ref})
             clips = [clip for clip, paths in animation_paths.items() if zlib.crc32(relative.encode()) not in paths]
             static_translations.append({'hierarchyPath': renderer['hierarchyPath'], 'sourceReference': ref,
                 'restTranslation': vector({k: getattr(transform.m_LocalPosition, k) for k in ['x', 'y', 'z']}), 'clips': clips})
@@ -122,7 +143,8 @@ def export(manifest):
                     'fixYRotation': bool(tree['FixYRotation'])})
             except (ValueError, KeyError) as error:
                 warnings.append(f'Halo follow {path}: {error}')
-    return {'bindings': bindings, 'warnings': warnings, 'staticMeshTranslations': static_translations}
+    return {'bindings': bindings, 'warnings': warnings, 'staticMeshTranslations': static_translations,
+            'unboundHaloTransforms': unbound_halo_transforms(renderer_transforms, bindings, transform_paths)}
 
 
 if __name__ == '__main__':

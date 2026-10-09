@@ -12,6 +12,16 @@ spec = importlib.util.spec_from_file_location('halo_follow', Path(__file__).with
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 class HaloFollowTest(unittest.TestCase):
+    def test_rejects_standalone_halo_paths_but_preserves_exact_nested_source_motion(self):
+        renderer = {'hierarchyPath': 'Cafe/Hover/Halo', 'sourceReference': {'objectId': '1'}}
+        bare, exact = module.zlib.crc32(b'Halo'), module.zlib.crc32(b'Hover/Halo')
+        paths = {'WrongRoot': {(bare, 1)}, 'Generated': set(), 'Authored': {(exact, 1), (exact, 4), (exact, 3)}}
+        result = module.unbound_halo_transforms([renderer], [{'haloPath': 'Cafe/Hover'}], paths)
+        self.assertEqual(len(result), 3)
+        for record in result:
+            self.assertEqual(record['clips'], ['WrongRoot', 'Generated'])
+            self.assertEqual(record['sourceReference'], renderer['sourceReference'])
+        self.assertEqual(module.unbound_halo_transforms([renderer], [{'haloPath': 'Cafe/Other'}], paths), [])
     def test_helpers_read_utf8_manifests_with_legacy_windows_encoding(self):
         manifest = {'bundles': {}, 'renderers': [], 'animationBundles': [], 'paths': [], 'clips': [], 'note': 'あ'}
         with TemporaryDirectory() as directory:

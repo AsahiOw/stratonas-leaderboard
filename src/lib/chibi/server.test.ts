@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import { getPublicChibiStudents } from './server'
 import { emptyChibiProfile } from './types'
+import { initialPlaygroundMapping } from './playground-mapping'
 
 type CatalogRow = {
   id: number
@@ -15,6 +16,7 @@ type CatalogRow = {
     catalogVisible: boolean
     identityPath: string
     profile: ReturnType<typeof emptyChibiProfile>
+    playgroundMapping?: unknown
     arrangementOverride?: unknown
     asset: {
       id: string
@@ -99,4 +101,14 @@ test('public catalog carries saved eye layering for visitors', async () => {
   const result = await getPublicChibiStudents(db as any)
   assert.deepEqual(result[0].model?.arrangement?.nodes.$eyes, face)
   assert.deepEqual(result[0].model?.arrangementDefault, { schemaVersion: 1, nodes: {} })
+})
+
+test('playground uses current imported actions even when a legacy custom mapping has empty roles', async () => {
+  const profile = emptyChibiProfile(), legacy = initialPlaygroundMapping('source-10107', profile)
+  profile.interactions.walk = { state: 'available', clip: 'imported-walk' }
+  profile.interactions.pickup = { state: 'available', clip: 'new-pickup' }
+  const db = { student: { findMany: async () => [row(10107, 'Chiaki', { binding: { profile, playgroundMapping: legacy } })] } }
+  const result = await getPublicChibiStudents(db as any)
+  assert.equal(result[0].model?.playground?.roles.walk[0].clip, 'imported-walk')
+  assert.equal(result[0].model?.playground?.roles.pickup[0].clip, 'new-pickup')
 })

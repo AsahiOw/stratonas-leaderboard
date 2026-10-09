@@ -3,6 +3,7 @@ import { Prisma } from '@/generated/prisma/client'
 import { ChibiInputError } from './api-input'
 import { CHIBI_ACTIONS, emptyChibiProfile, type ChibiCatalogStudent, type ChibiProfile } from './types'
 import { mergeChibiArrangementDelta, parseChibiArrangementDelta } from './arrangement'
+import { initialPlaygroundMapping } from './playground-mapping'
 
 export const eligibleStudentsWhere = { id: { gte: 10000, lte: 99999 } }
 export const activeJobWhere = { status: { in: ['queued', 'running', 'paused'] } }
@@ -34,6 +35,7 @@ export async function getPublicChibiStudents(db = prisma): Promise<ChibiCatalogS
         assetId: asset.id, revision: asset.checksum,
         url: `/assets/chibi/${asset.id}/${asset.checksum}.glb`, sourceIdentity: asset.sourceIdentity,
         profile: binding?.profile as unknown as ChibiProfile || emptyChibiProfile(),
+        playground: initialPlaygroundMapping(asset.sourceIdentity, binding?.profile as unknown as ChibiProfile || emptyChibiProfile()),
         arrangement: mergeChibiArrangementDelta(asset.arrangementDefault ?? {}, binding?.arrangementOverride ?? {}),
         arrangementDefault: parseChibiArrangementDelta(asset.arrangementDefault ?? {}),
       },

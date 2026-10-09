@@ -13,7 +13,7 @@ function visibleInHierarchy(root: THREE.Object3D, object: THREE.Object3D) {
 }
 
 function isBodyMesh(object: THREE.Object3D) {
-  return object instanceof THREE.SkinnedMesh && /(?:^|_)Body(?:$|[_\.\d])/i.test(object.name)
+  return object instanceof THREE.SkinnedMesh && /(?:^|_)(?:Body|Legs?)(?:$|[_\.\d])/i.test(object.name)
 }
 
 function previewMeshes(root: THREE.Object3D) {
@@ -94,7 +94,7 @@ function bodyBounds(root: THREE.Object3D, refreshPose = false) {
   const bodyMeshes: THREE.Object3D[] = []
   root.traverse((object) => {
     if (!isBodyMesh(object) || !visibleInHierarchy(root, object)) return
-    // FBX2glTF preserves the source renderer name (for example CH0161_Body).
+    // FBX2glTF preserves renderer names, including separate legs (CH0262_Leg).
     // Keep the match narrow enough to avoid props whose names merely contain
     // the word "body" while allowing numbered/outlined body variants.
     bodyMeshes.push(object)

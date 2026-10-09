@@ -1,4 +1,4 @@
-export type CreditGroupId = 'site' | 'kei'
+export type CreditGroupId = 'site' | 'kei' | 'playground'
 
 export interface SiteCredit {
   label: string
@@ -97,6 +97,7 @@ export const SITE_CONTENT = {
   creditGroups: [
     { id: 'site', title: 'Leaderboard', description: 'Data and community resources that power the site.' },
     { id: 'kei', title: 'Kei greeting', description: 'Animation and voice that bring her welcome to life.' },
+    { id: 'playground', title: 'Schale Residence Hall', description: '3D model credit for the student playground.' },
   ] satisfies SiteCreditGroup[],
   credits: [
     { label: 'SchaleDB', detail: 'Game data & assets', href: 'https://schaledb.com/home', group: 'site', initial: 'S' },
@@ -105,6 +106,7 @@ export const SITE_CONTENT = {
     { label: '@MiiverseI', detail: 'Kei animation', href: 'https://x.com/MiiverseI', group: 'kei', initial: 'M' },
     { label: '@myuton0407', detail: 'Kei avatar', href: 'https://x.com/myuton0407', group: 'kei', initial: 'm' },
     { label: 'Fish Audio', detail: 'Kei voice', href: 'https://fish.audio/app/', group: 'kei', initial: 'F' },
+    { label: '@Mi_kuNeko_', detail: 'Schale Residence Hall 3D model', href: 'https://x.com/Mi_kuNeko_', group: 'playground', initial: 'M' },
   ] satisfies SiteCredit[],
 } as const
 

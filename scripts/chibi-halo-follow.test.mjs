@@ -1,6 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bindHaloFollow } from './chibi-halo-follow.mjs';
+import { bindHaloFollow, removeUnboundHaloTransforms } from './chibi-halo-follow.mjs';
+test('removes wrongly bound halo child motion with exact source proof, preserving authored channels', () => {
+ const ref = { bundleSha256: 'bundle', serializedFile: 'CAB', objectId: '1' };
+ for (const mutation of ['valid', 'other-source', 'ambiguous', 'skin', 'outside-follow']) {
+  const json = { nodes: [{ mesh: 0, translation: [0, -1, .2], extras: { chibi: { sourceReference: ref } } }],
+   animations: ['Idle', 'Authored'].map(name => ({ name, channels: [
+    { target: { node: 0, path: 'translation' }, sampler: 0 }, { target: { node: 0, path: 'rotation' }, sampler: 1 }], samplers: [{ output: 0 }, { output: 1 }] })) };
+  const paths = ['Cafe/Hover/Halo'], record = { hierarchyPath: paths[0], sourceReference: { ...ref }, targetPath: 'translation', clips: ['Idle'] };
+  if (mutation === 'other-source') record.sourceReference.objectId = '2';
+  if (mutation === 'ambiguous') { paths.push(paths[0]); json.nodes.push(structuredClone(json.nodes[0])); }
+  if (mutation === 'skin') json.nodes[0].skin = 0;
+  const count = removeUnboundHaloTransforms(json, { bindings: [{ haloPath: mutation === 'outside-follow' ? 'Other' : 'Cafe/Hover' }], unboundHaloTransforms: [record] }, paths);
+  assert.equal(count, mutation === 'valid' ? 1 : 0);
+  assert.equal(json.animations[1].channels.length, 2);
+  assert.deepEqual(json.nodes[0].translation, [0, -1, .2]);
+  if (count) assert.equal(json.animations[0].channels[0].target.path, 'rotation');
+ }
+});
 const source = { bindings: [{ haloPath: 'Cafe/Hover', targetPath: 'Cafe/Rig/Target', haloRestPosition: [0, 1, -.2], offset: [.3, -.2, 0], rotation: [0, 0, 0, 1], clampMin: [.2, -.3, -.2], clampMax: [.4, -.1, .2], positionPower: .1, rotationPower: .07, fixYRotation: false, targetReference: { objectId: '123' } }], warnings: [] };
 function document() { return { scenes: [{ nodes: [0] }], nodes: [{ name: 'RootNode', children: [1] }, { name: 'Cafe', children: [2, 3] }, { name: 'Hover', translation: [0, 100, -20] }, { name: 'Rig', children: [4] }, { name: 'Target' }] }; }
 test('binds exact exported paths and verified units without modifying model transforms', () => {

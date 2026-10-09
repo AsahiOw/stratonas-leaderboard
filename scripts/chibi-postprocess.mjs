@@ -1,4 +1,4 @@
-import { bindHaloFollow } from './chibi-halo-follow.mjs';
+import { bindHaloFollow, removeUnboundHaloTransforms } from './chibi-halo-follow.mjs';
 import { applyIncompleteMaterials } from './chibi-incomplete-materials.mjs';
 import { embedAlternateFaceEvents } from './chibi-face-events.mjs';
 import { restoreRootRotations, restoreStaticMeshTranslations } from './chibi-root-rotations.mjs';
@@ -4655,6 +4655,8 @@ embedRendererActive(json, config, nodeHierarchyPaths());
 embedExCostumePreview(json);
 const rootRotationRepairs = restoreRootRotations(json, config.rootRotations ?? [], nodeHierarchyPaths(), readAccessor, appendAccessor);
 const staticMeshRepairs = restoreStaticMeshTranslations(json, config.haloFollow?.staticMeshTranslations ?? [], nodeHierarchyPaths(), readAccessor, appendAccessor);
+const unboundHaloRepairs = removeUnboundHaloTransforms(json, config.haloFollow ?? {}, nodeHierarchyPaths());
+if (unboundHaloRepairs) console.log(`Removed ${unboundHaloRepairs} halo child transform channels without exact source bindings`);
 if (staticMeshRepairs) console.log(`Restored ${staticMeshRepairs} source-static mesh position tracks`);
   if (rootRotationRepairs) console.log(`Restored ${rootRotationRepairs} exact source bone transform tracks`);
 if (config.incompleteImport) {

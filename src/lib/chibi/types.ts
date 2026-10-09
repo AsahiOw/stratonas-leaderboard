@@ -1,4 +1,5 @@
 import type { ChibiArrangementDelta } from './arrangement'
+import type { PlaygroundMapping } from './playground-mapping'
 
 export const CHIBI_ACTIONS = ['idle', 'walk', 'pickup', 'touch'] as const
 export type ChibiAction = typeof CHIBI_ACTIONS[number]
@@ -31,6 +32,7 @@ export interface ChibiCatalogStudent {
     url: string
     sourceIdentity: string
     profile: ChibiProfile
+    playground?: PlaygroundMapping
     arrangement?: ChibiArrangementDelta
     arrangementDefault?: ChibiArrangementDelta
   }
