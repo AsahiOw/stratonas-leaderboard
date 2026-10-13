@@ -4,6 +4,10 @@ import type { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 export const STUDENT_EYE_HEIGHT = 1.25
 export const STUDENT_FOLLOW_HEIGHT = 0.9
 
+export function isolatePlaygroundPointer(event: { stopPropagation: () => void; nativeEvent: { stopImmediatePropagation: () => void } }) {
+  event.stopPropagation(); event.nativeEvent.stopImmediatePropagation()
+}
+
 export function studentCameraView(camera: PerspectiveCamera, controls: OrbitControls, position: [number, number], angle: number, firstPerson: boolean, followOffset: Vector3) {
   const damping = controls.enableDamping
   controls.enableDamping = false; controls.update()

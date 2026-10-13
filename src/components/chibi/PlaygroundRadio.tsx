@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Pause, Play, Radio, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { formatRadioTime, useRadioPlayer } from '@/components/radio/RadioPlayerProvider'
+import { isolatePlaygroundPointer } from './playground-camera'
 import styles from './StudentPlayground.module.css'
 
 export function PlaygroundRadio({ onClose }: { onClose: () => void }) {
@@ -30,7 +31,7 @@ export function PlaygroundRadio({ onClose }: { onClose: () => void }) {
 
   const play = (id: string) => { player.setBackgroundMode(true); player.playTrack(id) }
 
-  return <div className={styles.scrim} onClick={onClose}>
+  return <div className={styles.scrim} onClick={onClose} onPointerDown={isolatePlaygroundPointer} onPointerMove={isolatePlaygroundPointer} onPointerUp={isolatePlaygroundPointer} onPointerCancel={isolatePlaygroundPointer}>
     <section ref={dialogRef} id="playground-radio-dialog" role="dialog" aria-modal="true" aria-label="Background music" className={`${styles.dialog} ${styles.radioDialog}`} onClick={event => event.stopPropagation()}>
       <div className={styles.sectionHeading}><h2><Radio size={18} /> Background music</h2><button aria-label="Close background music" onClick={onClose}><X size={18} /></button></div>
       <p className={styles.hint}>Pick a song for the hall. Music keeps playing when you close this panel.</p>

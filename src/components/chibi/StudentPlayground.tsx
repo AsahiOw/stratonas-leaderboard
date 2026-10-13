@@ -5,13 +5,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { Camera, Clock3, Pause, Play, Radio, RotateCcw, Rotate3D, Users, X, Hand, MapPin, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, MessageCircle } from 'lucide-react'
+import { Camera, Clock3, Pause, Play, Radio, RotateCcw, Rotate3D, Settings2, Star, Users, X, Hand, MapPin, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, MessageCircle } from 'lucide-react'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { imageSrc } from '@/lib/utils'
 import type { ChibiCatalogStudent } from '@/lib/chibi/types'
 import { initialPlaygroundMapping, type PlaygroundRole } from '@/lib/chibi/playground-mapping'
 import { PlaygroundSimulation, PLAYGROUND_CAPACITY, playgroundStudentName, playgroundStudentKey, cameraWalkDirection, type PlaygroundActor, type Point } from '@/lib/chibi/playground-simulation'
 import { OFFICE_SECTIONS, sectionAt } from '@/lib/chibi/playground-layout'
+import { collectPlaygroundDiscovery, PLAYGROUND_DISCOVERIES, PLAYGROUND_DISCOVERY_KEY, readPlaygroundDiscoveries } from '@/lib/chibi/playground-discovery'
 import { ChibiViewer } from './ChibiViewer'
 import type { StudioActorController, StudioViewerHost } from './studio-types'
 import { createPlaygroundEnvironment } from './playground-environment'
@@ -22,13 +23,18 @@ import { PlaygroundLoading } from './PlaygroundLoading'
 import { PlaygroundRoster } from './PlaygroundRoster'
 import { PlaygroundJoystick } from './PlaygroundJoystick'
 import { PlaygroundRadio } from './PlaygroundRadio'
-import { studentCameraView, STUDENT_EYE_HEIGHT, STUDENT_FOLLOW_HEIGHT } from './playground-camera'
+import { PlaygroundSettings } from './PlaygroundSettings'
+import { createPlaygroundDiscoveryEffects } from './playground-discovery-effects'
+import { capturePlaygroundPhoto } from './playground-photo'
+import { DEFAULT_PLAYGROUND_PREFERENCES, PLAYGROUND_PREFERENCES_KEY, playgroundCameraDamping, playgroundFrameTiming, playgroundQualityLimits, readPlaygroundPreferences, type PlaygroundPreferences } from './playground-quality'
+import { isolatePlaygroundPointer, studentCameraView, STUDENT_EYE_HEIGHT, STUDENT_FOLLOW_HEIGHT } from './playground-camera'
 import styles from './StudentPlayground.module.css'
 
 type Runtime = Omit<StudioViewerHost, 'group' | 'ready' | 'failed'> & {
   actors: Map<number, { group: THREE.Group; controller: StudioActorController | null; fade: { value: number } | null; social: ReturnType<ReturnType<typeof createSocialEffects>['create']> }>
   effects: ReturnType<typeof createSocialEffects>
   sky: ReturnType<typeof createPlaygroundSky>
+  discoveries: ReturnType<typeof createPlaygroundDiscoveryEffects>
   simulation: PlaygroundSimulation; environment: ReturnType<typeof createPlaygroundEnvironment>; mapReady: boolean; initialised: boolean; started: boolean
   pendingArrival: { leavingId: number; student: ChibiCatalogStudent | null; sectionId: string } | null
 }
@@ -86,7 +92,12 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
   const [visitors, setVisitors] = useState(false), visitorsRef = useRef(false)
   const [roster, setRoster] = useState(false), rosterRef = useRef(false), [swap, setSwap] = useState<number | null>(null)
   const [radio, setRadio] = useState(false), radioRef = useRef(false)
-  const closeRadio = useCallback(() => setRadio(false), [])
+  const closeRadio = useCallback(() => { keysRef.current.clear(); touchRef.current = [0, 0]; setRadio(false) }, [])
+  const [settings, setSettings] = useState(false), settingsRef = useRef(false)
+  const closeSettings = useCallback(() => { keysRef.current.clear(); touchRef.current = [0, 0]; setSettings(false) }, [])
+  const [preferences, setPreferences] = useState<PlaygroundPreferences>({ ...DEFAULT_PLAYGROUND_PREFERENCES }), preferencesRef = useRef(preferences)
+  const [discovered, setDiscovered] = useState<string[]>([]), discoveredRef = useRef(discovered)
+  const [feedback, setFeedback] = useState<{ title: string; detail: string; kind: 'stamp' | 'photo' } | null>(null), [photoBusy, setPhotoBusy] = useState(false)
   const [booting, setBooting] = useState(true)
   const [paused, setPaused] = useState(false), [cameraMode, setCameraMode] = useState(false), cameraModeRef = useRef(false)
   const [message, setMessage] = useState('Loading Schale Residence Hall…'), [fatalError, setFatalError] = useState(false)
@@ -104,6 +115,15 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
   useEffect(() => { visitorsRef.current = visitors }, [visitors])
   useEffect(() => { rosterRef.current = roster }, [roster])
   useEffect(() => { radioRef.current = radio }, [radio])
+  useEffect(() => { settingsRef.current = settings }, [settings])
+  useEffect(() => { if (runtime) runtime.controls.enabled = !radio && !settings && !visitors && !roster }, [runtime, radio, settings, visitors, roster])
+  useEffect(() => {
+    try {
+      const saved = readPlaygroundPreferences(localStorage.getItem(PLAYGROUND_PREFERENCES_KEY)), stamps = readPlaygroundDiscoveries(localStorage.getItem(PLAYGROUND_DISCOVERY_KEY))
+      preferencesRef.current = saved; setPreferences(saved); discoveredRef.current = stamps; setDiscovered(stamps)
+    } catch { /* This session still works when browser storage is disabled. */ }
+  }, [])
+  useEffect(() => { if (!feedback) return; const timer = setTimeout(() => setFeedback(null), 3500); return () => clearTimeout(timer) }, [feedback])
   useEffect(() => { studentsRef.current = students }, [students])
   useEffect(() => { cameraModeRef.current = cameraMode; if (runtime && controlledRef.current === null) { runtime.controls.enableRotate = cameraMode; runtime.controls.mouseButtons.LEFT = cameraMode ? THREE.MOUSE.ROTATE : null; runtime.controls.touches.ONE = cameraMode ? THREE.TOUCH.ROTATE : null } }, [cameraMode, runtime])
   const report = useCallback((_id: number, status: string) => { if (status !== 'Ready') setMessage(status) }, [])
@@ -115,6 +135,14 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
   const choiceStudent = students.find(s => s.id === choice)
   const duplicate = choiceStudent && (snapshots.find(s => playgroundStudentKey(s.name) === playgroundStudentKey(choiceStudent.name)) ?? (runtime?.pendingArrival?.student && playgroundStudentKey(runtime.pendingArrival.student.name) === playgroundStudentKey(choiceStudent.name) ? runtime.pendingArrival.student : null))
   const has = (role: PlaygroundRole) => !current?.arrivalTarget && !!currentMapping?.roles[role].length
+  const updatePreferences = (patch: Partial<PlaygroundPreferences>) => {
+    const next = { ...preferencesRef.current, ...patch }; preferencesRef.current = next; setPreferences(next)
+    try { localStorage.setItem(PLAYGROUND_PREFERENCES_KEY, JSON.stringify(next)) } catch { /* Keep session preferences. */ }
+  }
+  const resetTrail = () => {
+    discoveredRef.current = []; setDiscovered([])
+    try { localStorage.removeItem(PLAYGROUND_DISCOVERY_KEY) } catch { /* Keep session progress. */ }
+  }
 
   useEffect(() => {
     const container = containerRef.current
@@ -123,7 +151,8 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
     try { renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: false }) }
     catch { setFatalError(true); setMessage('WebGL is unavailable. Enable hardware acceleration and reload to open the playground.'); return }
     const mobile = window.matchMedia('(max-width: 900px), (pointer: coarse)').matches
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1 : 1.25)); renderer.outputColorSpace = THREE.SRGBColorSpace
+    let quality = preferencesRef.current.quality, qualityLimits = playgroundQualityLimits(quality, window.devicePixelRatio, container.clientWidth, container.clientHeight)
+    renderer.setPixelRatio(qualityLimits.initial); renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.domElement.setAttribute('aria-label', 'Schale Residence Hall. Drag the map to pan, scroll or pinch to zoom, click students for actions.'); renderer.domElement.tabIndex = 0; renderer.domElement.style.cursor = 'grab'
     container.appendChild(renderer.domElement)
     const scene = new THREE.Scene(), ambient = new THREE.HemisphereLight('#f5faff', '#8aa2bb', 1.8); scene.add(ambient)
@@ -132,7 +161,7 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 450), controls = new OrbitControls(camera, renderer.domElement)
     controls.target.set(0, 0.3, 0); controls.enableDamping = true; controls.enableRotate = false; controls.mouseButtons.LEFT = null; controls.touches.ONE = null; controls.touches.TWO = THREE.TOUCH.DOLLY_PAN
     controls.screenSpacePanning = false; controls.minDistance = 6; controls.maxDistance = 300; controls.maxPolarAngle = Math.PI / 2.5; controls.minPolarAngle = 0.15
-    const actors: Runtime['actors'] = new Map(), environment = createPlaygroundEnvironment(scene), effects = createSocialEffects()
+    const actors: Runtime['actors'] = new Map(), environment = createPlaygroundEnvironment(scene, Math.min(4, renderer.capabilities.getMaxAnisotropy())), effects = createSocialEffects(), discoveries = createPlaygroundDiscoveryEffects(scene)
     const simulation = new PlaygroundSimulation(
       (id, clip, loop, movement) => actors.get(id)?.controller?.play(clip, { loop, movement }) ?? Promise.resolve(false),
       (id, clip) => actors.get(id)?.controller?.clips.find(c => c.name === clip)?.duration ?? 1,
@@ -140,11 +169,15 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
       (id, clip) => { const playback = actors.get(id)?.controller?.playback(); return !!playback && playback.clip === clip && playback.time >= playback.duration },
     )
     const animationUpdates = new Set<(time: number) => void>()
-    const state: Runtime = { scene, renderer, camera, controls, actors, simulation, environment, effects, sky, registerFrame: update => { animationUpdates.add(update); return () => { animationUpdates.delete(update) } }, mapReady: false, initialised: false, started: false, pendingArrival: null }; setRuntime(state)
+    const state: Runtime = { scene, renderer, camera, controls, actors, simulation, environment, effects, sky, discoveries, registerFrame: update => { animationUpdates.add(update); return () => { animationUpdates.delete(update) } }, mapReady: false, initialised: false, started: false, pendingArrival: null }; setRuntime(state)
     let active = true
     environment.ready.then(() => { if (active) { state.mapReady = true; setMessage('Schale Residence Hall is ready. Tap a student to play, or drag them to a new spot.') } }).catch(() => { if (active) { setFatalError(true); setMessage('The residence hall could not load. Reload to try again.') } })
     const home = () => { const scale = Math.max(1, 1.2 / camera.aspect); camera.position.set(10 * scale, 54 * scale, 55 * scale); controls.target.set(0, 0.3, 0); controls.update() }
-    const resize = () => { camera.aspect = container.clientWidth / Math.max(container.clientHeight, 1); camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); sky.resize(container.clientWidth, container.clientHeight); if (controlledRef.current === null) home() }
+    const resize = () => {
+      qualityLimits = playgroundQualityLimits(quality, window.devicePixelRatio, container.clientWidth, container.clientHeight)
+      renderer.setPixelRatio(quality === 'sharp' ? qualityLimits.maximum : THREE.MathUtils.clamp(renderer.getPixelRatio(), qualityLimits.minimum, qualityLimits.maximum))
+      camera.aspect = container.clientWidth / Math.max(container.clientHeight, 1); camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); sky.resize(container.clientWidth, container.clientHeight); if (controlledRef.current === null) home()
+    }
     const observer = new ResizeObserver(resize); observer.observe(container); resize()
     const raycaster = new THREE.Raycaster(), floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), point = new THREE.Vector3()
     const aim = (event: PointerEvent) => {
@@ -208,7 +241,7 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
     const cancelPointer = () => { if (pointer?.dragged && pointer.actor !== undefined) simulation.endDrag(pointer.actor); pointer = null; renderer.domElement.style.cursor = 'grab' }
     renderer.domElement.addEventListener('pointerdown', down); renderer.domElement.addEventListener('pointermove', movePointer); renderer.domElement.addEventListener('pointerup', up); renderer.domElement.addEventListener('pointercancel', cancelPointer)
     const key = (event: KeyboardEvent, down: boolean) => {
-      if (radioRef.current || controlledRef.current === null || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
+      if (radioRef.current || settingsRef.current || controlledRef.current === null || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
       const value = event.key.toLowerCase()
       if (!['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright', 'e', 'escape'].includes(value)) return
       event.preventDefault()
@@ -220,25 +253,43 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
     const clearInput = () => { keysRef.current.clear(); touchRef.current = [0, 0] }
     window.addEventListener('keydown', keyDown); window.addEventListener('keyup', keyUp); window.addEventListener('blur', clearInput); document.addEventListener('visibilitychange', clearInput)
     let frame = 0, previous = 0, elapsed = 0, lastSnapshot = 0, sampleTime = 0, frames = 0, slowSamples = 0, fastSamples = 0, lastDraw = 0, visitorIn = 5
-    let targetFps = mobile ? 30 : 60, nextFrameTime = 0, frameWork = 0, promotionAfter = 0, lastSnapshotKey = '', lastNearbyId: number | undefined
+    let targetFps = mobile && quality !== 'smooth' ? 30 : 60, nextFrameTime = 0, frameWork = 0, promotionAfter = 0, lastSnapshotKey = '', lastNearbyId: number | undefined
     const projected = new THREE.Vector3(), frustum = new THREE.Frustum(), viewProjection = new THREE.Matrix4(), actorBounds = new THREE.Sphere(new THREE.Vector3(), 1.8)
     const render = (time: number) => {
+      if (quality !== preferencesRef.current.quality) {
+        quality = preferencesRef.current.quality; qualityLimits = playgroundQualityLimits(quality, window.devicePixelRatio, container.clientWidth, container.clientHeight)
+        renderer.setPixelRatio(qualityLimits.initial); renderer.setSize(container.clientWidth, container.clientHeight)
+        targetFps = mobile && quality !== 'smooth' ? 30 : 60; slowSamples = fastSamples = frames = 0; frameWork = 0; sampleTime = time; nextFrameTime = 0
+      }
       if (!document.hidden && time < nextFrameTime - 0.5) { frame = requestAnimationFrame(render); return }
       const interval = 1000 / targetFps
       nextFrameTime = nextFrameTime ? time + interval - (time - nextFrameTime) % interval : time + interval
       const workStarted = performance.now()
-      const delta = previous ? Math.min((time - previous) / 1000, 0.05) : 0; previous = time
+      const timing = playgroundFrameTiming(previous, time), delta = timing.delta; previous = time
       if (!document.hidden) {
-        if (state.started) { simulation.tick(delta); if (!simulation.paused) { elapsed += delta; visitorIn = visitorsRef.current || rosterRef.current ? 5 : visitorIn - delta } }; scene.userData.chibiElapsedSeconds = elapsed
+        for (let step = 0; step < timing.steps; step++) {
+          if (state.started) { simulation.tick(timing.stepDelta); if (!simulation.paused) { elapsed += timing.stepDelta; visitorIn = visitorsRef.current || rosterRef.current || settingsRef.current ? 5 : visitorIn - timing.stepDelta } }
+          const actor = simulation.actors.get(controlledRef.current ?? -1)
+          if (controlledRef.current !== null) {
+            if (!actor?.ready || actor.leaving || simulation.controlledId !== controlledRef.current) controlActions.current.exit()
+            else {
+              const keys = keysRef.current, pressed = (first: string, second: string) => Number(keys.has(first) || keys.has(second))
+              const input: Point = radioRef.current || settingsRef.current ? [0, 0] : [pressed('d', 'arrowright') - pressed('a', 'arrowleft') + touchRef.current[0], pressed('w', 'arrowup') - pressed('s', 'arrowdown') + touchRef.current[1]]
+              simulation.steer(cameraWalkDirection(input, [camera.position.x - controls.target.x, camera.position.z - controls.target.z]), timing.stepDelta)
+              projected.set(actor.position[0], firstPersonRef.current ? STUDENT_EYE_HEIGHT : STUDENT_FOLLOW_HEIGHT, actor.position[1]).sub(controls.target)
+              camera.position.add(projected); controls.target.add(projected)
+            }
+          }
+        }
+        scene.userData.chibiElapsedSeconds = elapsed
         const controlledActor = simulation.actors.get(controlledRef.current ?? -1)
-        if (controlledRef.current !== null) {
-          if (!controlledActor?.ready || controlledActor.leaving || simulation.controlledId !== controlledRef.current) controlActions.current.exit()
-          else {
-            const keys = keysRef.current, pressed = (first: string, second: string) => Number(keys.has(first) || keys.has(second))
-            const input: Point = [pressed('d', 'arrowright') - pressed('a', 'arrowleft') + touchRef.current[0], pressed('w', 'arrowup') - pressed('s', 'arrowdown') + touchRef.current[1]]
-            simulation.steer(cameraWalkDirection(input, [camera.position.x - controls.target.x, camera.position.z - controls.target.z]), delta)
-            projected.set(controlledActor.position[0], firstPersonRef.current ? STUDENT_EYE_HEIGHT : STUDENT_FOLLOW_HEIGHT, controlledActor.position[1]).sub(controls.target)
-            camera.position.add(projected); controls.target.add(projected)
+        if (state.started && !simulation.paused && !settingsRef.current && !radioRef.current && controlledActor?.ready && preferencesRef.current.roomTrail) {
+          const next = collectPlaygroundDiscovery(discoveredRef.current, controlledActor.position)
+          if (next !== discoveredRef.current) {
+            const spot = PLAYGROUND_DISCOVERIES.find(spot => spot.id === next.at(-1))!
+            discoveredRef.current = next; setDiscovered(next)
+            setFeedback({ kind: 'stamp', title: next.length === 7 ? 'Hall Explorer!' : `${spot.name} discovered!`, detail: next.length === 7 ? 'All seven room stamps collected. Take a photo to celebrate.' : `${next.length} / 7 room stamps · keep following the golden stars` })
+            try { localStorage.setItem(PLAYGROUND_DISCOVERY_KEY, JSON.stringify(next)) } catch { /* Keep session progress. */ }
           }
         }
         if (state.pendingArrival && !simulation.actors.has(state.pendingArrival.leavingId)) {
@@ -251,7 +302,7 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
             visitorIn = 5
           }
         }
-        if (state.started && visitorIn <= 0 && !simulation.paused && !state.pendingArrival && ![...simulation.actors.values()].some(actor => actor.leaving) && !visitorsRef.current && !rosterRef.current && controlledRef.current === null) {
+        if (state.started && visitorIn <= 0 && !simulation.paused && !state.pendingArrival && ![...simulation.actors.values()].some(actor => actor.leaving) && !visitorsRef.current && !rosterRef.current && !settingsRef.current && controlledRef.current === null) {
           visitorIn = 5
           const protectedIds = selectedRef.current === null ? [] : [selectedRef.current]
           const surplus = simulation.surplusVisitor(protectedIds), vacancy = simulation.vacantSection()
@@ -267,7 +318,9 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
             if (queueVisitor(state, replace, next)) { setTransitioning(true); setMessage(`${playgroundStudentName(leaving.name)} is heading to the exit.`) }
           }
         }
-        controls.update(delta); camera.updateMatrixWorld(); frustum.setFromProjectionMatrix(viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse))
+        controls.dampingFactor = playgroundCameraDamping(delta); controls.update(delta); camera.updateMatrixWorld(); frustum.setFromProjectionMatrix(viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse))
+        environment.updateOcclusion(camera, controlledActor?.ready && !firstPersonRef.current && preferencesRef.current.clearView ? controlledActor.position : null, delta, time / 1000)
+        discoveries.update(camera, elapsed, discoveredRef.current, state.started && controlledRef.current !== null && preferencesRef.current.roomTrail)
         const mapReady = state.mapReady
         for (const [id, actor] of actors) {
           const state = simulation.actors.get(id)
@@ -287,7 +340,7 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
         if (selection?.state !== 'walking') environment.marker.visible = false
         animationUpdates.forEach(update => update(time))
         if (!simulation.paused || controls.enabled || time - lastDraw > 250) { renderer.render(scene, camera); frames++; lastDraw = time }
-        if (!state.started && state.initialised && state.mapReady && [...simulation.actors.values()].every(actor => actor.ready && !actor.pending)) { state.started = true; setBooting(false) }
+        if (!state.started && state.initialised && state.mapReady && [...simulation.actors.values()].every(actor => actor.ready && !actor.pending)) { state.started = true; setBooting(false); sampleTime = time; frames = 0; frameWork = 0; setFps(0) }
         const interactiveUi = selectedRef.current !== null || controlledRef.current !== null || rosterRef.current
         if (time - lastSnapshot > (interactiveUi || !state.started ? 250 : 1000)) {
           lastSnapshot = time
@@ -300,13 +353,14 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
           const ids = [...simulation.actors.keys()]; setInvited(previous => previous.length === ids.length && previous.every((id, i) => id === ids[i]) ? previous : ids)
         }
         if (time - sampleTime > 3000) {
-          const measured = frames * 1000 / (time - sampleTime); setFps(Math.round(measured))
-          if (state.started && !simulation.paused && measured < targetFps * 0.85) slowSamples++; else slowSamples = 0
-          if (state.started && !simulation.paused && measured >= targetFps * 0.95 && frameWork / Math.max(frames, 1) < 10) fastSamples++; else fastSamples = 0
+          const measured = frames * 1000 / (time - sampleTime), measuring = state.started && !simulation.paused && document.hasFocus()
+          if (measuring) setFps(Math.round(measured))
+          if (measuring && !simulation.paused && measured < targetFps * 0.85) slowSamples++; else slowSamples = 0
+          if (measuring && !simulation.paused && measured >= targetFps * 0.95 && frameWork / Math.max(frames, 1) < 10) fastSamples++; else fastSamples = 0
           if (mobile && slowSamples >= 2 && targetFps === 60) { targetFps = 30; promotionAfter = time + 30000; slowSamples = 0; fastSamples = 0 }
-          else if (mobile && fastSamples >= 3 && targetFps === 30 && time >= promotionAfter) { targetFps = 60; fastSamples = 0 }
-          if (slowSamples >= 2 && renderer.getPixelRatio() > 0.75) { renderer.setPixelRatio(Math.max(0.75, renderer.getPixelRatio() - 0.25)); renderer.setSize(container.clientWidth, container.clientHeight); slowSamples = 0 }
-          if (fastSamples >= 3 && renderer.getPixelRatio() < Math.min(window.devicePixelRatio, 1.25)) { renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25, renderer.getPixelRatio() + 0.25)); renderer.setSize(container.clientWidth, container.clientHeight); fastSamples = 0 }
+          else if (mobile && quality !== 'sharp' && fastSamples >= 3 && targetFps === 30 && time >= promotionAfter) { targetFps = 60; fastSamples = 0 }
+          if (quality !== 'sharp' && slowSamples >= 2 && renderer.getPixelRatio() > qualityLimits.minimum) { renderer.setPixelRatio(Math.max(qualityLimits.minimum, renderer.getPixelRatio() - 0.25)); renderer.setSize(container.clientWidth, container.clientHeight); slowSamples = 0 }
+          if (quality !== 'sharp' && fastSamples >= 3 && renderer.getPixelRatio() < qualityLimits.maximum) { renderer.setPixelRatio(Math.min(qualityLimits.maximum, renderer.getPixelRatio() + 0.25)); renderer.setSize(container.clientWidth, container.clientHeight); fastSamples = 0 }
           sampleTime = time; frames = 0; frameWork = 0
         }
         frameWork += performance.now() - workStarted
@@ -317,7 +371,7 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
     return () => {
       cancelAnimationFrame(frame); observer.disconnect(); renderer.domElement.removeEventListener('pointerdown', down); renderer.domElement.removeEventListener('pointermove', movePointer); renderer.domElement.removeEventListener('pointerup', up); renderer.domElement.removeEventListener('pointercancel', cancelPointer)
       window.removeEventListener('keydown', keyDown); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', clearInput); document.removeEventListener('visibilitychange', clearInput)
-      active = false; controls.dispose(); environment.dispose(); effects.dispose(); sky.dispose(); renderer.dispose(); renderer.domElement.remove()
+      active = false; controls.dispose(); environment.dispose(); effects.dispose(); discoveries.dispose(); sky.dispose(); renderer.dispose(); renderer.domElement.remove()
     }
   }, [])
 
@@ -367,6 +421,7 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
     firstPersonRef.current = false; setFirstPerson(false); followOffset.current.set(3.5, 7, 6)
     controls.minDistance = 4; controls.maxDistance = 18; controls.enablePan = false; controls.enableRotate = true; controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE; controls.mouseButtons.RIGHT = null; controls.touches.ONE = THREE.TOUCH.ROTATE; controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE
     studentCameraView(runtime.camera, controls, actor.position, actor.angle, false, followOffset.current)
+    if (preferencesRef.current.roomTrail && !discoveredRef.current.length) setFeedback({ kind: 'stamp', title: 'Explore the hall', detail: 'Walk to the golden stars to collect seven room stamps.' })
     runtime.renderer.domElement.focus({ preventScroll: true }); setMessage(`You’re controlling ${playgroundStudentName(actor.name)}. Walk up to a friend and interact.`)
   }
   const changeStudentView = (value: boolean) => {
@@ -383,13 +438,21 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
     keysRef.current.clear(); touchRef.current = [0, 0]; setMessage(`Meeting ${playgroundStudentName(other.name)}. Walk to end the conversation.`)
   }
   useEffect(() => { controlActions.current = { exit: exitControl, interact } })
-  const photo = () => {
-    if (!runtime || snapshots.some(a => a.state === 'loading') || [...runtime.actors.values()].some(a => a.controller?.playback().loadingClip)) { setMessage('Students are loading. Try your photo in a moment.'); return }
-    runtime.renderer.render(runtime.scene, runtime.camera)
-    runtime.renderer.domElement.toBlob(blob => {
-      if (!blob) { setMessage('The photo could not be created. Try again.'); return }
-      const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'stratonas-playground.png'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); setMessage('Your office photo was downloaded.')
-    }, 'image/png')
+  const photo = async () => {
+    if (photoBusy) return
+    if (!runtime || snapshots.some(a => a.state === 'loading') || [...runtime.actors.values()].some(a => a.controller?.playback().loadingClip)) { setFeedback({ kind: 'photo', title: 'Students are still loading', detail: 'Try your photo again in a moment.' }); return }
+    setPhotoBusy(true)
+    try {
+      const overlays = [runtime.discoveries.root, runtime.environment.selection, runtime.environment.marker], visible = overlays.map(object => object.visible)
+      let capture: Promise<Blob | null>
+      try { overlays.forEach(object => { object.visible = false }); capture = capturePlaygroundPhoto(runtime.renderer, runtime.scene, runtime.camera) }
+      finally { overlays.forEach((object, i) => { object.visible = visible[i] }) }
+      const blob = await capture
+      if (!blob) throw new Error('Empty photo')
+      const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'stratonas-playground.png'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setFeedback({ kind: 'photo', title: 'Photo saved', detail: 'Your high-resolution hall photo was downloaded.' })
+    } catch { setFeedback({ kind: 'photo', title: 'Photo could not be saved', detail: 'Please try again.' }) }
+    finally { setPhotoBusy(false) }
   }
   const retry = (id: number) => {
     const actor = runtime?.simulation.actors.get(id)
@@ -420,7 +483,7 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
   }
   return <div className={styles.playground}>
     <div ref={containerRef} className={styles.stage} data-playground-stage data-camera-view={controlled === null ? 'overview' : firstPerson ? 'first-person' : 'third-person'} />
-    <header className={styles.hud}>
+    <header className={styles.hud} onPointerDown={isolatePlaygroundPointer} onPointerMove={isolatePlaygroundPointer} onPointerUp={isolatePlaygroundPointer} onPointerCancel={isolatePlaygroundPointer}>
       <div className={styles.title}><a href="/other" aria-label="Back to Other Features">←</a><div><h1>Schale Residence Hall</h1><span>{snapshots.filter(actor => actor.ready).length}/{PLAYGROUND_CAPACITY} visitors</span><LocalClock sky={runtime?.sky} /></div></div>
       <div className={styles.toolbar}>
         <button aria-label="Current residents" disabled={controlled !== null} onClick={() => setRoster(true)}><MapPin size={18} /><span>Residents</span></button>
@@ -428,8 +491,9 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
         <button aria-label={paused ? 'Resume playground' : 'Pause playground'} onClick={() => togglePause(!paused)} disabled={fatalError}>{paused ? <Play size={18} /> : <Pause size={18} />}<span>{paused ? 'Play' : 'Pause'}</span></button>
         <button className={styles.cameraToggle} aria-label="Rotate view" title="Rotate view: drag to orbit, right-drag or two fingers to pan" aria-pressed={cameraMode} disabled={controlled !== null} onClick={() => { setCameraMode(value => !value); setSelected(null) }}><Rotate3D size={18} /><span>Rotate</span></button>
         <button aria-label="Reset camera" title="Reset camera" onClick={() => { if (!runtime) return; exitControl(); const scale = Math.max(1, 1.2 / runtime.camera.aspect); runtime.camera.position.set(10 * scale, 54 * scale, 55 * scale); runtime.controls.target.set(0, 0.3, 0); runtime.controls.update() }}><RotateCcw size={18} /><span>Reset</span></button>
-        <button aria-label="Take photo" onClick={photo} disabled={fatalError}><Camera size={18} /><span>Photo</span></button>
+        <button aria-label="Take photo" onClick={photo} disabled={fatalError || photoBusy}><Camera size={18} /><span>{photoBusy ? 'Saving…' : 'Photo'}</span></button>
         <button aria-label="Choose background music" title="Choose background music" aria-haspopup="dialog" aria-expanded={radio} aria-controls="playground-radio-dialog" onClick={() => { keysRef.current.clear(); touchRef.current = [0, 0]; setRadio(true) }}><Radio size={18} /><span>Radio</span></button>
+        <button aria-label="Playground settings" title="Playground settings" aria-haspopup="dialog" aria-expanded={settings} onClick={() => { keysRef.current.clear(); touchRef.current = [0, 0]; setSettings(true) }}><Settings2 size={18} /><span>Settings</span></button>
       </div>
     </header>
     <div hidden>{snapshots.map(actor => <div key={actor.id} data-resident={actor.id} data-controlled={actor.id === controlled} data-student={actor.name} data-ready={actor.ready} data-leaving={actor.leaving} data-arriving={!!actor.arrivalTarget} data-opacity={actor.opacity.toFixed(2)} data-state={actor.state} data-social={actor.social ?? ''} data-speaking={actor.speaking} data-section={actor.sectionId} data-position={actor.position.join(',')} data-angle={actor.angle} data-radius={actor.radius} data-age={Math.floor(actor.age)} data-clip={actor.playback?.clip ?? ''} data-clip-time={actor.playback?.time.toFixed(3)} data-clip-duration={actor.playback?.duration.toFixed(3)} />)}</div>
@@ -444,14 +508,18 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
       {current.state === 'error' && <button onClick={() => retry(current.id)}>Retry loading</button>}
       <div className={styles.segment}><button aria-label={`Control ${current.name}`} onClick={startControl} disabled={paused || current.pending || !has('walk') || !runtime?.actors.get(current.id)?.controller}><Camera size={15} /> Student camera</button><button disabled={paused || !currentMapping?.roles.walk.length} onClick={() => remove(current.id)}>Send home</button></div>
     </div>}
-    {controlled !== null && controlledActor && <section className={styles.studentControls} aria-label="Student camera controls">
-      <div className={styles.controlHeading}><Camera size={18} /><div><strong title={controlledActor.name}>{controlledActor.name}</strong><span>{paused ? 'Paused' : controlledActor.label}</span></div><button onClick={exitControl} aria-label="Exit student camera"><X size={17} /> Exit</button></div>
-      <div className={styles.controlBody}><PlaygroundJoystick key={`${controlled}:${firstPerson}:${paused}`} disabled={paused} onMove={moveJoystick} /><div className={styles.directionPad} role="group" aria-label="Walk controls">{[
+    {/* Next hydrates document: stop its other pointer listeners as well as React bubbling. */}
+    {controlled !== null && controlledActor && <section className={styles.studentControls} aria-label="Student camera controls"
+      onPointerDown={isolatePlaygroundPointer} onPointerMove={isolatePlaygroundPointer} onPointerUp={isolatePlaygroundPointer} onPointerCancel={isolatePlaygroundPointer}>
+      <div className={styles.controlHeading}><Camera size={18} /><div><strong title={controlledActor.name}>{controlledActor.name}</strong><span>{paused ? 'Paused' : controlledActor.social ? 'Chatting' : sectionAt(controlledActor.position)?.name ?? 'Hallway'}{preferences.roomTrail && <b className={styles.mobileTrailCount}> · {discovered.length}/7 stamps</b>}</span></div><button onClick={exitControl} aria-label="Exit student camera"><X size={17} /> Exit</button></div>
+      <div className={styles.controlBody}><PlaygroundJoystick key={`${controlled}:${firstPerson}:${paused}:${radio}:${settings}`} disabled={paused || radio || settings} onMove={moveJoystick} /><div className={styles.directionPad} role="group" aria-label="Walk controls">{[
         { name: 'forward', direction: [0, 1], icon: ArrowUp }, { name: 'left', direction: [-1, 0], icon: ArrowLeft }, { name: 'backward', direction: [0, -1], icon: ArrowDown }, { name: 'right', direction: [1, 0], icon: ArrowRight },
       ].map(({ name, direction, icon: Icon }) => <button key={name} aria-label={`Walk ${name}`} disabled={paused} onPointerDown={event => { touchRef.current = direction as Point; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerUp={() => { touchRef.current = [0, 0] }} onPointerCancel={() => { touchRef.current = [0, 0] }} onLostPointerCapture={() => { touchRef.current = [0, 0] }}><Icon size={21} /></button>)}</div>
-        <div className={styles.controlInteraction}><div className={styles.viewChoices} role="group" aria-label="Student camera perspective"><button aria-pressed={!firstPerson} onClick={() => changeStudentView(false)}>Third person</button><button aria-pressed={firstPerson} onClick={() => changeStudentView(true)}>First person</button></div><button disabled={paused || !nearby || controlledActor.pending} onClick={interact}><MessageCircle size={17} /><span>{nearby ? `Talk to ${playgroundStudentName(nearby.name)}` : controlledActor.social ? 'Chatting…' : 'Walk near a friend'}</span><kbd>E</kbd></button></div></div>
+        <div className={styles.controlInteraction}><div className={styles.viewChoices} role="group" aria-label="Student camera perspective"><button aria-label="Third person" aria-pressed={!firstPerson} onClick={() => changeStudentView(false)}><span className={styles.desktopViewLabel}>Third person</span><span className={styles.mobileViewLabel}>3rd person</span></button><button aria-label="First person" aria-pressed={firstPerson} onClick={() => changeStudentView(true)}><span className={styles.desktopViewLabel}>First person</span><span className={styles.mobileViewLabel}>1st person</span></button></div><button disabled={paused || !nearby || controlledActor.pending} onClick={interact}><MessageCircle size={17} /><span>{nearby ? `Talk to ${playgroundStudentName(nearby.name)}` : controlledActor.social ? 'Chatting…' : 'Walk near a friend'}</span><kbd>E</kbd></button></div></div>
       <p className={styles.controlHint}><span>WASD / arrows to walk · E to talk · Esc to exit</span><span>Drag joystick to walk · swipe the scene to look</span></p>
+      {preferences.roomTrail && <div className={styles.trailTracker} role="status"><Star size={13} /><span>{discovered.length === 7 ? 'Hall Explorer' : `Room trail · ${discovered.length}/7`}</span><div aria-hidden="true">{PLAYGROUND_DISCOVERIES.map(spot => <i key={spot.id} data-collected={discovered.includes(spot.id)} />)}</div></div>}
     </section>}
+    {feedback && <div className={styles.gameFeedback} role="status">{feedback.kind === 'stamp' ? <Star size={20} /> : <Camera size={20} />}<div><strong>{feedback.title}</strong><span>{feedback.detail}</span></div></div>}
     <footer className={`${styles.gameFooter} ${controlled !== null ? styles.controlFooter : ''} ${current && !cameraMode ? styles.studentMenuFooter : ''}`}>
       <div className={styles.mapHint}><span>{cameraMode ? 'Drag to rotate · right-drag to pan · scroll to zoom' : 'Drag map to pan · scroll to zoom · drag students to carry'}</span><span>{cameraMode ? 'Drag to rotate · pinch to zoom · two fingers to pan' : 'Drag to pan · pinch to zoom · drag students to carry'}</span></div>
       <span className={styles.frameRate}>{paused ? 'Paused' : fps ? `${fps} FPS` : 'Starting…'}</span>
@@ -472,6 +540,7 @@ export function StudentPlayground({ students, loadError }: { students: ChibiCata
     </section></div>}
     {roster && <PlaygroundRoster students={students} residents={snapshots} paused={paused} onClose={() => setRoster(false)} onFocusRoom={id => { focusRoom(id); setRoster(false) }} onSelect={focusStudent} onRemove={remove} onRetry={retry} />}
     {radio && <PlaygroundRadio onClose={closeRadio} />}
+    {settings && <PlaygroundSettings preferences={preferences} visited={discovered} fps={fps} onChange={updatePreferences} onResetTrail={resetTrail} onClose={closeSettings} />}
     {runtime && invited.filter(id => loading.includes(id) || snapshots.some(actor => actor.id === id && (actor.ready || actor.state === 'error'))).map(id => <PlaygroundStudent key={`${id}:${retries[id] ?? 0}`} runtime={runtime} student={students.find(student => student.id === id)!} report={report} />)}
     {booting && <PlaygroundLoading loaded={snapshots.filter(actor => actor.ready && !actor.pending).length} total={invited.length} mapReady={runtime?.mapReady}>
       {fatalError && <div role="alert"><p>{message}</p><button onClick={() => window.location.reload()}>Retry opening the hall</button></div>}

@@ -1,4 +1,7 @@
-import * as THREE from 'three'
+// Use ESM math modules even when the worker's TypeScript runner emits CommonJS.
+import { Matrix4 } from 'three/src/math/Matrix4.js'
+import { Quaternion } from 'three/src/math/Quaternion.js'
+import { Vector3 } from 'three/src/math/Vector3.js'
 
 import {
   buildChibiArrangementAllowedNodes,
@@ -36,19 +39,19 @@ function finiteArray(value: unknown, length: number, label: string) {
 }
 
 function nodeTransform(node: GlbNode, label: string) {
-  const matrix = new THREE.Matrix4()
+  const matrix = new Matrix4()
   if (node.matrix !== undefined) {
     matrix.fromArray(finiteArray(node.matrix, 16, `${label}.matrix`))
   } else {
-    const position = new THREE.Vector3(...finiteArray(node.translation ?? [0, 0, 0], 3, `${label}.translation`) as [number, number, number])
-    const rotation = new THREE.Quaternion(...finiteArray(node.rotation ?? [0, 0, 0, 1], 4, `${label}.rotation`) as [number, number, number, number])
-    const scale = new THREE.Vector3(...finiteArray(node.scale ?? [1, 1, 1], 3, `${label}.scale`) as [number, number, number])
+    const position = new Vector3(...finiteArray(node.translation ?? [0, 0, 0], 3, `${label}.translation`) as [number, number, number])
+    const rotation = new Quaternion(...finiteArray(node.rotation ?? [0, 0, 0, 1], 4, `${label}.rotation`) as [number, number, number, number])
+    const scale = new Vector3(...finiteArray(node.scale ?? [1, 1, 1], 3, `${label}.scale`) as [number, number, number])
     matrix.compose(position, rotation.normalize(), scale)
   }
 
-  const position = new THREE.Vector3()
-  const rotation = new THREE.Quaternion()
-  const scale = new THREE.Vector3()
+  const position = new Vector3()
+  const rotation = new Quaternion()
+  const scale = new Vector3()
   matrix.decompose(position, rotation, scale)
   if (![...position.toArray(), ...rotation.toArray(), ...scale.toArray()].every(Number.isFinite)
     || scale.toArray().some(value => Math.abs(value) < 1e-8)) {
@@ -62,17 +65,17 @@ function nodeTransform(node: GlbNode, label: string) {
 }
 
 function arrangementMatrix(node: ChibiArrangementNodeDelta | undefined) {
-  return new THREE.Matrix4().compose(
-    new THREE.Vector3(...(node?.position ?? [0, 0, 0]) as [number, number, number]),
-    new THREE.Quaternion(...(node?.rotation ?? [0, 0, 0, 1]) as [number, number, number, number]).normalize(),
-    new THREE.Vector3(...(node?.scale ?? [1, 1, 1]) as [number, number, number]),
+  return new Matrix4().compose(
+    new Vector3(...(node?.position ?? [0, 0, 0]) as [number, number, number]),
+    new Quaternion(...(node?.rotation ?? [0, 0, 0, 1]) as [number, number, number, number]).normalize(),
+    new Vector3(...(node?.scale ?? [1, 1, 1]) as [number, number, number]),
   )
 }
 
-function transformFromMatrix(matrix: THREE.Matrix4) {
-  const position = new THREE.Vector3()
-  const rotation = new THREE.Quaternion()
-  const scale = new THREE.Vector3()
+function transformFromMatrix(matrix: Matrix4) {
+  const position = new Vector3()
+  const rotation = new Quaternion()
+  const scale = new Vector3()
   matrix.decompose(position, rotation, scale)
   if (![...position.toArray(), ...rotation.toArray(), ...scale.toArray()].every(Number.isFinite)
     || scale.toArray().some(value => Math.abs(value) < 1e-8)) {

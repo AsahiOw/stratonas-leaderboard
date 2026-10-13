@@ -1,10 +1,23 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import { buildChibiArrangementDefault, isCompleteChibiArrangementDefault, rebaseChibiArrangementOverride } from './arrangement-default'
 
 const equipmentReference = { bundleSha256: 'A'.repeat(64), serializedFile: 'CAB/Prefab', objectId: '42' }
 const equipmentKey = `${'a'.repeat(64)}:cab/prefab:42`
+
+test('worker arrangement math loads without the deprecated Three.js CommonJS entry', () => {
+  const result = spawnSync(process.execPath, [
+    '--trace-deprecation', '--import', 'tsx', '--eval', "require('./arrangement-default.ts')",
+  ], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    encoding: 'utf8',
+  })
+  assert.equal(result.status, 0, result.stderr)
+  assert.doesNotMatch(result.stderr, /THREE_CJS_DEPRECATED/)
+})
 
 test('face edits survive an asset upgrade without forcing a new geometry baseline', () => {
   const overrides = { schemaVersion: 1, nodes: { '$eyes': { depthTest: true, depthOffset: -2 } } }

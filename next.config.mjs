@@ -6,7 +6,7 @@ const nextConfig = {
   // standalone directory; `npm start` remains the supported native command.
   output: process.platform === 'win32' ? undefined : 'standalone',
   serverExternalPackages: ['@duckdb/node-api'],
-  allowedDevOrigins: ['localhost', '127.0.0.1', '192.168.1.*'],
+  allowedDevOrigins: ['localhost', '127.0.0.1', '192.168.1.*', 'tryhard.tailfccdeb.ts.net'],
   images: {
     qualities: [75, 90],
     remotePatterns: [

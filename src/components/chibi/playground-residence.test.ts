@@ -112,13 +112,17 @@ test('the room roster follows the actual location and groups waiting arrivals at
 test('startup stays covered until the hall, every model and the initial animations are ready', () => {
   const block = source.slice(source.indexOf('        if (!state.started &&'), source.indexOf('        const interactiveUi'))
   let shown = true
-  const finish = new Function('state', 'simulation', 'setBooting', js(block))
+  let fps = 60
+  const run = new Function('state', 'simulation', 'setBooting', 'setFps', js('let sampleTime = 0, frames = 12, frameWork = 100; const time = 1000;\n' + block + '\nreturn { sampleTime, frames, frameWork }'))
+  const finish = (state: unknown, sim: unknown, setBooting: (value: boolean) => void) => run(state, sim, setBooting, (value: number) => { fps = value })
   const sim = simulation(), state = { started: false, initialised: false, mapReady: false }
   finish(state, sim, (value: boolean) => { shown = value }); assert.equal(shown, true)
   state.initialised = true; sim.add(1, 'First', mapping); finish(state, sim, (value: boolean) => { shown = value }); assert.equal(shown, true)
   state.mapReady = true; finish(state, sim, (value: boolean) => { shown = value }); assert.equal(shown, true)
   const actor = sim.actors.get(1)!; actor.ready = true; actor.pending = true; finish(state, sim, (value: boolean) => { shown = value }); assert.equal(shown, true)
-  actor.pending = false; finish(state, sim, (value: boolean) => { shown = value }); assert.equal(shown, false); assert.equal(state.started, true)
+  assert.equal(fps, 60)
+  actor.pending = false; const sample = finish(state, sim, (value: boolean) => { shown = value }); assert.equal(shown, false); assert.equal(state.started, true)
+  assert.deepEqual(sample, { sampleTime: 1000, frames: 0, frameWork: 0 }); assert.equal(fps, 0)
 })
 
 test('mobile frame pacing keeps its target on standard and high-refresh displays', () => {
