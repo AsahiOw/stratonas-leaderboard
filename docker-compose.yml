@@ -42,6 +42,7 @@ services:
 
   db:
     image: postgres:16
+    stop_grace_period: 1m
     env_file: .env.docker
     ports:
       - "5432:5432"

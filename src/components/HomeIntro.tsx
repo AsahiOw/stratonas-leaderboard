@@ -24,6 +24,7 @@ export function HomeIntro({ open, onClose }: HomeIntroProps) {
               fill
               sizes="(min-width: 1280px) 1200px, 100vw"
               src="/assets/images/banner-poster.webp"
+              loading={open ? 'eager' : 'lazy'}
               alt=""
               className="absolute inset-0 h-full w-full object-cover opacity-55"
             />

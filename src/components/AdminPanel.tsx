@@ -727,6 +727,45 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
   const [pForm, setPForm] = useState(emptyP)
   const [isGuest, setIsGuest] = useState(true)
   const [playerError, setPlayerError] = useState<string | null>(null)
+  const [mergeSourceId, setMergeSourceId] = useState('')
+  const [mergeTargetId, setMergeTargetId] = useState('')
+  const [mergeSearch, setMergeSearch] = useState('')
+  const [mergeError, setMergeError] = useState<string | null>(null)
+  const [mergingPlayers, setMergingPlayers] = useState(false)
+  const mergeSource = players.find(player => player.id === mergeSourceId)
+  const mergeTarget = players.find(player => player.id === mergeTargetId)
+  const mergeChoices = players.filter(player =>
+    [player.ign, player.username, player.userID].some(value => value?.toLowerCase().includes(mergeSearch.trim().toLowerCase())))
+
+  function openMergePlayers() {
+    setMergeSourceId(''); setMergeTargetId(''); setMergeSearch(''); setMergeError(null)
+    setModal('merge-players')
+  }
+
+  async function syncPlayers(e: React.FormEvent) {
+    e.preventDefault()
+    if (mergingPlayers || !mergeSource || !mergeTarget || mergeSourceId === mergeTargetId) return
+    setMergingPlayers(true); setMergeError(null)
+    try {
+      const res = await fetch('/api/admin/players/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourcePlayerId: mergeSourceId, targetPlayerId: mergeTargetId }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setMergeError(body.error || 'Could not merge players.')
+        return
+      }
+      setPlayers(current => current.filter(player => player.id !== mergeSourceId))
+      setModal(null)
+      showToast(`Players synced. ${body.transferredEntries} entries transferred; ${body.skippedEntries} duplicate entries kept from the new account. Old account deleted.`)
+      await Promise.all([loadPlayers(), loadEntries(), loadClubs(), loadXlsxReviewItems()])
+    } catch {
+      setMergeError('Could not finish syncing. Refresh the player list to check the result before trying again.')
+    } finally {
+      setMergingPlayers(false)
+    }
+  }
 
   function openAddPlayer() {
     const firstStudent = students[0]
@@ -1898,7 +1937,10 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
               <div className="font-bold text-lg">
                 Players <span className="text-[13px] text-muted font-normal">({players.length})</span>
               </div>
-              <button onClick={openAddPlayer} className={addBtnClass}>+ Add Player</button>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button onClick={openMergePlayers} className={editBtnClass} disabled={players.length < 2}>Merge / Sync</button>
+                <button onClick={openAddPlayer} className={addBtnClass}>+ Add Player</button>
+              </div>
             </div>
             {renderListControls('players', players.length, filteredPlayers.length, visiblePlayers.length, 'Search players by IGN, username, club, ID, or status...')}
 
@@ -2450,7 +2492,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
               <div className="font-bold text-lg">Entries</div>
               <button onClick={openAddEntry} className={addBtnClass}>+ Add Entry</button>
             </div>
-            {renderListControls('entries', entries.length, filteredEntries.length, visibleEntries.length, 'Search entries by player, raid, terrain, server, score, or date...')}
+            {renderListControls('entries', entries.length, filteredEntries.length, visibleEntries.length, 'Search entries by player name, username, raid, terrain, server, score, or date...')}
 
             {/* Card list (mobile) */}
             <div className="sm:hidden flex flex-col gap-2.5">
@@ -2459,6 +2501,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                   <div className="flex justify-between items-start gap-3 mb-2">
                     <div className="min-w-0">
                       <div className="font-semibold text-sm break-words">{e.player.ign}</div>
+                      <div className="text-xs text-muted break-all">{e.player.username}</div>
                       <div className="text-[11px] text-muted2 mt-0.5 break-words">
                         {e.raid.raidBoss.name} S{e.raid.season} · {e.raid.terrain.name}
                       </div>
@@ -2507,7 +2550,10 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
                         key={e.id}
                         className={i < visibleEntries.length - 1 ? 'border-b border-border' : ''}
                       >
-                        <td className="px-3.5 py-2.5 font-semibold whitespace-nowrap">{e.player.ign}</td>
+                        <td className="px-3.5 py-2.5">
+                          <div className="font-semibold whitespace-nowrap">{e.player.ign}</div>
+                          <div className="text-xs text-muted break-all">{e.player.username}</div>
+                        </td>
                         <td className="px-3.5 py-2.5 text-muted2">{e.raid.raidBoss.name} S{e.raid.season} · {e.raid.terrain.name}</td>
                         <td className="px-3.5 py-2.5"><ServerBadge server={e.raid.server.name} /></td>
                         <td className="px-3.5 py-2.5 font-mono text-accent font-semibold">{e.score.toLocaleString('en-US')}</td>
@@ -3381,6 +3427,47 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
           </StModal>
         )
       })()}
+
+      {modal === 'merge-players' && (
+        <StModal title="Merge player accounts" onClose={() => { if (!mergingPlayers) setModal(null) }} extraWide>
+          <form onSubmit={syncPlayers}>
+            <p className="text-sm text-muted2 mb-4">Select the old account to remove and the new account to keep.</p>
+            <StField label="FIND ACCOUNTS">
+              <input type="search" aria-label="Find merge accounts" className={inputClass} value={mergeSearch} disabled={mergingPlayers} onChange={e => setMergeSearch(e.target.value)} placeholder="Search by IGN, username, or user ID..." />
+            </StField>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {(['old', 'new'] as const).map(role => {
+                const selected = role === 'old' ? mergeSource : mergeTarget
+                const otherId = role === 'old' ? mergeTargetId : mergeSourceId
+                const choices = selected && !mergeChoices.some(player => player.id === selected.id) ? [selected, ...mergeChoices] : mergeChoices
+                return (
+                  <div key={role}>
+                    <StField label={role === 'old' ? 'OLD ACCOUNT — DELETE' : 'NEW ACCOUNT — KEEP'}>
+                      <select aria-label={role === 'old' ? 'Old account to delete' : 'New account to keep'} className={inputClass} value={selected?.id || ''} disabled={mergingPlayers} required onChange={e => { (role === 'old' ? setMergeSourceId : setMergeTargetId)(e.target.value); setMergeError(null) }}>
+                        <option value="">Select {role} account...</option>
+                        {choices.filter(player => player.id !== otherId).map(player => (
+                          <option key={player.id} value={player.id}>{player.ign} · @{player.username} · ID: {player.userID || '—'}</option>
+                        ))}
+                      </select>
+                    </StField>
+                    {selected && (
+                      <div className="rounded-lg border border-border p-3 mb-4 text-sm break-all">
+                        <div className="font-semibold">{selected.ign}</div>
+                        <div className="text-muted2">@{selected.username}</div>
+                        <div className="text-xs text-muted">User ID: {selected.userID || '—'}</div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-sm text-muted2 mb-4">Sync transfers raid entries and import-review records to the new account, then permanently deletes the old account. The new account keeps its profile details and its score for any raid present on both accounts.</p>
+            {mergeSource && mergeTarget && <p className="text-sm font-semibold mb-4">{mergeSource.ign} (@{mergeSource.username}) → {mergeTarget.ign} (@{mergeTarget.username})</p>}
+            {mergeError && <p role="alert" className="text-sm text-red-400 mb-4">{mergeError}</p>}
+            <button type="submit" className={submitBtnClass} disabled={mergingPlayers || !mergeSource || !mergeTarget || mergeSourceId === mergeTargetId}>{mergingPlayers ? 'Syncing...' : 'Sync and delete old account'}</button>
+          </form>
+        </StModal>
+      )}
 
       {/* Player modal */}
       {modal === 'player' && (

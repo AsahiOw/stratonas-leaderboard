@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type VideoHTMLAttributes } from 'react'
 import ProgressiveImage from './ProgressiveImage'
 
 /** Decorative video waits for the page and its visible poster before downloading. */
-export default function DeferredVideo({ src, poster, className, style, onPlaying, ...props }: VideoHTMLAttributes<HTMLVideoElement>) {
+export default function DeferredVideo({ src, poster, posterLoading = 'lazy', className, style, onPlaying, ...props }: VideoHTMLAttributes<HTMLVideoElement> & { posterLoading?: 'eager' | 'lazy' }) {
   const stage = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState<string>()
   const [playing, setPlaying] = useState<string>()
@@ -25,7 +25,7 @@ export default function DeferredVideo({ src, poster, className, style, onPlaying
   }, [src])
 
   return <div ref={stage} className={className} style={{ ...style, isolation: 'isolate' }}>
-    {poster && <ProgressiveImage src={poster} alt="" fill className="object-cover" />}
+    {poster && <ProgressiveImage src={poster} alt="" fill loading={posterLoading} className="object-cover" />}
     {src && ready === src && <video {...props} key={src} src={src} preload="none"
       className="absolute inset-0 h-full w-full object-cover"
       style={{ opacity: playing === src ? 1 : 0, transition: 'opacity 240ms ease-out' }}

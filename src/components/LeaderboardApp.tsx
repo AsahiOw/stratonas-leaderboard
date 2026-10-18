@@ -328,6 +328,7 @@ export function LeaderboardApp({
                 loop
                 playsInline
                 poster="/assets/images/banner-poster.webp"
+                posterLoading="eager"
                 aria-hidden="true"
               />
               <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,13,19,0.18),rgba(13,13,19,0.82))]" />
