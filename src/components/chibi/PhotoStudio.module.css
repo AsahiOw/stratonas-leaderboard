@@ -48,6 +48,8 @@
 .choiceImage { position: relative; width: 100%; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: #0c1422; display: flex; align-items: center; justify-content: center; }
 .sceneImage { height: auto; aspect-ratio: 16 / 9; background: #202b40; }
 .moreChoices { width: 100%; margin-top: 8px; }
+.studentSelection { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.studentSelection .note { margin: 0; }
 .scenePanel:not([hidden]) { display: flex; flex-direction: column; height: 100%; min-height: 440px; }
 .scenePanel > * { flex-shrink: 0; }
 .scenePanel .backgroundChoices { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -71,19 +73,22 @@
 .emptyPanel p { font-size: 13px; color: #94a3b8; }
 .clean { grid-template-columns: 1fr; }
 @media (max-width: 850px) {
-  .studio { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); gap: 12px; height: calc(100dvh - 145px); min-height: 620px; }
+  .studio { grid-template-columns: 1fr; grid-template-rows: auto auto; gap: 12px; height: auto; min-height: 0; }
   .stageTools > span { display: none; }
   .stageTools > div { width: 100%; }
   .stageTools button { flex: 1; }
-  .canvasWrap { flex: none; height: clamp(170px, 26dvh, 280px); }
+  .canvasWrap { flex: none; height: auto; aspect-ratio: 4 / 3; }
   .actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .actions button { font-size: 12px; padding: 6px 10px; }
   .instructions { display: none; }
   .message { font-size: 11px; }
-  .panelBody { padding: 14px; }
+  .panelBody { padding: 14px; overflow: visible; }
+  .choices { max-height: none; overflow: visible; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .scenePanel:not([hidden]) { height: auto; min-height: 0; }
+  .backgroundChoices .choices { flex: none; }
+  .editorHint { display: none; }
   .panel input[type=range] { height: 44px; }
-  .clean { grid-template-rows: minmax(0, 1fr); }
-  .clean .canvasWrap { flex: 1; height: auto; }
+  .clean { grid-template-rows: auto; }
   .hint { padding: 14px; gap: 8px; }
   .hint strong { font-size: 16px; }
   .hint span { font-size: 12px; }

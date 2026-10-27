@@ -285,9 +285,9 @@ export function PhotoStudio({ students, backgrounds, loadError, backgroundError 
       {loadError && <p role="alert">{loadError}</p>}
       <section id="studio-panel-students" role="tabpanel" aria-labelledby="studio-tab-students" hidden={tab !== 'students'}><h2>Add students <span>{actors.length} / 12</span></h2>
         <label>Find a student<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students…" /></label>
+        <div className={styles.studentSelection}><p className={styles.note}>Selected: <strong>{studentChoice?.name ?? 'Choose a student'}</strong></p>
+        <button type="button" className={styles.primary} onClick={addStudent} disabled={!stage || !studentChoice || actors.length >= 12}>Add student</button></div>
         <ThumbnailChoices key={`students:${search}`} label="Choose a student" choices={filteredStudents.map(student => ({ value: String(student.id), name: student.name, image: imageSrc(student.image) }))} value={String(studentId)} onChoose={value => setStudentId(Number(value))} />
-        <p className={styles.note}>Selected: <strong>{studentChoice?.name ?? 'Choose a student'}</strong></p>
-        <button type="button" className={styles.primary} onClick={addStudent} disabled={!stage || !studentChoice || actors.length >= 12}>Add student</button>
         {!filteredStudents.length && <p className={styles.note}>No students match your search. Try another name.</p>}
         <h3 className={styles.subheading}>In your scene <span>Tap a student to edit their pose</span></h3>
         <div className={styles.cast}>{actors.map((actor, i) => { const student = students.find(s => s.id === actor.studentId); return <div key={actor.id} className={styles.castRow} data-selected={actor.id === selected}>
