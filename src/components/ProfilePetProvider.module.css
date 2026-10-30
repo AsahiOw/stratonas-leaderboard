@@ -1,0 +1,4 @@
+.parking { height: 0; }
+.floatingHost { width: 0; height: 0; pointer-events: none; }
+.floatingHost :global([data-profile-caption]), .floatingHost :global([data-profile-figurine]) > p { display: none; }
+.floatingHost :global([data-chibi-stage]) { pointer-events: auto; }

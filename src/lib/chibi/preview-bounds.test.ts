@@ -1,7 +1,52 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import * as THREE from 'three'
-import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround, previewPlacement } from './preview-bounds'
+import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround, previewPlacement, previewSupportPoint, renderedBounds } from './preview-bounds'
+
+test('pet bounds include a rigid animated halo above the skinned body and exclude hidden attachments', () => {
+  const root = new THREE.Group()
+  const body = new THREE.SkinnedMesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial())
+  body.boundingBox = new THREE.Box3(new THREE.Vector3(-.5, -1, -.5), new THREE.Vector3(.5, 1, .5))
+  root.add(body)
+  const halo = new THREE.Mesh(new THREE.BoxGeometry(.6, .2, .6), new THREE.MeshBasicMaterial())
+  halo.position.y = 1.6
+  root.add(halo)
+  const hidden = new THREE.Group()
+  hidden.visible = false
+  const effect = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+  hidden.add(effect); root.add(hidden)
+  root.updateMatrixWorld(true)
+  assert.equal(previewBounds(root).max.y, 1)
+  assert.ok(Math.abs(renderedBounds(root).max.y - 1.7) < 1e-6)
+  halo.position.y = 2.1
+  root.updateMatrixWorld(true)
+  assert.ok(Math.abs(renderedBounds(root).max.y - 2.2) < 1e-6)
+  assert.equal(renderedBounds(root).min.y, -1)
+})
+
+test('pet ground ignores a rigid bag charm below the feet while crop bounds include it', () => {
+  const root = new THREE.Group()
+  const body = new THREE.SkinnedMesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial())
+  body.name = 'Student_Body'
+  body.boundingBox = new THREE.Box3(new THREE.Vector3(-.5, 0, -.5), new THREE.Vector3(.5, 2, .5))
+  root.add(body)
+  const charm = new THREE.Mesh(new THREE.BoxGeometry(.2, .4, .2), new THREE.MeshBasicMaterial())
+  charm.position.set(.5, -.2, .2)
+  root.add(charm)
+  root.updateMatrixWorld(true)
+  const cropBounds = renderedBounds(root)
+  assert.ok(cropBounds.min.y < -.39)
+  assert.equal(previewGround(root, cropBounds), 0)
+  const holder = new THREE.Group()
+  holder.position.y = -1
+  holder.add(root); holder.updateMatrixWorld(true)
+  assert.equal(previewSupportPoint(root, renderedBounds(root)).y, -1)
+  // A chair at authored ground level still supports a seated body above it.
+  charm.position.y = .2
+  body.boundingBox!.translate(new THREE.Vector3(0, .5, 0))
+  holder.updateMatrixWorld(true)
+  assert.ok(Math.abs(previewSupportPoint(root, renderedBounds(root)).y + 1) < 1e-6)
+})
 
 test('Hifumi idle-to-pickup keeps the skinned weapon drawable with a stale bound', () => {
   const root = new THREE.Group()

@@ -4,14 +4,14 @@ declare module 'next-auth' {
   interface Session {
     user: {
       id: string
-      email: string
+      email: string | null
       name?: string | null
       image?: string | null
-      role: 'ADMIN' | 'VIEWER'
+      role: 'ADMIN' | 'MANAGER' | 'VIEWER'
     }
   }
 
   interface User {
-    role: 'ADMIN' | 'VIEWER'
+    role: 'ADMIN' | 'MANAGER' | 'VIEWER'
   }
 }

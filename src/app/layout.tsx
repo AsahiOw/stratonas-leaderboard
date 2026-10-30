@@ -6,6 +6,7 @@ import { BackToTopButton } from '@/components/BackToTopButton'
 import { RadioPlayerProvider } from '@/components/radio/RadioPlayerProvider'
 import { RadioMiniPlayer } from '@/components/radio/RadioMiniPlayer'
 import { PwaRegistration } from '@/components/PwaRegistration'
+import { ProfilePetProvider } from '@/components/ProfilePetProvider'
 
 export const metadata: Metadata = {
   title: 'Stratónas — Guild Leaderboard',
@@ -45,10 +46,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PwaRegistration />
         <SessionProvider>
           <RadioPlayerProvider>
-            {children}
-            <RadioMiniPlayer />
-            <RouteChrome />
-            <BackToTopButton />
+            <ProfilePetProvider>
+              {children}
+              <RadioMiniPlayer />
+              <RouteChrome />
+              <BackToTopButton />
+            </ProfilePetProvider>
           </RadioPlayerProvider>
         </SessionProvider>
       </body>

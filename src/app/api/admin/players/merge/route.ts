@@ -20,6 +20,9 @@ async function post(req: Request) {
       const source = await tx.player.findUnique({ where: { id: sourcePlayerId }, include: { entries: true } })
       const target = await tx.player.findUnique({ where: { id: targetPlayerId }, include: { entries: true } })
       if (!source || !target) return null
+      if (source.ownerId && target.ownerId && source.ownerId !== target.ownerId) {
+        throw new Error('PLAYER_OWNER_CONFLICT')
+      }
 
       const skipped = await tx.raidEntry.deleteMany({
         where: { playerId: sourcePlayerId, raidId: { in: target.entries.map(entry => entry.raidId) } },
@@ -31,6 +34,9 @@ async function post(req: Request) {
         where: { playerId: sourcePlayerId }, data: { playerId: targetPlayerId },
       })
       await tx.player.delete({ where: { id: sourcePlayerId } })
+      if (source.ownerId && !target.ownerId) {
+        await tx.player.update({ where: { id: targetPlayerId }, data: { ownerId: source.ownerId } })
+      }
       return {
         id: target.id,
         sourcePlayer: source,
@@ -45,6 +51,9 @@ async function post(req: Request) {
     invalidatePublicData()
     return NextResponse.json(result)
   } catch (error) {
+    if (error instanceof Error && error.message === 'PLAYER_OWNER_CONFLICT') {
+      return NextResponse.json({ error: 'These players belong to different user accounts and cannot be merged.' }, { status: 409 })
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && ['P2034', 'P2002', 'P2025', 'P2003'].includes(error.code)) {
       return NextResponse.json({ error: 'Player data changed during the merge. Refresh the player list and try again.' }, { status: 409 })
     }

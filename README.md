@@ -76,7 +76,7 @@ The corrected original Haruna GLB under `public/assets/chibi` is retained as a r
 
 ## Prerequisites
 
-- Node.js 22+ and npm.
+- Node.js 22.23.4 or newer within Node 22 and npm (see `.nvmrc`).
 - Docker Desktop, if using Docker modes.
 - PostgreSQL 16, only if using native development without Docker.
 - FFmpeg and yt-dlp, only if generating or syncing memorial lobby videos/posters outside Docker.

@@ -78,10 +78,11 @@ function ParticipationRow({ entry, accent, featured, onOpen }: {
   )
 }
 
-export function PlayerParticipation({ entries, playerId, accent }: {
+export function PlayerParticipation({ entries, playerId, accent, hideHeading = false }: {
   entries: PlayerParticipationEntry[]
   playerId: string
   accent: string
+  hideHeading?: boolean
 }) {
   const [selectedEntry, setSelectedEntry] = useState<PlayerParticipationEntry | null>(null)
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
@@ -91,11 +92,11 @@ export function PlayerParticipation({ entries, playerId, accent }: {
 
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-border bg-card">
-        <div className="border-b border-border bg-card2/35 px-4 py-4 sm:px-5">
+      <section aria-label={hideHeading ? 'Recent raid results' : undefined} className="overflow-hidden rounded-2xl border border-border bg-card">
+        {!hideHeading && <div className="border-b border-border bg-card2/35 px-4 py-4 sm:px-5">
           <h2 className="text-base font-bold">Participation</h2>
           <div className="mt-1 text-xs text-muted">Select a result to open its full leaderboard and locate this player.</div>
-        </div>
+        </div>}
         {!mostRecent ? (
           <div className="py-10 text-center text-sm text-muted">No raid participation found.</div>
         ) : (

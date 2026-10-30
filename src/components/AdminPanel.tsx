@@ -8,6 +8,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { StField, inputClass } from '@/components/ui/StField'
 import { Toast } from '@/components/ui/Toast'
 import { AdminRecruitmentSection } from '@/components/AdminRecruitmentSection'
+import { AdminUserRoles } from '@/components/AdminUserRoles'
 import { AdminChibi } from '@/components/chibi/AdminChibi'
 import { fmtDate, imageSrc, proxyImage } from '@/lib/utils'
 
@@ -295,7 +296,7 @@ interface XlsxImportProgress {
   error?: string | null
 }
 
-type Section = 'dashboard' | 'players' | 'clubs' | 'students' | 'chibi' | 'videos' | 'raids' | 'bosses' | 'entries' | 'plana' | 'import' | 'recruitment' | 'settings'
+type Section = 'dashboard' | 'user-roles' | 'players' | 'clubs' | 'students' | 'chibi' | 'videos' | 'raids' | 'bosses' | 'entries' | 'plana' | 'import' | 'recruitment' | 'settings'
 type ListSection = 'activity' | 'players' | 'clubs' | 'students' | 'videos' | 'raids' | 'bosses' | 'entries'
 type DeleteConfirmation = {
   title: string
@@ -307,6 +308,7 @@ type DeleteConfirmation = {
 
 const navItems: { id: Section; label: string; icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'user-roles', label: 'User roles', icon: UsersRound },
   { id: 'players', label: 'Players', icon: UsersRound },
   { id: 'clubs', label: 'Clubs', icon: School },
   { id: 'students', label: 'Students', icon: GraduationCap },
@@ -396,9 +398,10 @@ const SHOW_MORE_ROWS = 50
 
 interface AdminPanelProps {
   active?: boolean
+  canManageRoles?: boolean
 }
 
-export function AdminPanel({ active = true }: AdminPanelProps) {
+export function AdminPanel({ active = true, canManageRoles = false }: AdminPanelProps) {
   const [sec, setSec] = useState<Section>('dashboard')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [players, setPlayers] = useState<Player[]>([])
@@ -1819,7 +1822,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
           </button>
         </div>
         <nav className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto overscroll-contain pb-5">
-          {navItems.map((n) => {
+          {navItems.filter((n) => n.id !== 'user-roles' || canManageRoles).map((n) => {
             const Icon = n.icon
             return (
               <button
@@ -1839,6 +1842,7 @@ export function AdminPanel({ active = true }: AdminPanelProps) {
 
       {/* Content */}
       <div className="flex-1 p-4 sm:p-5 md:p-6 min-w-0">
+        {sec === 'user-roles' && canManageRoles && <AdminUserRoles />}
         {/* DASHBOARD */}
         {sec === 'dashboard' && (
           <div>

@@ -67,6 +67,15 @@ export function previewBounds(root: THREE.Object3D, refreshPose = false) {
   return bounds
 }
 
+// Pet cropping must also include rigid attachments such as a floating halo.
+export function renderedBounds(root: THREE.Object3D, refreshPose = false) {
+  const bounds = new THREE.Box3()
+  root.traverse((object) => {
+    if (object instanceof THREE.Mesh && visibleInHierarchy(root, object)) bounds.union(meshBounds(object, refreshPose))
+  })
+  return bounds
+}
+
 /**
  * Camera fit ignores meshes that occupy at most 0.5% of the visible body height
  * in the current pose. Tiny source-animated props remain rendered, but their
@@ -124,6 +133,17 @@ export function previewGround(root: THREE.Object3D, fallback: THREE.Box3) {
   if (!body) return fallback.min.y
   const separation = body.min.y - fallback.min.y
   return fallback.min.y < 0 && separation > 0.001 ? body.min.y : fallback.min.y
+}
+
+/** Evaluate support in authored space, before viewer centering moves a chair below zero. */
+export function previewSupportPoint(root: THREE.Object3D, fallback: THREE.Box3) {
+  const world = root.parent?.matrixWorld ?? new THREE.Matrix4()
+  const inverse = world.clone().invert()
+  const bounds = fallback.clone().applyMatrix4(inverse)
+  const body = bodyBounds(root)?.applyMatrix4(inverse)
+  const point = (body ?? bounds).getCenter(new THREE.Vector3())
+  point.y = body && bounds.min.y < -0.001 && body.min.y - bounds.min.y > 0.001 ? body.min.y : bounds.min.y
+  return point.applyMatrix4(world)
 }
 
 /**

@@ -173,7 +173,7 @@ export function withAdminMutationAudit<TArgs extends [Request, ...unknown[]]>(
     const request = args[0]
     const input = await requestDetails(request)
     const session = await auth().catch(() => null)
-    const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'ADMIN'
+    const isAdmin = ['ADMIN', 'MANAGER'].includes(session?.user?.role || '')
     const before = isAdmin ? await previousState(config, request, input) : null
     const response = await handler(...args)
     const result = await response.clone().json().catch(() => null)

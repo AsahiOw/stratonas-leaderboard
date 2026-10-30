@@ -5,6 +5,7 @@ import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { loginAssetSources, loginExpressions, loginSprite, type LoginCharacter, type LoginSceneState } from '@/lib/login-sprites'
 
 type FieldFocus = 'email' | 'password' | null
@@ -29,7 +30,7 @@ function CharacterSprite({ character, expression, className }: CharacterSpritePr
   )
 }
 
-export function LoginScene() {
+export function LoginScene({ adminMode = false, oauthError = false }: { adminMode?: boolean; oauthError?: boolean }) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -75,7 +76,7 @@ export function LoginScene() {
     setFailed(false)
     const result = await signIn('credentials', { email, password, redirect: false })
     if (result?.ok && !result.error) {
-      router.replace('/')
+      router.replace('/admin')
     } else {
       setFailed(true)
     }
@@ -157,10 +158,10 @@ export function LoginScene() {
       <section className="relative z-30 w-full max-w-md rounded-2xl border border-border2/90 bg-card p-7 shadow-[0_24px_65px_rgba(0,0,0,0.48)] sm:p-8">
         <div className="mb-7 text-center">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-accent">Stratónas</p>
-          <h1 className="mt-2 text-2xl font-bold text-text">Admin Login</h1>
+          <h1 className="mt-2 text-2xl font-bold text-text">{adminMode ? 'Admin Login' : 'Welcome to Stratónas'}</h1>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        {adminMode ? <form onSubmit={handleSubmit}>
           <label className="mb-4 block">
             <span className="mb-1.5 block text-[11px] font-semibold tracking-[0.07em] text-muted2">EMAIL</span>
             <input
@@ -215,7 +216,15 @@ export function LoginScene() {
           >
             Login
           </button>
-        </form>
+        </form> : <>
+          <p className="mb-6 text-center text-sm text-muted2">Sign in to view your player data and manage your in-game name.</p>
+          {oauthError && <p role="alert" className="mb-4 text-sm text-red-400">Discord sign-in did not complete. Please try again.</p>}
+          <button type="button" onClick={() => signIn('discord', { callbackUrl: '/profile' })} className="w-full rounded-lg bg-[#5865F2] py-3 text-sm font-bold text-white hover:bg-[#4752C4] focus:outline-none focus:ring-2 focus:ring-accent">
+            Sign in with Discord
+          </button>
+          <p className="mt-5 text-center text-xs text-muted">Your Discord ID links your existing player record automatically.</p>
+          <Link href="/admin/login" className="mt-6 block text-center text-xs text-muted2 hover:text-text">Administrator sign-in</Link>
+        </>}
       </section>
     </main>
   )

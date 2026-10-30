@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/immutability -- A studio host shares imperative Three.js resources; effects manage their lifetime. */
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { Grid2X2, Maximize, Minimize, Orbit, Pause, Play, Repeat, RotateCw, SlidersHorizontal, PenTool } from 'lucide-react'
+import { Grid2X2, Maximize, Minimize, Orbit, Pause, Play, Repeat, RotateCw, SlidersHorizontal, PenTool, PictureInPicture2 } from 'lucide-react'
 import styles from './ChibiViewer.module.css'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
@@ -12,7 +12,7 @@ import { OutlineEffect } from 'three/addons/effects/OutlineEffect.js'
 import { CHIBI_ACTIONS, type ChibiAction, type ChibiCatalogStudent } from '@/lib/chibi/types'
 import { sourceObjectKey, type ChibiRenderingProfile } from '@/lib/chibi/rendering-profile'
 import { mouthTileAtTime, mouthTileTextureTransform, mouthTileStateAtTime, normalizePlaybackTime } from '@/lib/chibi-mouth'
-import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround, previewPlacement } from '@/lib/chibi/preview-bounds'
+import { disableSkinnedMeshFrustumCulling, previewAnchor, previewBounds, previewFitBounds, previewGround, previewPlacement, previewSupportPoint, renderedBounds } from '@/lib/chibi/preview-bounds'
 import { playgroundBodyBounds, playgroundModelScale } from './playground-footprint'
 import { STUDENT_RADIUS } from '@/lib/chibi/playground-constants'
 import { applyChibiProfileMaterialState, createDsfxAdditivePass, createDsfxAlphaBlendAddPass, createDsfxGlitchTexPass, createDsfxMatcapPass, createMxCTransparentPasses, createMxEStandardPass, createMxUnlitOutlinePass, createProjectMxWeaponPasses, patchEyebrowCameraShader, type ChibiViewerMaterialMetadata } from './chibi-viewer-material'
@@ -24,6 +24,9 @@ import { separateCoincidentSkinLayers } from './chibi-coincident-skin-layers'
 import { downloadChibiModel, type ModelDownloadProgress } from './chibi-model-download'
 import { chibiPartUrl, createChibiAnimationLoader, type ChibiDelivery } from './chibi-animation-download'
 import type { StudioViewerHost } from './studio-types'
+import { formationIdleClips, formationPickupClip, profileCafeClips } from './profile-figurine'
+import { createProfilePet, profilePetWalkSpeed, stepProfilePet, type ProfilePet } from './profile-pet'
+import { moveProfileToPictureInPicture, pictureInPictureAPI } from './profile-picture-in-picture'
 
 export type ChibiViewerModel = NonNullable<ChibiCatalogStudent['model']>
 const labels: Record<ChibiAction, string> = { idle: 'Idle', walk: 'Walk', pickup: 'Pick up', touch: 'Touch' }
@@ -117,7 +120,7 @@ function addEyebrowCameraCorrection(object: THREE.Mesh, material: THREE.Material
 }
 
 
-export function ChibiViewer({ model, className = '', showDiagnostics = true, arrangement: previewArrangement = null, arrangementDefault: previewDefault = null, studio }: { model: ChibiViewerModel; className?: string; showDiagnostics?: boolean; arrangement?: ChibiArrangementDocument | null; arrangementDefault?: ChibiArrangementDocument | null; studio?: StudioViewerHost }) {
+export function ChibiViewer({ model, className = '', showDiagnostics = true, figurine = false, figurineName, onActivityChange, arrangement: previewArrangement = null, arrangementDefault: previewDefault = null, studio }: { model: ChibiViewerModel; className?: string; showDiagnostics?: boolean; figurine?: boolean; figurineName?: string; onActivityChange?: (active: boolean) => void; arrangement?: ChibiArrangementDocument | null; arrangementDefault?: ChibiArrangementDocument | null; studio?: StudioViewerHost }) {
   const arrangement = previewArrangement ?? model.arrangement ?? null
   const arrangementDefault = previewDefault ?? model.arrangementDefault ?? null
   const containerRef = useRef<HTMLDivElement>(null)
@@ -155,8 +158,18 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   const controlsId = useId()
   const controlsVisible = fullscreen ? fullscreenControlsOpen : controlsOpen
   const [holding, setHolding] = useState(false)
+  const [petActive, setPetActive] = useState(false)
   const [download, setDownload] = useState<ModelDownloadProgress>({ loaded: 0, total: null })
   const [retryAttempt, setRetryAttempt] = useState(0)
+  const [pipSupported, setPipSupported] = useState(false)
+  const [pipActive, setPipActive] = useState(false)
+  const [pipOpening, setPipOpening] = useState(false)
+  const [pipError, setPipError] = useState('')
+  const pipButtonRef = useRef<HTMLButtonElement>(null)
+  const openPipRef = useRef<(() => Promise<void>) | null>(null)
+
+  useEffect(() => { if (figurine) setPipSupported(!!pictureInPictureAPI(window)) }, [figurine])
+  useEffect(() => { onActivityChange?.(petActive || pipActive) }, [petActive, pipActive, onActivityChange])
 
   async function toggleFullscreen() {
     if (fullscreen) {
@@ -173,7 +186,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   useEffect(() => { allAnimationsRef.current = allAnimations && controlsVisible }, [allAnimations, controlsVisible])
 
   useEffect(() => {
-    if (studio) return
+    if (studio || figurine) return
     const viewer = viewerRef.current
     const changed = () => setFullscreen(document.fullscreenElement === viewer)
     document.addEventListener('fullscreenchange', changed)
@@ -181,7 +194,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       document.removeEventListener('fullscreenchange', changed)
       if (document.fullscreenElement === viewer) void document.exitFullscreen()
     }
-  }, [studio])
+  }, [studio, figurine])
 
   useEffect(() => {
     if (!fullscreen) return
@@ -224,7 +237,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-    setStatus('Downloading model…'); setDownload({ loaded: 0, total: null }); setError(null); setActive(null); setMissingClips(new Set()); setHolding(false)
+    setStatus('Downloading model…'); setDownload({ loaded: 0, total: null }); setError(null); setActive(null); setMissingClips(new Set()); setHolding(false); setPetActive(false)
     setAvailableClips([]); setActiveClip(null); setAnimationRequest(null); playClipRef.current = null
     setPaused(false); mediaRef.current = null
     setPlayback({ time: 0, duration: 0 })
@@ -249,20 +262,36 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     const outlineEffect = studio ? null : new OutlineEffect(renderer, { defaultThickness: 0.0025, defaultColor: [0.04, 0.05, 0.08] })
     if (!studio) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x151925, 0)
-      renderer.domElement.setAttribute('aria-label', 'Interactive student model. Drag to rotate, scroll to zoom, or tap the student to react.')
+      renderer.domElement.setAttribute('aria-label', figurine ? 'Representative student. Drag or use left and right arrow keys to rotate.' : 'Interactive student model. Drag to rotate, scroll to zoom, or tap the student to react.')
+      if (figurine) { renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%'; renderer.domElement.style.display = 'block' }
       container.appendChild(renderer.domElement)
     }
 
     const scene = studio?.scene ?? new THREE.Scene(), camera = studio?.camera ?? new THREE.PerspectiveCamera(35, 1, 0.01, 100), controls = studio?.controls ?? new OrbitControls(camera, renderer.domElement)
     if (!studio) { controls.enableDamping = true; controls.enablePan = true; controls.minDistance = 0.5; controls.maxDistance = 12; controls.maxPolarAngle = Math.PI }
-    const resetCamera = () => { camera.position.set(0, 1.4, 4.5); controls.target.set(0, 0.9, 0); controls.update() }
+    const resetCamera = () => { camera.position.set(0, figurine ? 1.15 : 1.4, figurine ? 3.8 : 4.5); controls.target.set(0, 0.9, 0); controls.update() }
     if (!studio) {
       resetCamera(); scene.add(new THREE.HemisphereLight(0xffffff, 0x8891aa, 2.5))
       const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(2, 4, 5); scene.add(light)
-      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.035, 64), new THREE.MeshStandardMaterial({ color: 0x252d40, roughness: 1 })); pedestal.position.y = -0.03; scene.add(pedestal)
-      pedestal.material.userData.outlineParameters = { visible: false }
-      floorRef.current = pedestal; pedestal.visible = floorVisibleRef.current
+      if (figurine) {
+        controls.enablePan = false; controls.enableZoom = false
+        controls.minPolarAngle = Math.PI / 3; controls.maxPolarAngle = Math.PI / 2
+        renderer.domElement.style.touchAction = 'pan-y'; renderer.domElement.tabIndex = 0
+      } else {
+        const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.035, 64), new THREE.MeshStandardMaterial({ color: 0x252d40, roughness: 1 })); pedestal.position.y = -0.03; scene.add(pedestal)
+        pedestal.material.userData.outlineParameters = { visible: false }
+        floorRef.current = pedestal; pedestal.visible = floorVisibleRef.current
+      }
     }
+    const rotateWithKeys = (event: KeyboardEvent) => {
+      if (!figurine || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+      if (profilePet || dragging) return
+      event.preventDefault()
+      const offset = camera.position.clone().sub(controls.target)
+      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), event.key === 'ArrowLeft' ? 0.18 : -0.18)
+      camera.position.copy(controls.target).add(offset); controls.update()
+    }
+    if (figurine) renderer.domElement.addEventListener('keydown', rotateWithKeys)
     const holder = new THREE.Group(); (studio?.group ?? scene).add(holder)
     // Keep imported node transforms and animation tracks intact.  The admin
     // arrangement is applied to this wrapper (and to per-renderer wrappers)
@@ -325,22 +354,62 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     }
     applyArrangementRef.current = applyArrangement
 
-    const resize = () => { const width = container.clientWidth, height = container.clientHeight; renderer.setSize(width, height); camera.aspect = width / Math.max(height, 1); camera.updateProjectionMatrix() }
+    const resize = () => {
+      const width = container.clientWidth, height = container.clientHeight
+      if (figurine) renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio, 2), 3, Math.sqrt(4_000_000 / Math.max(width * height, 1))))
+      renderer.setSize(width, height, !figurine); camera.aspect = width / Math.max(height, 1); camera.updateProjectionMatrix()
+    }
     const observer = new ResizeObserver(resize); if (!studio) { observer.observe(container); resize() }
     const raycaster = new THREE.Raycaster(), dragPlane = new THREE.Plane(), dragPoint = new THREE.Vector3(), dragOffset = new THREE.Vector3(), restingPosition = new THREE.Vector3()
     let down: { x: number; y: number; id: number; hit: THREE.Vector3 | null } | null = null
     let holdTimer: ReturnType<typeof setTimeout> | null = null, dragging = false
+    let profilePickupClip: string | null = null
+    let pipWindow: Window | null = null
+    let pipSession: ReturnType<typeof moveProfileToPictureInPicture> | null = null
+    let openingPip = false
+    let frameWindow: Window = window
+    const profileStage = figurine ? renderer.domElement.closest<HTMLElement>('[data-chibi-stage]') : null
+    const profileViewport = () => profileStage?.ownerDocument?.defaultView ?? window
+    let profileDragBounds: DOMRect | null = null
+    let profilePet: ProfilePet | null = null
+    let petCrop = { x: 0, y: 0, width: 0, height: 0 }
+    let petCropElapsed = 0
+    let petGroundY = 0
+    let petGroundReady = false
+    let profileHome: { position: THREE.Vector3; target: THREE.Vector3; rotation: number; width: number; height: number } | null = null
+    let enterProfilePet: (x: number, y: number) => boolean = () => false
+    let profilePetFrame = (_delta: number) => { }
+    let fitProfilePet = (_delta: number) => { }
     let returnToIdle = () => { }
+    const restoreProfileHome = () => {
+      profilePet = null
+      petCrop = { x: 0, y: 0, width: 0, height: 0 }
+      Object.assign(container.style, { position: '', left: '', top: '', width: '', height: '' })
+      if (profileStage) {
+        Object.assign(profileStage.style, { position: '', left: '', top: '', bottom: '', width: '', height: '', transform: '', zIndex: '', overflow: '' })
+        delete profileStage.dataset.profilePet
+        if (profileStage.parentElement) profileStage.parentElement.style.paddingTop = ''
+      }
+      if (profileHome) {
+        camera.position.copy(profileHome.position); controls.target.copy(profileHome.target); holder.rotation.y = profileHome.rotation
+        profileHome = null; controls.update()
+      }
+      controls.enabled = true; setPetActive(false)
+    }
     const clearHoldTimer = () => { if (holdTimer) clearTimeout(holdTimer); holdTimer = null }
     const castPointer = (x: number, y: number) => {
       const rect = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1), camera)
     }
-    const releasePickup = () => {
+    const releasePickup = (drop?: PointerEvent) => {
       clearHoldTimer()
       if (dragging) {
-        dragging = false; controls.enabled = true; holder.position.copy(restingPosition)
-        setHolding(false); returnToIdle()
+        const petRect = profileStage?.getBoundingClientRect()
+        profileDragBounds = null
+        dragging = false; holder.position.copy(restingPosition); setHolding(false)
+        if (figurine && drop && (pipWindow || drop.clientY >= profileViewport().innerHeight * 2 / 3) && enterProfilePet(petRect?.left ?? 0, petRect?.top ?? 0)) return
+        if (figurine) restoreProfileHome()
+        controls.enabled = true; returnToIdle()
       }
     }
     const pointerDown = (event: PointerEvent) => {
@@ -355,7 +424,8 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         return true
       })
       down = { x: event.clientX, y: event.clientY, id: event.pointerId, hit: hit?.point.clone() ?? null }
-      if (!hit || model.profile.interactions.pickup.state !== 'available') return
+      if (!hit || (figurine ? !profilePickupClip : model.profile.interactions.pickup.state !== 'available')) return
+      if (figurine) renderer.domElement.setPointerCapture(event.pointerId)
       holdTimer = setTimeout(async () => {
         if (!down?.hit || disposed) return
         const start = down
@@ -363,6 +433,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         if (!played || disposed || down !== start || !down?.hit) return
         if (currentKind !== 'pickup') return
         dragging = true; controls.enabled = false; setHolding(true)
+        if (profileStage) { profileDragBounds = profileStage.getBoundingClientRect(); profileStage.style.zIndex = '500' }
         dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), down.hit)
         dragOffset.copy(holder.position).sub(down.hit)
       }, 300)
@@ -374,16 +445,29 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         return
       }
       event.stopImmediatePropagation()
+      if (figurine) {
+        if (profileStage && profileDragBounds) {
+          const x = THREE.MathUtils.clamp(event.clientX - down.x, -profileDragBounds.left, profileViewport().innerWidth - profileDragBounds.right)
+          const y = THREE.MathUtils.clamp(event.clientY - down.y, -profileDragBounds.top, profileViewport().innerHeight - profileDragBounds.bottom)
+          profileStage.style.transform = `translate(${x}px, ${y}px)`
+        }
+        return
+      }
       castPointer(event.clientX, event.clientY)
       if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) holder.position.copy(dragPoint).add(dragOffset)
     }
     const pointerUp = (event: PointerEvent) => {
       if (!down || event.pointerId !== down.id) return
       const start = down, wasDragging = dragging
-      down = null; releasePickup()
-      if (!wasDragging && start.hit && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 6) playRef.current?.('touch')
+      down = null; releasePickup(event)
+      if (!figurine && !wasDragging && start.hit && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 6) playRef.current?.('touch')
     }
     const pointerCancel = () => { down = null; releasePickup() }
+    const returnPetWithKeyboard = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && pipWindow) { event.preventDefault(); pipWindow.close(); return }
+      if (event.key === 'Escape' && profilePet) { event.preventDefault(); pointerCancel(); restoreProfileHome(); returnToIdle() }
+    }
+    if (figurine) renderer.domElement.addEventListener('keydown', returnPetWithKeyboard)
     const contextMenu = (event: Event) => event.preventDefault()
     // Capture precedes OrbitControls, so a held character can move independently.
     renderer.domElement.addEventListener('pointerdown', pointerDown, true)
@@ -393,8 +477,50 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
     renderer.domElement.addEventListener('lostpointercapture', pointerCancel)
     renderer.domElement.addEventListener('contextmenu', contextMenu)
     window.addEventListener('blur', pointerCancel)
-    const visibilityChanged = () => { if (document.hidden) pointerCancel() }
+    const visibilityChanged = () => { if (renderer.domElement.ownerDocument.hidden) pointerCancel() }
     document.addEventListener('visibilitychange', visibilityChanged)
+    if (figurine && profileStage) openPipRef.current = async () => {
+      if (pipWindow) { pipWindow.close(); return }
+      if (openingPip) return
+      const api = pictureInPictureAPI(window)
+      if (!api) return
+      openingPip = true; setPipOpening(true); setPipError('')
+      let requestedWindow: Window | null = null
+      try {
+        const floating = await api.requestWindow({ width: 560, height: 360 })
+        requestedWindow = floating
+        if (disposed || floating.closed) { floating.close(); return }
+        pointerCancel(); restoreProfileHome(); returnToIdle()
+        controls.disconnect()
+        pipWindow = floating
+        pipSession = moveProfileToPictureInPicture(profileStage, floating, figurineName || 'Your student', () => {
+          pointerCancel(); frameWindow.cancelAnimationFrame(frame)
+          floating.removeEventListener('blur', pointerCancel); floating.document.removeEventListener('visibilitychange', visibilityChanged)
+          floating.document.removeEventListener('keydown', returnPetWithKeyboard)
+          controls.disconnect(); pipWindow = null; pipSession = null
+          restoreProfileHome(); returnToIdle(); controls.connect(renderer.domElement); resize()
+          renderer.domElement.style.touchAction = profilePickupClip ? 'none' : 'pan-y'
+          if (!disposed) {
+            setPipActive(false); pipButtonRef.current?.focus({ preventScroll: true })
+            previousTime = 0; scheduleFrame()
+          }
+        })
+        controls.connect(renderer.domElement)
+        renderer.domElement.style.touchAction = profilePickupClip ? 'none' : 'pan-y'
+        floating.addEventListener('blur', pointerCancel); floating.document.addEventListener('visibilitychange', visibilityChanged)
+        floating.document.addEventListener('keydown', returnPetWithKeyboard)
+        const width = profileStage.getBoundingClientRect().width
+        if (!enterProfilePet((floating.innerWidth - width) / 2, floating.innerHeight)) {
+          Object.assign(profileStage.style, { position: 'fixed', left: `${(floating.innerWidth - width) / 2}px`, top: '54px', width: `${width}px` })
+        }
+        resize(); setPipActive(true)
+        frameWindow.cancelAnimationFrame(frame); previousTime = 0; scheduleFrame()
+      } catch {
+        if (pipSession) pipSession.restore()
+        requestedWindow?.close(); pipWindow = null
+        if (!disposed) setPipError('The floating window couldn’t open. Try again.')
+      } finally { openingPip = false; if (!disposed) setPipOpening(false) }
+    }
     const updateRendererState = () => {
       if (renderingProfile) {
         const clip = currentAction?.getClip()
@@ -786,6 +912,15 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         const delivery = root.userData.chibiDelivery as ChibiDelivery | undefined
         const catalog = delivery?.version === 1 ? delivery.clips : gltf.animations.map(clip => ({ name: clip.name, duration: clip.duration }))
         const clipNames = new Set(catalog.map(clip => clip.name))
+        let formationPose: string | null = null
+        if (figurine) {
+          profilePickupClip = formationPickupClip([...clipNames], model.sourceIdentity)
+          renderer.domElement.style.touchAction = profilePickupClip ? 'none' : 'pan-y'
+          const poses = formationIdleClips([...clipNames], model.sourceIdentity)
+          formationPose = poses.idle && poses.random ? (Math.random() < .5 ? poses.idle : poses.random) : poses.idle || poses.random
+          if (formationPose) await animations.get(formationPose)
+          if (disposed) return
+        }
         setAvailableClips([...clipNames])
         for (const action of CHIBI_ACTIONS) { const interaction = model.profile.interactions[action]; if (interaction.state === 'available' && (!interaction.clip || !clipNames.has(interaction.clip))) missing.add(action) }
         setMissingClips(missing)
@@ -796,7 +931,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           currentAction?.stop()
           haloFollower?.reset()
           let playbackClip = source
-          if (studio?.playground || (kind === 'walk' && studio)) {
+          if (studio?.playground || (kind === 'walk' && (studio || figurine))) {
             playbackClip = inPlaceClips.get(source.name) || inPlaceClip(source, root)
             inPlaceClips.set(source.name, playbackClip)
           }
@@ -808,7 +943,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           next.clampWhenFinished = repeatPickup ? false : settings?.hold ?? false; next.play(); currentAction = next; currentKind = kind; setActive(kind)
           next.paused = staticPose
           if (staticPose) mixer.update(0)
-          if ((!studio || studio.playground) && placementReady) {
+          if ((!studio || studio.playground) && placementReady && (!profilePet || !petGroundReady)) {
             mixer.update(0)
             if (studio?.playground) holder.updateMatrixWorld(true)
             const placement = previewPlacement(root)
@@ -856,8 +991,9 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         const reportAnimation = (value: typeof pendingAnimation) => { pendingAnimation = value; setAnimationRequest(value) }
         const playInitial = () => {
           selection++; reportAnimation(null)
-          const idle = model.profile.interactions.idle, preferred = model.profile.initialPose || (idle.state === 'available' ? idle.clip : null)
-          if (preferred && playClip(preferred, preferred === idle.clip ? 'idle' : null, studio ? { ...idle, loop: true, hold: false } : idle)) { if (!studio) setPlaybackLoop(loopingRef.current); return }
+          const idle = model.profile.interactions.idle
+          const preferred = formationPose || model.profile.initialPose || (idle.state === 'available' ? idle.clip : null)
+          if (preferred && playClip(preferred, preferred === idle.clip ? 'idle' : null, studio || figurine ? { ...idle, loop: true, hold: false } : idle)) { if (!studio) setPlaybackLoop(loopingRef.current); return }
           currentAction?.stop(); currentAction = null; currentKind = null; setActive(null)
           setActiveClip(null)
           mouthTransforms.forEach((transform, mouth) => { mouth.map?.offset.copy(transform.offset); mouth.map?.repeat.copy(transform.repeat) })
@@ -883,15 +1019,108 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
             return false
           }
         }
-        const play = async (kind: ChibiAction, valid?: () => boolean, usePlaybackLoop = false) => { const interaction = model.profile.interactions[kind]; return interaction.state === 'available' && interaction.clip && !missing.has(kind) ? requestClip(interaction.clip, kind, interaction, valid, usePlaybackLoop) : false }
+        const play = async (kind: ChibiAction, valid?: () => boolean, usePlaybackLoop = false) => {
+          if (figurine) return kind === 'pickup' && profilePickupClip ? requestClip(profilePickupClip, 'pickup', { loop: true, hold: false }, valid) : false
+          const interaction = model.profile.interactions[kind]; return interaction.state === 'available' && interaction.clip && !missing.has(kind) ? requestClip(interaction.clip, kind, interaction, valid, usePlaybackLoop) : false
+        }
         playRef.current = play
         const playNamedClip = (name: string, options?: { loop?: boolean; movement?: boolean }) => {
+          if (figurine && Object.values(formationIdleClips([...clipNames], model.sourceIdentity)).includes(name)) formationPose = name
           const kind = options?.movement ? 'walk' : CHIBI_ACTIONS.find(action => model.profile.interactions[action].state === 'available' && model.profile.interactions[action].clip === name) ?? null
           return requestClip(name, kind, { loop: options?.loop ?? true, hold: studio?.playground ?? false }, undefined, !studio?.playground)
         }
         playClipRef.current = playNamedClip
+        if (figurine && profileStage) {
+          const cafe = profileCafeClips([...clipNames], model.sourceIdentity)
+          const playPetPhase = () => {
+            const pet = profilePet
+            if (!pet || pet.phase === 'falling') return
+            const clip = cafe[pet.phase === 'walk' ? 'walk' : pet.phase === 'reaction' ? 'reaction' : 'idle']
+            if (!clip) return
+            void requestClip(clip, pet.phase === 'walk' ? 'walk' : null, { loop: pet.phase !== 'reaction', hold: true }, () => profilePet === pet && !dragging).then(ok => {
+              if (!ok && profilePet === pet && !dragging) { restoreProfileHome(); returnToIdle() }
+            })
+          }
+          enterProfilePet = (x, y) => {
+            if (!cafe.idle || !cafe.walk) return false
+            if (!profileHome) {
+              const rect = profileStage.getBoundingClientRect()
+              profileHome = { position: camera.position.clone(), target: controls.target.clone(), rotation: holder.rotation.y, width: rect.width, height: rect.height }
+              if (profileStage.parentElement && !pipWindow) profileStage.parentElement.style.paddingTop = `${rect.height}px`
+            }
+            const { height, width } = profileHome
+            x -= petCrop.x; y -= petCrop.y
+            petCrop = { x: 0, y: 0, width, height }
+            petGroundY = height * .9
+            petGroundReady = false
+            petCropElapsed = .2
+            Object.assign(container.style, { position: 'absolute', left: '0px', top: '0px', width: `${width}px`, height: `${height}px` })
+            const floorY = profileViewport().innerHeight - height * .9
+            profilePet = createProfilePet(THREE.MathUtils.clamp(x, 0, Math.max(0, profileViewport().innerWidth - width)), reducedMotion.matches ? floorY : y, floorY)
+            Object.assign(profileStage.style, { position: 'fixed', left: `${profilePet.x}px`, top: `${profilePet.y}px`, bottom: 'auto', width: `${width}px`, height: `${height}px`, transform: '', zIndex: '500', overflow: 'hidden' })
+            profileStage.dataset.profilePet = profilePet.phase
+            resetCamera(); controls.enabled = false; setPetActive(true); playPetPhase()
+            return true
+          }
+          profilePetFrame = delta => {
+            if (!profilePet || dragging) return
+            profilePet.x = THREE.MathUtils.clamp(profilePet.x + petCrop.x, 0, Math.max(0, profileViewport().innerWidth - petCrop.width)) - petCrop.x
+            profileStage.style.left = `${profilePet.x + petCrop.x}px`
+            const floorY = profileViewport().innerHeight - petGroundY - 8
+            if (reducedMotion.matches) {
+              profilePet.y = floorY; profileStage.style.top = `${floorY + petCrop.y}px`
+              if (profilePet.phase === 'falling') { profilePet.phase = 'idle'; playPetPhase() }
+              profileStage.dataset.profilePet = profilePet.phase
+              return
+            }
+            if (down || pendingAnimation) return
+            const phase = profilePet.phase
+            const reactionDuration = cafe.reaction ? catalog.find(clip => clip.name === cafe.reaction)?.duration ?? 0 : 0
+            const pixelsPerWorldUnit = profileHome!.height / (2 * camera.position.distanceTo(controls.target) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)))
+            profilePet.x += petCrop.x; profilePet.target += petCrop.x
+            stepProfilePet(profilePet, delta, profileViewport().innerWidth - petCrop.width, profilePetWalkSpeed(1.8 * pixelsPerWorldUnit), reactionDuration, Math.random, floorY)
+            profilePet.x -= petCrop.x; profilePet.target -= petCrop.x
+            profileStage.style.left = `${profilePet.x + petCrop.x}px`
+            profileStage.style.top = `${profilePet.y + petCrop.y}px`
+            holder.rotation.y = profilePet.angle
+            profileStage.dataset.profilePet = profilePet.phase
+            if (phase !== profilePet.phase) playPetPhase()
+          }
+          fitProfilePet = delta => {
+            if (!profilePet || !profileHome || !root || dragging) return
+            if (reducedMotion.matches && petGroundReady && petCrop.width !== profileHome.width) return
+            petCropElapsed += delta
+            if (petCropElapsed < .1) return
+            petCropElapsed = 0
+            holder.updateMatrixWorld(true)
+            const bounds = renderedBounds(root, true)
+            if (bounds.isEmpty()) return
+            // Capture the idle support once. Reactions may jump or crouch;
+            // their animated bounds must not move the floor or actor origin.
+            if (!petGroundReady && currentAction?.getClip().name === cafe.idle && !pendingAnimation) {
+              const groundPoint = previewSupportPoint(root, bounds)
+              groundPoint.project(camera)
+              petGroundY = (1 - groundPoint.y) * profileHome.height / 2
+              petGroundReady = true
+            }
+            const projected = new THREE.Box2()
+            for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+              const point = new THREE.Vector3(x, y, z).project(camera)
+              projected.expandByPoint(new THREE.Vector2((point.x + 1) * profileHome.width / 2, (1 - point.y) * profileHome.height / 2))
+            }
+            // Keep the original render size and camera; only trim transparent margins.
+            const padding = 16
+            const left = Math.max(0, Math.floor(projected.min.x - padding)), top = Math.max(0, Math.floor(projected.min.y - padding))
+            const right = Math.min(profileHome.width, Math.ceil(projected.max.x + padding)), bottom = Math.min(profileHome.height, Math.ceil(projected.max.y + padding))
+            if (right <= left || bottom <= top) return
+            petCrop = { x: left, y: top, width: right - left, height: bottom - top }
+            Object.assign(profileStage.style, { left: `${profilePet.x + left}px`, top: `${profilePet.y + top}px`, width: `${petCrop.width}px`, height: `${petCrop.height}px` })
+            Object.assign(container.style, { left: `${-left}px`, top: `${-top}px` })
+          }
+        }
         mixer.addEventListener('finished', () => {
           if (studio) return
+          if (profilePet) return
           if (manualPlayback) setPaused(true)
           else if (currentKind === 'touch' && !pendingAnimation) playInitial()
         })
@@ -936,16 +1165,20 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
       }
     }
     void load()
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     let previousTime = 0, elapsedSeconds = 0, lastTimelineUpdate = 0, animationDelta = 0
+    const scheduleFrame = () => { frameWindow = pipWindow ?? window; frame = frameWindow.requestAnimationFrame(render) }
     const render = (time: number) => {
       const frameDelta = previousTime ? Math.min((time - previousTime) / 1000, 0.05) : 0
       previousTime = time
-      if (!document.hidden && !studio?.paused?.()) {
+      if (!(pipWindow?.document ?? document).hidden && !studio?.paused?.()) {
         animationDelta += frameDelta
-        if (animationDelta + 0.00001 < (studio?.animationInterval?.() ?? 0)) { if (!studio?.registerFrame) frame = requestAnimationFrame(render); return }
+        if (animationDelta + 0.00001 < (studio?.animationInterval?.() ?? 0)) { if (!studio?.registerFrame) scheduleFrame(); return }
         const delta = animationDelta; animationDelta = 0
+        profilePetFrame(delta)
         elapsedSeconds += delta
         if (!studio) scene.userData.chibiElapsedSeconds = elapsedSeconds
+        if (figurine && currentAction) currentAction.paused = reducedMotion.matches
         mixer?.update(delta)
         if (!studio && allAnimationsRef.current && time - lastTimelineUpdate >= 100) {
           lastTimelineUpdate = time
@@ -957,7 +1190,7 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
         // when the standing pose is grounded. Reposition only that held pose
         // from its current lowest rendered point; idle/walk retain the stable
         // initial framing and support furniture is not moved.
-        if (!studio && !dragging && currentKind === 'pickup' && root && previewScale > 0) {
+        if (!studio && !profilePet && !dragging && currentKind === 'pickup' && root && previewScale > 0) {
           holder.updateMatrixWorld(true)
           const poseBounds = previewBounds(root, true), poseGround = previewGround(root, poseBounds)
           const localGround = (poseGround - holder.position.y) / previewScale
@@ -969,25 +1202,34 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
           holder.position.x = restingPosition.x * Math.cos(angle) + restingPosition.z * Math.sin(angle)
           holder.position.z = -restingPosition.x * Math.sin(angle) + restingPosition.z * Math.cos(angle)
         }
-        updateMouths(); applyArrangement(); haloFollower?.update(currentAction?.paused ? 0 : delta, currentAction?.getClip() ?? null); hiddenSceneMeshes.forEach(object => { object.visible = false }); if (!studio) { controls.update(delta); if (outlineEnabledRef.current && outlineEffect) outlineEffect.render(scene, camera); else renderer.render(scene, camera) }
+        updateMouths(); applyArrangement(); haloFollower?.update(currentAction?.paused ? 0 : delta, currentAction?.getClip() ?? null); hiddenSceneMeshes.forEach(object => { object.visible = false }); fitProfilePet(delta); if (!studio) { controls.update(delta); if (outlineEnabledRef.current && outlineEffect) outlineEffect.render(scene, camera); else renderer.render(scene, camera) }
       } else animationDelta = 0
-      if (!studio?.registerFrame) frame = requestAnimationFrame(render)
+      if (!studio?.registerFrame) scheduleFrame()
     }
     const unregisterFrame = studio?.registerFrame?.(render)
-    if (!studio?.registerFrame) frame = requestAnimationFrame(render)
+    if (!studio?.registerFrame) scheduleFrame()
     return () => {
       unregisterFrame?.()
-      disposed = true; abortController.abort(); cancelAnimationFrame(frame); observer.disconnect()
+      disposed = true; abortController.abort(); frameWindow.cancelAnimationFrame(frame); observer.disconnect()
+      const floating = pipWindow
+      pipSession?.restore(); floating?.close(); openPipRef.current = null
+      if (profileStage) {
+        Object.assign(profileStage.style, { position: '', left: '', top: '', bottom: '', width: '', height: '', transform: '', zIndex: '' })
+        delete profileStage.dataset.profilePet
+        if (profileStage.parentElement) profileStage.parentElement.style.paddingTop = ''
+      }
       clearHoldTimer(); window.removeEventListener('blur', pointerCancel); document.removeEventListener('visibilitychange', visibilityChanged)
       renderer.domElement.removeEventListener('pointerdown', pointerDown, true); renderer.domElement.removeEventListener('pointermove', pointerMove, true); renderer.domElement.removeEventListener('pointerup', pointerUp, true); renderer.domElement.removeEventListener('pointercancel', pointerCancel, true); renderer.domElement.removeEventListener('lostpointercapture', pointerCancel)
       renderer.domElement.removeEventListener('contextmenu', contextMenu)
+      renderer.domElement.removeEventListener('keydown', rotateWithKeys)
+      renderer.domElement.removeEventListener('keydown', returnPetWithKeyboard)
       floorRef.current = null
       mixer?.stopAllAction(); if (root) mixer?.uncacheRoot(root)
       if (studio) { holder.removeFromParent(); disposeModel(holder) }
       else { controls.dispose(); disposeModel(scene); renderer.dispose(); renderer.domElement.remove() }
       playRef.current = null; playClipRef.current = null; mediaRef.current = null; resetRef.current = null; applyArrangementRef.current = null
     }
-  }, [model, retryAttempt, studio])
+  }, [model, retryAttempt, studio, figurine, figurineName])
 
   useEffect(() => {
     arrangementRef.current = arrangement
@@ -996,6 +1238,27 @@ export function ChibiViewer({ model, className = '', showDiagnostics = true, arr
   }, [arrangement, arrangementDefault])
 
   if (studio) return <div ref={containerRef} hidden />
+
+  if (figurine) {
+    const poses = formationIdleClips(availableClips, model.sourceIdentity)
+    return <div className={className} data-profile-figurine data-active-clip={activeClip || undefined}>
+      <div data-chibi-stage className={`${styles.profilePetStage} relative h-[var(--profile-model-height,300px)]`}>
+        <div data-chibi-canvas ref={containerRef} className="h-full w-full cursor-grab active:cursor-grabbing" />
+        {!error && status !== 'Model ready' && <p role="status" className="absolute inset-x-0 bottom-12 text-center text-xs text-muted2">Preparing your figurine…</p>}
+        {error && <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted2"><p>Your figurine couldn’t load.</p><button onClick={() => setRetryAttempt(value => value + 1)} className="min-h-11 rounded-lg border border-border2 bg-card px-4 text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">Try again</button></div>}
+      </div>
+      <div data-profile-caption className="mx-auto grid min-h-8 w-fit max-w-full grid-cols-[32px_minmax(0,auto)_32px] items-center gap-0.5 text-center text-[11px] font-semibold sm:text-[13px]">
+        <div>
+        {pipSupported && <button ref={pipButtonRef} type="button" aria-label={pipActive ? 'Return from picture-in-picture' : 'Open pet in picture-in-picture'} title={pipActive ? 'Return to profile' : 'Open floating pet window'} disabled={status !== 'Model ready' || !!error || holding || pipOpening} onClick={() => void openPipRef.current?.()} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted2 hover:bg-card2 hover:text-text disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"><PictureInPicture2 size={15} aria-hidden /></button>}
+        </div>
+        <span className="min-w-0 [overflow-wrap:anywhere]">{figurineName}</span>
+        <div>
+        {poses.idle && poses.random && !error && <button type="button" aria-label="Switch idle animation" title="Switch idle animation" disabled={!activeClip || holding || petActive} onClick={() => playClipRef.current?.(activeClip === poses.idle ? poses.random! : poses.idle!)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted2 hover:bg-card2 hover:text-text disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"><RotateCw size={14} aria-hidden /></button>}
+        </div>
+      </div>
+      {pipError && <p role="alert" className="mt-1 text-center text-xs text-red">{pipError}</p>}
+    </div>
+  }
 
   return <div ref={viewerRef} tabIndex={-1} role={fullscreen ? 'dialog' : undefined} aria-modal={fullscreen || undefined} aria-label={fullscreen ? 'Student model fullscreen' : undefined} className={`overflow-hidden rounded-2xl border border-white/10 bg-[#151925] ${className} ${fullscreen ? styles.fullscreen : ''}`}>
     <div data-chibi-stage className="relative">

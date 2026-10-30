@@ -36,13 +36,14 @@ async function post(req: Request, { params }: { params: Promise<{ id: string }> 
   if (!student) return NextResponse.json({ error: 'Student not found.' }, { status: 404 })
 
   const updated = await prisma.$transaction(async (tx) => {
-    await tx.player.update({
-      where: { id: item.playerId },
+    const playerUpdate = await tx.player.updateMany({
+      where: { id: item.playerId, favouriteStudentImportLocked: false },
       data: {
         favouriteStudent: student.name,
         favouriteStudentId: student.id,
       },
     })
+    if (!playerUpdate.count) return null
 
     if (rememberAlias && item.rawFavoriteStudent?.trim()) {
       const normalizedAlias = normalizeStudentLookup(item.rawFavoriteStudent)
@@ -74,6 +75,7 @@ async function post(req: Request, { params }: { params: Promise<{ id: string }> 
     })
   })
 
+  if (!updated) return NextResponse.json({ error: 'This player has locked their favourite student against XLSX changes.' }, { status: 409 })
   invalidatePublicData()
   return NextResponse.json(updated)
 }

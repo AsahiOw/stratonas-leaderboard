@@ -2,12 +2,16 @@
   "name": "stratonas-leaderboard",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "^22.23.4"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:local": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
+    "test:discord-auth": "node --experimental-test-module-mocks --import tsx --test src/lib/discord-issuer.test.ts src/lib/discord-auth.integration.test.ts",
     "test:student-lookup": "ts-node --project tsconfig.seed.json src/lib/student-name-matcher.test.ts",
     "chibi:setup": "tsx scripts/chibi-setup.ts",
     "chibi:doctor": "tsx scripts/chibi-doctor.ts",

@@ -1,16 +1,22 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
+import Discord from 'next-auth/providers/discord'
+import { PrismaAdapter } from '@auth/prisma-adapter'
+import { linkDiscordPlayer } from './discord-player'
 import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
 
 const DUMMY_PASSWORD_HASH = '$2a$12$TUnCad.fsTZkB/7m9FKcv.cuf8nVUnVyjN7e/8ZOnKppsAqozwa06'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt', maxAge: 7 * 24 * 60 * 60 },
   pages: {
-    signIn: '/',
+    signIn: '/login',
+    error: '/login',
   },
   providers: [
+    Discord({ issuer: 'https://discord.com', authorization: { params: { scope: 'identify' } } }),
     Credentials({
       credentials: {
         email: { label: 'Email', type: 'email' },
@@ -25,23 +31,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email },
         })
         const ok = await bcrypt.compare(password, user?.passwordHash || DUMMY_PASSWORD_HASH)
-        if (!user || !ok) return null
+        if (!user || !ok || user.role !== 'ADMIN') return null
         return { id: user.id, email: user.email, name: user.name, role: user.role }
       },
     }),
   ],
+  events: {
+    async signIn({ user, account }) {
+      if (user.id && account?.provider === 'discord') {
+        await linkDiscordPlayer(user.id, account.providerAccountId)
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.role = (user as { role: 'ADMIN' | 'VIEWER' }).role
-      }
+      if (user) token.id = user.id
+      const id = token.id as string | undefined
+      const current = id ? await prisma.user.findUnique({ where: { id }, select: { role: true } }) : null
+      if (!current) return null
+      token.role = current.role
       return token
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
-        session.user.role = token.role as 'ADMIN' | 'VIEWER'
+        session.user.role = token.role as 'ADMIN' | 'MANAGER' | 'VIEWER'
       }
       return session
     },

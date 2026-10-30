@@ -8,8 +8,8 @@ import { SiteFooter } from '@/components/SiteFooter'
 export function RouteChrome() {
   const pathname = usePathname()
 
-  if (pathname === '/login' || pathname === '/radio' || pathname === '/playground') return null
-  if (pathname === '/3D') return <SiteFooter />
+  if (pathname === '/login' || pathname === '/admin/login' || pathname === '/radio' || pathname === '/playground') return null
+  if (pathname === '/3D' || pathname === '/profile') return <SiteFooter />
 
   return (
     <>

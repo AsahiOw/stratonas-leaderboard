@@ -99,7 +99,7 @@ export function LeaderboardApp({
   const isRaidDetail = Boolean(initialRaidId)
   const initialTab = tabFromPath(pathname)
   const { data: session, status } = useSession()
-  const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
+  const isAdmin = status === 'authenticated' && ['ADMIN', 'MANAGER'].includes(session?.user?.role || '')
 
   const [tab, setTab] = useState<Tab>(initialTab)
   const [serverFilter, setServerFilter] = useState<ServerFilter>('global')
@@ -226,7 +226,7 @@ export function LeaderboardApp({
   }
 
   function handleLoginClick() {
-    if (isAdmin) {
+    if (status === 'authenticated') {
       signOut({ redirect: false })
       if (tab === 'admin') handleTabChange('leaderboard')
     } else {
@@ -300,7 +300,8 @@ export function LeaderboardApp({
         <Navbar
           tab={tab}
           setTab={handleTabChange}
-          loggedIn={isAdmin}
+          loggedIn={status === 'authenticated'}
+          canManage={isAdmin}
           onLoginClick={handleLoginClick}
           serverFilter={serverFilter}
           setServerFilter={setServerFilter}
@@ -475,7 +476,7 @@ export function LeaderboardApp({
         )}
         {visitedTabs.admin && isAdmin && (
           <div className={tab === 'admin' ? 'view-transition' : 'hidden'}>
-            <AdminPanel active={tab === 'admin'} />
+            <AdminPanel active={tab === 'admin'} canManageRoles={session?.user?.role === 'ADMIN'} />
           </div>
         )}
       </div>

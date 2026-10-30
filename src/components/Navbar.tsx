@@ -1,6 +1,7 @@
 'use client'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { LogIn, LogOut, Maximize2, Minimize2 } from 'lucide-react'
 import { lockBodyScroll } from '@/lib/body-scroll-lock'
 import { SettingsModal } from '@/components/SettingsModal'
@@ -17,6 +18,7 @@ interface Props {
   tab: Tab
   setTab: (t: Tab) => void
   loggedIn: boolean
+  canManage?: boolean
   onLoginClick: () => void
   introOpen?: boolean
   onIntroToggle?: () => void
@@ -28,7 +30,7 @@ interface Props {
 }
 
 export function Navbar({
-  tab, setTab, loggedIn, onLoginClick,
+  tab, setTab, loggedIn, canManage = false, onLoginClick,
   introOpen = false, onIntroToggle, serverFilter, setServerFilter, previousRaidCount,
   adminFullWidth = false, onToggleAdminFullWidth,
 }: Props) {
@@ -52,7 +54,7 @@ export function Navbar({
     { id: 'previous' as Tab, label: 'History' },
     { id: 'stats' as Tab, label: 'Statistic' },
     { id: 'other' as Tab, label: 'Other' },
-    ...(loggedIn ? [{ id: 'admin' as Tab, label: 'Admin' }] : []),
+    ...(canManage ? [{ id: 'admin' as Tab, label: 'Admin' }] : []),
   ]
 
   const showFilter = tab === 'leaderboard' || tab === 'previous'
@@ -95,7 +97,7 @@ export function Navbar({
       window.removeEventListener('resize', updateIndicator)
       if (navIndicatorTimerRef.current !== null) window.clearTimeout(navIndicatorTimerRef.current)
     }
-  }, [tab, serverFilter, loggedIn, previousRaidCount, showNavIndicator])
+  }, [tab, serverFilter, loggedIn, canManage, previousRaidCount, showNavIndicator])
 
   function handleTabSelect(t: Tab) {
     setTab(t)
@@ -246,6 +248,7 @@ export function Navbar({
         >
           Credit
         </button>
+        {loggedIn && <Link href="/profile" onClick={close} className={`flex items-center ${burgerItemClass(variant)}`}>My profile</Link>}
         {variant === 'dropdown' && <div className="my-1 border-t border-border" aria-hidden />}
         <button
           type="button"
@@ -260,7 +263,7 @@ export function Navbar({
           ) : (
             <span className="inline-flex items-center gap-2">
               <LogIn size={15} aria-hidden />
-              Admin Login
+              Sign in with Discord
             </span>
           )}
         </button>

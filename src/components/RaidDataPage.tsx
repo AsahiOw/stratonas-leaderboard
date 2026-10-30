@@ -33,14 +33,14 @@ export function RaidDataPage({
   const router = useRouter()
   const { data: session, status } = useSession()
   const [serverFilter, setServerFilter] = useState<ServerFilter>('global')
-  const isAdmin = status === 'authenticated' && (session?.user as { role?: string })?.role === 'ADMIN'
+  const isAdmin = status === 'authenticated' && ['ADMIN', 'MANAGER'].includes(session?.user?.role || '')
 
   function handleTabChange(tab: Tab) {
     router.push(routeByTab[tab])
   }
 
   function handleLoginClick() {
-    if (isAdmin) void signOut({ redirect: false })
+    if (status === 'authenticated') void signOut({ redirect: false })
     else router.push('/login')
   }
 
@@ -50,7 +50,8 @@ export function RaidDataPage({
         <Navbar
           tab="raid"
           setTab={handleTabChange}
-          loggedIn={isAdmin}
+          loggedIn={status === 'authenticated'}
+          canManage={isAdmin}
           onLoginClick={handleLoginClick}
           serverFilter={serverFilter}
           setServerFilter={setServerFilter}

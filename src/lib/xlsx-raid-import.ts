@@ -366,8 +366,18 @@ async function findPlayerByUniqueImportData(data: PlayerImportData, fields: stri
   return null
 }
 
+async function updatePlayerForImport(id: string, data: PlayerImportData) {
+  const { ign, favouriteStudent, favouriteStudentId, ...otherData } = data
+  return prisma.$transaction(async (tx) => {
+    await tx.player.update({ where: { id }, data: otherData })
+    await tx.player.updateMany({ where: { id, ignImportLocked: false }, data: { ign } })
+    await tx.player.updateMany({ where: { id, favouriteStudentImportLocked: false }, data: { favouriteStudent, favouriteStudentId } })
+    return tx.player.findUniqueOrThrow({ where: { id } })
+  })
+}
+
 async function savePlayerForImport(player: Awaited<ReturnType<typeof findPlayer>>, data: PlayerImportData) {
-  if (player) return { player: await prisma.player.update({ where: { id: player.id }, data }), created: false }
+  if (player) return { player: await updatePlayerForImport(player.id, data), created: false }
 
   try {
     return { player: await prisma.player.create({ data }), created: true }
@@ -377,7 +387,7 @@ async function savePlayerForImport(player: Awaited<ReturnType<typeof findPlayer>
     if (!existingPlayer) throw error
 
     return {
-      player: await prisma.player.update({ where: { id: existingPlayer.id }, data }),
+      player: await updatePlayerForImport(existingPlayer.id, data),
       created: false,
     }
   }
@@ -532,7 +542,7 @@ export async function importRaidXlsx(options: {
     else playersUpdated += 1
 
     const shouldSkipBlankExistingFavoriteReview = Boolean(player?.favouriteStudentId && !row.favouriteStudent.trim())
-    if (favorite.needsReview && !shouldSkipBlankExistingFavoriteReview) {
+    if (favorite.needsReview && !shouldSkipBlankExistingFavoriteReview && !savedPlayer.favouriteStudentImportLocked) {
       const reviewItem = await createReviewItem({
         raidId: raid.id,
         playerId: savedPlayer.id,

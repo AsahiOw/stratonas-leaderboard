@@ -29,7 +29,7 @@ test('showcase rotation turns clockwise around the centered model and pauses dur
 
 // Execute the viewer's actual handlers with a real camera, mesh and raycaster.
 // The fake event target and clock let us check hold/cancel boundaries precisely.
-function gestureHarness(pickupAvailable = true) {
+function gestureHarness(pickupAvailable = true, figurine = false) {
   const handlers: Record<string, (event: Record<string, unknown>) => void> = {}
   const timers = new Map<number, () => Promise<void>>()
   const calls: string[] = []
@@ -39,25 +39,31 @@ function gestureHarness(pickupAvailable = true) {
   const root = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
   holder.add(root); holder.updateMatrixWorld(true)
   const controls = { enabled: true }
+  const stage = { style: { transform: '', zIndex: '' }, dataset: {} as Record<string, string>, getBoundingClientRect: () => ({ left: 100, top: 100, right: 500, bottom: 500 }) }
   const renderer = { domElement: {
+    closest: () => stage,
+    setPointerCapture: () => {},
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 400 }),
     addEventListener: (name: string, handler: (event: Record<string, unknown>) => void) => { handlers[name] = handler },
   } }
   const block = source.slice(source.indexOf('    const raycaster ='), source.indexOf('    const updateRendererState ='))
-  const js = ts.transpileModule(`let currentKind = null, disposed = false; const studio = undefined;
+  const js = ts.transpileModule(`let currentKind = null, disposed = false; const studio = undefined; const figurine = ${figurine};
     const playRef = { current: kind => { currentKind = kind; calls.push(kind); return true } };
     const setHolding = value => calls.push(value ? 'holding' : 'released');
+    const setPetActive = () => {};
+    const openPipRef = { current: null };
     ${block}
+    profilePickupClip = ${figurine && pickupAvailable ? "'CH0001_Formation_Pickup'" : 'null'};
     returnToIdle = () => calls.push('idle');
     return { isDragging: () => dragging };
   `, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const state = new Function('THREE', 'root', 'holder', 'camera', 'controls', 'renderer', 'model', 'calls', 'setTimeout', 'clearTimeout', 'window', 'document', js)(
     THREE, root, holder, camera, controls, renderer, { profile: { interactions: { pickup: { state: pickupAvailable ? 'available' : 'unavailable' } } } }, calls,
-    (callback: () => Promise<void>) => { timers.set(1, callback); return 1 }, (id: number) => timers.delete(id), { addEventListener: () => {} }, { addEventListener: () => {} },
+    (callback: () => Promise<void>) => { timers.set(1, callback); return 1 }, (id: number) => timers.delete(id), { addEventListener: () => {}, innerWidth: 1000, innerHeight: 800 }, { addEventListener: () => {} },
   ) as { isDragging: () => boolean }
   const pointer = (name: string, x = 200, y = 200, primary = true) => handlers[name]({ clientX: x, clientY: y, pointerId: primary ? 1 : 2, isPrimary: primary, button: 0, stopImmediatePropagation() {} })
   const hold = async () => { const pending = [...timers.values()].map(callback => callback()); timers.clear(); await Promise.all(pending) }
-  return { pointer, hold, calls, holder, root, controls, state }
+  return { pointer, hold, calls, holder, root, controls, state, stage }
 }
 
 test('hold picks up, follows the camera plane, then release restores position and idle', async () => {
@@ -77,6 +83,43 @@ test('a tap reacts, while a normal camera drag cancels pending pickup', () => {
   assert.deepEqual(tap.calls, ['touch'])
   const drag = gestureHarness(); drag.pointer('pointerdown'); drag.pointer('pointermove', 220); drag.hold(); drag.pointer('pointerup', 220)
   assert.deepEqual(drag.calls, []); assert.equal(drag.controls.enabled, true)
+})
+
+test('a profile hold drags the model across the page, then restores its position and idle', async () => {
+  const h = gestureHarness(true, true)
+  h.pointer('pointerdown'); await h.hold(); h.pointer('pointermove', 260, 160)
+  assert.equal(h.stage.style.transform, 'translate(60px, -40px)')
+  h.pointer('pointermove', 2000, 2000)
+  assert.equal(h.stage.style.transform, 'translate(500px, 300px)')
+  h.pointer('pointerup', 2000, 2000)
+  assert.equal(h.stage.style.transform, '')
+  assert.deepEqual(h.calls, ['pickup', 'holding', 'released', 'idle'])
+  assert.deepEqual(h.holder.position.toArray(), [0, 0, 0])
+  assert.equal(h.state.isDragging(), false)
+  assert.equal(h.controls.enabled, true)
+})
+
+test('cancelling a profile drag restores its position and idle', async () => {
+  for (const cancel of ['pointercancel', 'lostpointercapture']) {
+    const h = gestureHarness(true, true)
+    h.pointer('pointerdown'); await h.hold(); h.pointer('pointermove', 260, 160); h.pointer(cancel)
+    assert.equal(h.stage.style.transform, '')
+    assert.equal(h.stage.style.zIndex, '')
+    assert.equal(h.controls.enabled, true)
+    assert.deepEqual(h.calls, ['pickup', 'holding', 'released', 'idle'])
+  }
+})
+
+test('profile taps, rotation drags, and holds without formation pickup do nothing', async () => {
+  const tap = gestureHarness(true, true)
+  tap.pointer('pointerdown'); tap.pointer('pointerup'); await tap.hold()
+  assert.deepEqual(tap.calls, [])
+  const drag = gestureHarness(true, true)
+  drag.pointer('pointerdown'); drag.pointer('pointermove', 240); await drag.hold(); drag.pointer('pointerup', 240)
+  assert.deepEqual(drag.calls, []); assert.equal(drag.controls.enabled, true)
+  const missing = gestureHarness(false, true)
+  missing.pointer('pointerdown'); await missing.hold(); missing.pointer('pointerup')
+  assert.deepEqual(missing.calls, []); assert.equal(missing.controls.enabled, true)
 })
 
 test('cancel, loss of pointer capture, and a second finger release held models', async () => {
