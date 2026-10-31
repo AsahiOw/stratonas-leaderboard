@@ -3,7 +3,7 @@
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { loginAssetSources, loginExpressions, loginSprite, type LoginCharacter, type LoginSceneState } from '@/lib/login-sprites'
@@ -219,7 +219,7 @@ export function LoginScene({ adminMode = false, oauthError = false }: { adminMod
         </form> : <>
           <p className="mb-6 text-center text-sm text-muted2">Sign in to view your player data and manage your in-game name.</p>
           {oauthError && <p role="alert" className="mb-4 text-sm text-red-400">Discord sign-in did not complete. Please try again.</p>}
-          <button type="button" onClick={() => signIn('discord', { callbackUrl: '/profile' })} className="w-full rounded-lg bg-[#5865F2] py-3 text-sm font-bold text-white hover:bg-[#4752C4] focus:outline-none focus:ring-2 focus:ring-accent">
+          <button type="button" onClick={async () => { await signOut({ redirect: false }); await signIn('discord', { callbackUrl: '/profile' }) }} className="w-full rounded-lg bg-[#5865F2] py-3 text-sm font-bold text-white hover:bg-[#4752C4] focus:outline-none focus:ring-2 focus:ring-accent">
             Sign in with Discord
           </button>
           <p className="mt-5 text-center text-xs text-muted">Your Discord ID links your existing player record automatically.</p>

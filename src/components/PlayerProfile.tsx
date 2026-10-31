@@ -1,4 +1,5 @@
 'use client'
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import { useState, useEffect, useRef } from 'react'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { createPortal } from 'react-dom'
@@ -87,7 +88,8 @@ function returnLabel(tab: string) {
 }
 
 export function PlayerProfile({ playerId, onClose, returnTab = 'leaderboard' }: Props) {
-  const [player, setPlayer] = useState<PlayerData | null>(null)
+  const [cachedPlayer, setPlayer] = useState<PlayerData | null>(null)
+  const player = useLocalPlayerData(cachedPlayer)
   const [fetchedPlayer, setFetchedPlayer] = useState<PlayerData | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [loaderStage, setLoaderStage] = useState<LoaderStage>('dot')

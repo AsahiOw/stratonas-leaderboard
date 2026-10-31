@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { Avatar } from '@/components/ui/Avatar'
@@ -27,7 +28,8 @@ function fmtNum(value: number | null | undefined) {
   return typeof value === 'number' ? value.toLocaleString('en-US') : '-'
 }
 
-export function ClubRoster({ roster, clubColor }: Props) {
+export function ClubRoster({ roster: cachedRoster, clubColor }: Props) {
+  const roster = useLocalPlayerData(cachedRoster)
   const [query, setQuery] = useState('')
   const sortedRoster = useMemo(
     () => [...roster].sort((a, b) => b.totalScore - a.totalScore || b.totalEntries - a.totalEntries || a.ign.localeCompare(b.ign)),

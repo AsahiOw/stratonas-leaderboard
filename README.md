@@ -224,6 +224,10 @@ The repo does not currently include macOS/Linux scripts for starting a native Po
 
 ## Production With Docker
 
+Player identity edits use a short browser-local override while public CDN data
+catches up. See [Player identity updates](docs/player-identity-cache.md) for the
+cache duration, covered views, and client-rendered public player page behavior.
+
 Production uses the same app image with separate PostgreSQL and chibi artifact folders. The app, database, and chibi worker share the production environment file.
 
 1. Use your existing `.env.docker`. If it does not exist yet, create it from the example.
@@ -256,6 +260,30 @@ Older Docker Compose:
 docker-compose -f docker-compose.yml -f docker-compose.production.yml up --build
 ```
 
+The same command reuses Docker's build cache. The app also keeps its Next.js
+compiler cache and npm download cache inside the Docker builder between updates.
+Its randomly generated Server Actions build key is cached for 14 days too, so
+Next.js does not invalidate Webpack's cache with a new key on every Docker build.
+The first build after these Dockerfile changes still needs to populate those
+caches; subsequent code updates can reuse them. Public images, audio, and other
+assets are copied separately, so changing them does not recompile the app. The
+local font imported by `next/font/local` remains a compilation input.
+
+For an ordinary website update that does not change the conversion worker,
+dependencies, or Prisma schema/migrations, you can build and recreate only the app
+while leaving the running database and helpers in place:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build --no-deps app
+```
+
+Use the full command when setting up the server or updating worker code,
+dependencies, migrations, or helper images. Keep using the same Docker builder and
+avoid `--no-cache`, `docker builder prune`, or `docker system prune` between routine
+updates: removing the build cache makes the next build cold again. `docker compose
+down` preserves the build cache. On an Intel Mac, the worker's `linux/amd64`
+platform runs natively; changing it to ARM would not speed up this host.
+
 4. Stop production.
 
 ```bash
@@ -263,6 +291,10 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml down
 ```
 
 Do not delete `./Production_data/docker-postgres` unless you intentionally want to erase the production database.
+
+Discord sign-in uses `AUTH_DISCORD_ID` and `AUTH_DISCORD_SECRET` from the production environment, with `https://your-domain.example/api/auth/callback/discord` registered in the Discord developer portal. Public Discord sign-in signs out the current website session first. Legacy password administrators use `/admin/login`; administrator and manager sessions cannot attach new Discord identities.
+
+Before deploying the account-separation update, back up PostgreSQL. Migration `20261031000000_separate_discord_password_accounts` moves Discord identities attached to password users into separate `VIEWER` users. It transfers player ownership only when the player's Discord ID matches, preserving player IDs, raid entries, IGN, favourite student, and import locks. Existing administrator passwords and roles remain intact. Already-issued website sessions must sign in again after this update. Rebuild the app so the migration and authentication guards deploy together; the Docker app entrypoint applies pending migrations before starting.
 
 If Docker Hub times out while pulling `postgres:16`, pull through the Google mirror and tag it locally:
 

@@ -24,8 +24,11 @@
 .brand { display: inline-flex; gap: 10px; align-items: center; font-size: 20px; font-weight: 750; letter-spacing: -.04em; }
 .headerLinks { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; font-size: 13px; font-weight: 600; }
 .headerLinks a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
-.hero { --profile-model-height: 272px; position: relative; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); margin-bottom: 16px; padding-bottom: 16px; }
-.cover { height: 190px; overflow: hidden; border-radius: 17px 17px 0 0; background: rgba(var(--club-rgb), .12); }
+.hero { --profile-model-height: 272px; --profile-cover-height: 190px; position: relative; isolation: isolate; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); margin-bottom: 16px; padding-bottom: 16px; }
+.heroBackdrop { position: absolute; z-index: -1; inset: var(--profile-cover-height) 0 0; overflow: hidden; border-radius: 0 0 17px 17px; pointer-events: none; }
+.heroBackdrop img { width: 100%; height: 100%; object-fit: cover; filter: blur(18px); transform: scale(1.15); opacity: .35; }
+.heroBackdrop::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, #13131c55, #13131cd9); }
+.cover { height: var(--profile-cover-height); overflow: hidden; border-radius: 17px 17px 0 0; background: rgba(var(--club-rgb), .12); }
 .cover img { width: 100%; height: 100%; object-fit: cover; object-position: center 32%; }
 .cover[data-empty=true] img { object-fit: contain; padding: 24px; opacity: .5; }
 .identity { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); align-items: center; gap: 24px; padding: 20px 24px 0; }
@@ -125,8 +128,7 @@
 @media (max-width: 900px) {
   .shell { padding: 0 28px; }
   .hero:has(.exhibit) { min-height: 312px; }
-  .hero { --profile-model-height: 244px; }
-  .cover { height: 150px; }
+  .hero { --profile-model-height: 244px; --profile-cover-height: 150px; }
   .identity { gap: 12px; padding: 16px 20px 0; }
   .hero > .actions { margin-left: 20px; margin-right: 230px; }
   .name { font-size: 32px; }
@@ -144,8 +146,7 @@
   .header { min-height: 60px; gap: 12px; }
   .brand { font-size: 18px; }
   .headerLinks { gap: 14px; font-size: 12px; }
-  .hero { --profile-model-height: 168px; padding-bottom: 12px; margin-bottom: 8px; }
-  .cover { height: 120px; }
+  .hero { --profile-model-height: 168px; --profile-cover-height: 120px; padding-bottom: 12px; margin-bottom: 8px; }
   .identity { display: block; padding: 16px 16px 0; }
   .identityInfo { min-width: 0; padding-right: 168px; min-height: 100px; }
   .club { font-size: 11px; }

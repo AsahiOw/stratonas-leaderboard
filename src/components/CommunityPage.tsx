@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowUpRight, Landmark, LayoutGrid, Search, UsersRound } from 'lucide-react'
@@ -80,8 +81,9 @@ function compareText(a: string | null | undefined, b: string | null | undefined)
 const INITIAL_VISIBLE = 6
 
 export function CommunityPage({ onPlayerClick }: Props) {
-  const [data, setData] = useState<CommunityData | null>(null)
+  const [cachedData, setData] = useState<CommunityData | null>(null)
   const [search, setSearch] = useState('')
+  const data = useLocalPlayerData(cachedData)
   const [mode, setMode] = useState<SearchMode>('all')
   const [clubSort, setClubSort] = useState<ClubSort>('score-desc')
   const [playerSort, setPlayerSort] = useState<PlayerSort>('score-desc')
@@ -89,7 +91,7 @@ export function CommunityPage({ onPlayerClick }: Props) {
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/community?t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).then(setData).catch(() => setData(null))
+    fetch('/api/community').then((r) => r.json()).then(setData).catch(() => setData(null))
   }, [])
 
   useEffect(() => {

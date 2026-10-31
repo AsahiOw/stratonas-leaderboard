@@ -1,4 +1,5 @@
 'use client'
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -142,7 +143,8 @@ function TopThreePodium({
   )
 }
 
-export function RaidBlock({ raid, entries, onPlayerClick, capRows, defaultOpen = true, returnTab = 'leaderboard' }: Props) {
+export function RaidBlock({ raid, entries: cachedEntries, onPlayerClick, capRows, defaultOpen = true, returnTab = 'leaderboard' }: Props) {
+  const entries = useLocalPlayerData(cachedEntries)
   const router = useRouter()
   const [open, setOpen] = useState(defaultOpen)
   const [showDetail, setShowDetail] = useState(false)

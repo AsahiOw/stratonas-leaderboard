@@ -4,11 +4,12 @@ import Link from 'next/link'
 import { signIn, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { ArrowLeft, ArrowUpRight, Check, ChevronRight, MoveHorizontal, Pencil, RefreshCw, ShieldCheck, X } from 'lucide-react'
+import { ArrowUpRight, Check, ChevronRight, MoveHorizontal, Pencil, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import { PlayerRankChart } from '@/components/PlayerRankChart'
 import { PlayerParticipation, type PlayerParticipationEntry } from '@/components/PlayerParticipation'
 import { RaidDetailModal } from '@/components/RaidDetailModal'
 import { ProfileStudentSlot } from '@/components/ProfilePetProvider'
+import { useLocalPlayerData, usePlayerIdentityCache } from '@/components/PlayerIdentityProvider'
 import { FavouriteStudentPicker, type FavouriteStudentChoice } from '@/components/FavouriteStudentPicker'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { fmtDate, hexToRgb, imageSrc, memorialPosterSrc } from '@/lib/utils'
@@ -42,6 +43,7 @@ const actionClass = styles.button
 const rank = (value: number | null | undefined) => value ? `#${value.toLocaleString('en-US')}` : '—'
 
 export function AccountProfile() {
+  const { remember } = usePlayerIdentityCache()
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [record, setRecord] = useState<PlayerRecord | null>(null)
@@ -77,7 +79,7 @@ export function AccountProfile() {
         setIgn(data.player?.ign || '')
         if (!data.player) { setRecord(null); return }
         try {
-          const result = await fetch(`/api/players/${data.player.id}`, { cache: 'no-store', signal: controller.signal })
+          const result = await fetch(`/api/players/${data.player.id}`, { signal: controller.signal })
           if (!result.ok) throw new Error('Could not load player')
           setRecord(await result.json())
         } catch { if (!controller.signal.aborted) setRecordError(true) }
@@ -96,7 +98,7 @@ export function AccountProfile() {
   }, [message])
 
   function cancelEdit() {
-    setIgn(profile?.player?.ign || '')
+    setIgn(player?.ign || '')
     setEditing(false)
     setMessage('')
   }
@@ -112,6 +114,7 @@ export function AccountProfile() {
       if (!response.ok) throw new Error(data.error || 'Could not save IGN. Try again.')
       setProfile((current) => current?.player ? { ...current, player: { ...current.player, ign: data.ign } } : current)
       setIgn(data.ign)
+      if (player) remember({ playerId: player.id, ign: data.ign, favouriteStudentData: player.favouriteStudentData })
       setEditing(false)
       setMessage('IGN saved. Your player profile and leaderboards now use this name.')
     } catch (error) {
@@ -142,16 +145,15 @@ export function AccountProfile() {
   }
 
   function favouriteSaved(student: FavouriteStudentChoice) {
-    setRecord((current) => current ? { ...current, favouriteStudentData: student } : current)
-    setProfile((current) => current?.player ? { ...current, player: { ...current.player, favouriteStudentId: student.id, favouriteStudent: student.name } } : current)
+    setProfile((current) => current?.player ? { ...current, player: { ...current.player, favouriteStudentId: student.id, favouriteStudent: student.name, favouriteStudentData: student } } : current)
     setFailed(false)
+    if (player) remember({ playerId: player.id, ign: player.ign, favouriteStudentData: student })
     setMessage(`Favourite student saved: ${student.name}.`)
     closeStudentChoices()
-    setRevision((value) => value + 1)
   }
 
-  const player = profile?.player
-  const student = record?.favouriteStudentData ?? player?.favouriteStudentData
+  const player = useLocalPlayerData(profile?.player)
+  const student = player?.favouriteStudentData
   const club = player?.clubData?.name || player?.club || 'Guest'
   const journey = record?.journey
   const entries = record?.entries || []
@@ -170,7 +172,6 @@ export function AccountProfile() {
           <Link href="/" className={styles.brand}><ProgressiveImage src="/assets/icons/icon.webp" alt="" width={30} height={30} className="h-[30px] w-[30px] rounded-full" />Stratónas</Link>
           <div className={styles.headerLinks}>
             {player && <Link href={`/players/${player.id}`}>Public profile<ArrowUpRight size={15} aria-hidden /></Link>}
-            <Link href="/" aria-label="Back to leaderboard"><ArrowLeft size={16} aria-hidden /><span className="hidden sm:inline">Leaderboard</span></Link>
           </div>
         </header>
 
@@ -180,6 +181,7 @@ export function AccountProfile() {
           <button className={actionClass} onClick={() => setRevision((value) => value + 1)}><RefreshCw size={15} />Try again</button>
         </section> : !profile ? <div role="status" className="flex min-h-[70vh] items-center justify-center text-muted2">Loading your player space…</div> : <>
           <section aria-label="Player identity" className={styles.hero}>
+            <div className={styles.heroBackdrop} aria-hidden="true"><ProgressiveImage src={cover} alt="" /></div>
             <div className={styles.cover} data-empty={!student?.image}>
               <ProgressiveImage key={cover} src={cover} alt="" priority onError={(event) => { if (event.currentTarget.getAttribute('src') !== coverFallback) event.currentTarget.src = coverFallback; else event.currentTarget.hidden = true }} />
             </div>
@@ -194,7 +196,7 @@ export function AccountProfile() {
               </dl>}
             </div>
             <div className={styles.actions}>
-              {player && !editing && <button onClick={() => { setMessage(''); setChoosingStudent(false); setEditing(true) }} className={actionClass}><Pencil size={14} aria-hidden />Edit IGN</button>}
+              {player && !editing && <button onClick={() => { setMessage(''); setChoosingStudent(false); setIgn(player.ign); setEditing(true) }} className={actionClass}><Pencil size={14} aria-hidden />Edit IGN</button>}
               {player && <button ref={favouriteButton} className={actionClass} aria-expanded={choosingStudent} aria-controls="favourite-student-choices" onClick={() => { cancelEdit(); setChoosingStudent((value) => !value) }}><Pencil size={14} aria-hidden />Change favourite student</button>}
             </div>
             {student && <div className={styles.exhibit}>
@@ -231,7 +233,7 @@ export function AccountProfile() {
               <p className={styles.description}>Your Discord identity connects you to your player record.</p>
               <dl><div><dt>Signed in as</dt><dd>{profile.user.name || profile.user.email || 'Stratónas member'}</dd></div><div><dt>Discord ID</dt><dd>{profile.discordId || 'No Discord account linked'}</dd></div><div><dt>Access</dt><dd>{profile.user.role === 'ADMIN' ? 'Administrator' : profile.user.role === 'MANAGER' ? 'Manager' : 'Member'}</dd></div></dl>
               <div className={styles.actions}>
-                {!profile.discordId && <button onClick={() => signIn('discord', { callbackUrl: '/profile' })} className={actionClass}>Link Discord account</button>}
+                {!profile.discordId && <button onClick={async () => { if (profile.user.role !== 'VIEWER') await signOut({ redirect: false }); await signIn('discord', { callbackUrl: '/profile' }) }} className={actionClass}>{profile.user.role === 'VIEWER' ? 'Link Discord account' : 'Switch to Discord account'}</button>}
                 {profile.user.role !== 'VIEWER' && <Link href="/admin" className={actionClass}><ShieldCheck size={16} />Open dashboard</Link>}
                 <button onClick={() => signOut({ callbackUrl: '/' })} className={actionClass}>Sign out</button>
               </div>

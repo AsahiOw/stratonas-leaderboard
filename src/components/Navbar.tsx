@@ -176,9 +176,8 @@ export function Navbar({
     }
 
     return (
-      <div className={`overflow-hidden transition-[max-height,opacity,transform] duration-[250ms] ease-out ${
-        showFilter ? 'max-h-24 scale-100 opacity-100' : 'max-h-0 scale-95 opacity-0 pointer-events-none'
-      }`}>
+      <div className={`overflow-hidden transition-[max-height,opacity,transform] duration-[250ms] ease-out ${showFilter ? 'max-h-24 scale-100 opacity-100' : 'max-h-0 scale-95 opacity-0 pointer-events-none'
+        }`}>
         <div className="mb-1.5 px-1 text-[10px] font-bold tracking-[0.12em] text-muted">SERVER FILTER</div>
         <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
           {servers.map((s) => (
@@ -248,7 +247,7 @@ export function Navbar({
         >
           Credit
         </button>
-        {loggedIn && <Link href="/profile" onClick={close} className={`flex items-center ${burgerItemClass(variant)}`}>My profile</Link>}
+        {loggedIn && <Link href="/profile" onClick={close} className={`flex items-center ${variant === 'panel' ? 'justify-center' : ''} ${burgerItemClass(variant)}`}>My Profile</Link>}
         {variant === 'dropdown' && <div className="my-1 border-t border-border" aria-hidden />}
         <button
           type="button"
@@ -321,34 +320,33 @@ export function Navbar({
             <div className="relative flex items-center gap-0.5">
               {navIndicator && (
                 <span
-                  className={`absolute inset-y-0 rounded-md bg-accent/[0.12] transition-[left,width,opacity,transform] duration-300 ease-out ${
-                    showNavIndicator ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-                  }`}
+                  className={`absolute inset-y-0 rounded-md bg-accent/[0.12] transition-[left,width,opacity,transform] duration-300 ease-out ${showNavIndicator ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+                    }`}
                   style={{ left: navIndicator.left, width: navIndicator.width }}
                   aria-hidden="true"
                 />
               )}
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                ref={(node) => { navRefs.current[t.id] = node }}
-                onClick={(event) => {
-                  handleDesktopTabSelect(t.id)
-                  event.currentTarget.blur()
-                }}
-                className={`relative z-10 inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-accent/45 ${tab === t.id
-                  ? 'text-accent font-semibold'
-                  : 'text-muted2 hover:text-text hover:bg-white/5'
-                  }`}
-              >
-                {t.label}
-                {t.id === 'previous' && (
-                  <span className="text-[10px] font-mono text-muted bg-card border border-border rounded px-1.5 py-px">
-                    {previousRaidCount}
-                  </span>
-                )}
-              </button>
-            ))}
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  ref={(node) => { navRefs.current[t.id] = node }}
+                  onClick={(event) => {
+                    handleDesktopTabSelect(t.id)
+                    event.currentTarget.blur()
+                  }}
+                  className={`relative z-10 inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-sm outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-accent/45 ${tab === t.id
+                    ? 'text-accent font-semibold'
+                    : 'text-muted2 hover:text-text hover:bg-white/5'
+                    }`}
+                >
+                  {t.label}
+                  {t.id === 'previous' && (
+                    <span className="text-[10px] font-mono text-muted bg-card border border-border rounded px-1.5 py-px">
+                      {previousRaidCount}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -358,19 +356,17 @@ export function Navbar({
               <button
                 type="button"
                 onClick={handleIntroToggle}
-                className={`hidden rounded-lg border px-3 py-1.5 text-[13px] font-semibold transition-colors xl:inline-flex ${
-                  introOpen
-                    ? 'border-accent/30 bg-accent/[0.12] text-accent'
-                    : 'border-border bg-card text-muted2 hover:border-border2 hover:text-text'
-                }`}
+                className={`hidden rounded-lg border px-3 py-1.5 text-[13px] font-semibold transition-colors xl:inline-flex ${introOpen
+                  ? 'border-accent/30 bg-accent/[0.12] text-accent'
+                  : 'border-border bg-card text-muted2 hover:border-border2 hover:text-text'
+                  }`}
                 aria-pressed={introOpen}
               >
                 Welcome!
               </button>
             )}
-            <div className={`hidden overflow-hidden transition-[max-width,opacity,transform] duration-[250ms] ease-out xl:block ${
-              showFilter ? 'max-w-[180px] scale-100 opacity-100' : 'max-w-0 scale-95 opacity-0 pointer-events-none'
-            }`}>
+            <div className={`hidden overflow-hidden transition-[max-width,opacity,transform] duration-[250ms] ease-out xl:block ${showFilter ? 'max-w-[180px] scale-100 opacity-100' : 'max-w-0 scale-95 opacity-0 pointer-events-none'
+              }`}>
               <div className="relative flex gap-0.5 rounded-lg border border-border bg-card p-[3px]">
                 {serverIndicator && (
                   <span
@@ -429,11 +425,10 @@ export function Navbar({
 
         {/* Mobile overflow panel (< md only) */}
         <div
-          className={`border-t border-border transition-[max-height,opacity] duration-200 ease-out md:hidden ${
-            menuOpen
-              ? 'scrollbar-hidden max-h-[80vh] opacity-100 overflow-y-auto overscroll-contain'
-              : 'max-h-0 opacity-0 overflow-hidden'
-          }`}
+          className={`border-t border-border transition-[max-height,opacity] duration-200 ease-out md:hidden ${menuOpen
+            ? 'scrollbar-hidden max-h-[80vh] opacity-100 overflow-y-auto overscroll-contain'
+            : 'max-h-0 opacity-0 overflow-hidden'
+            }`}
         >
           <div className="flex flex-col gap-2 bg-[rgba(13,13,19,0.98)] px-4 py-4">
             <div className="flex flex-col gap-2">

@@ -1,4 +1,5 @@
 'use client'
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import { useEffect, useRef, useState } from 'react'
 import { StModal } from '@/components/ui/StModal'
 import { LeaderboardTable, type TableEntry } from '@/components/LeaderboardTable'
@@ -31,7 +32,8 @@ interface Props {
 const EMPTY_ENTRIES: TableEntry[] = []
 
 export function RaidDetailModal({ raid, onClose, onPlayerClick, hideGuests, onToggleGuests, initialEntries = EMPTY_ENTRIES, returnTab = 'leaderboard', focusPlayerId }: Props) {
-  const [full, setFull] = useState<TableEntry[]>(initialEntries)
+  const [cachedFull, setFull] = useState<TableEntry[]>(initialEntries)
+  const full = useLocalPlayerData(cachedFull)
   const [search, setSearch] = useState('')
   const [loadError, setLoadError] = useState<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement | null>(null)

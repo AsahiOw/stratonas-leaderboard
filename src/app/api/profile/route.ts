@@ -40,7 +40,9 @@ export async function PATCH(request: Request) {
     }
     student = await prisma.student.findUnique({
       where: { id: body.favouriteStudentId },
-      select: { id: true, name: true, image: true, portrait: true, memorial: true },
+      select: { id: true, name: true, image: true, portrait: true, memorial: true,
+        portraitOffsetX: true, portraitOffsetY: true, portraitScale: true,
+        memorialOffsetX: true, memorialOffsetY: true, memorialScale: true },
     })
     if (!student) return jsonWithNoStore({ error: 'Choose an existing student.' }, { status: 400 })
     data.favouriteStudentId = student.id

@@ -7,6 +7,7 @@ import { RadioPlayerProvider } from '@/components/radio/RadioPlayerProvider'
 import { RadioMiniPlayer } from '@/components/radio/RadioMiniPlayer'
 import { PwaRegistration } from '@/components/PwaRegistration'
 import { ProfilePetProvider } from '@/components/ProfilePetProvider'
+import { PlayerIdentityProvider } from '@/components/PlayerIdentityProvider'
 
 export const metadata: Metadata = {
   title: 'Stratónas — Guild Leaderboard',
@@ -45,14 +46,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans bg-bg text-text min-h-screen antialiased" suppressHydrationWarning>
         <PwaRegistration />
         <SessionProvider>
-          <RadioPlayerProvider>
-            <ProfilePetProvider>
-              {children}
-              <RadioMiniPlayer />
-              <RouteChrome />
-              <BackToTopButton />
-            </ProfilePetProvider>
-          </RadioPlayerProvider>
+          <PlayerIdentityProvider>
+            <RadioPlayerProvider>
+              <ProfilePetProvider>
+                {children}
+                <RadioMiniPlayer />
+                <RouteChrome />
+                <BackToTopButton />
+              </ProfilePetProvider>
+            </RadioPlayerProvider>
+          </PlayerIdentityProvider>
         </SessionProvider>
       </body>
     </html>

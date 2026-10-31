@@ -1,4 +1,5 @@
 'use client'
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import { useState } from 'react'
 import { ReturnLocationLink } from '@/components/ReturnLocationLink'
 import { RankBadge } from '@/components/ui/RankBadge'
@@ -35,7 +36,8 @@ interface Props {
   highlightPlayerId?: string
 }
 
-export function LeaderboardTable({ players, accent, onPlayerClick, cap, returnTab = 'leaderboard', highlightPlayerId }: Props) {
+export function LeaderboardTable({ players: cachedPlayers, accent, onPlayerClick, cap, returnTab = 'leaderboard', highlightPlayerId }: Props) {
+  const players = useLocalPlayerData(cachedPlayers)
   const [hov, setHov] = useState<number | null>(null)
   const shown = cap ? players.slice(0, cap) : players
   const glow = `rgba(${hexToRgb(accent)},0.07)`

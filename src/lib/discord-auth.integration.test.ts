@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { mock, test } from 'node:test'
 import type { NextAuthConfig } from 'next-auth'
 
@@ -176,6 +177,84 @@ test('Discord ownership, profile editing, and role authorization with PostgreSQL
         await prisma.raidBoss.delete({ where: { id: boss.id } })
       }
     })
+    await t.test('real Auth.js OAuth linking rejects active administrator and manager sessions', async () => {
+      const { handleLoginOrRegister } = await import('../../node_modules/@auth/core/lib/actions/callback/handle-login.js')
+      const { authAdapter } = await import('./auth-adapter')
+      const manager = await user('MANAGER')
+      const viewer = await user()
+      const profile = { id: 'external-profile', name: 'Discord member', email: null, emailVerified: null, role: 'VIEWER' as const }
+      const options = (id?: string) => ({
+        adapter: authAdapter, jwt: { decode: async () => id ? { sub: id } : null },
+        cookies: { sessionToken: { name: 'authjs.session-token' } },
+        session: { strategy: 'jwt', generateSessionToken: randomUUID },
+        provider: { id: 'discord', type: 'oauth', account: () => ({}) }, events: {},
+      } as unknown as Parameters<typeof handleLoginOrRegister>[3])
+      const fresh = await handleLoginOrRegister('', profile, { provider: 'discord', type: 'oauth', providerAccountId: `fresh-${suffix}` }, options())
+      userIds.push(fresh.user.id!)
+      assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: fresh.user.id } })).role, 'VIEWER')
+      for (const privileged of [admin, manager]) {
+        const providerAccountId = `blocked-${privileged.id}`
+        await assert.rejects(handleLoginOrRegister('active-session', profile, { provider: 'discord', type: 'oauth', providerAccountId }, options(privileged.id)), /Sign out/)
+        assert.equal(await prisma.account.findUnique({ where: { provider_providerAccountId: { provider: 'discord', providerAccountId } } }), null)
+      }
+      const providerAccountId = `explicit-member-${suffix}`
+      const linked = await handleLoginOrRegister('active-session', profile, { provider: 'discord', type: 'oauth', providerAccountId }, options(viewer.id))
+      assert.equal(linked.user.id, viewer.id)
+      const returning = await handleLoginOrRegister('', profile, { provider: 'discord', type: 'oauth', providerAccountId }, options())
+      assert.equal(returning.user.id, viewer.id)
+      await prisma.account.create({ data: { userId: manager.id, provider: 'discord', type: 'oauth', providerAccountId: `manager-${suffix}` } })
+      assert.equal((await handleLoginOrRegister('', profile, { provider: 'discord', type: 'oauth', providerAccountId: `manager-${suffix}` }, options())).user.id, manager.id)
+      const otherDiscord = `conflict-${suffix}`
+      await prisma.account.create({ data: { userId: other.id, provider: 'discord', providerAccountId: otherDiscord, type: 'oauth' } })
+      await assert.rejects(handleLoginOrRegister('active-session', profile, { provider: 'discord', providerAccountId: otherDiscord, type: 'oauth' }, options(viewer.id)), /already associated/)
+    })
+    await t.test('password accounts reject Discord login and ownership, and old sessions expire', async () => {
+      const { default: bcrypt } = await import('bcryptjs')
+      const hash = await bcrypt.hash('Fixture-password-123', 4)
+      await prisma.user.update({ where: { id: admin.id }, data: { email: `admin-${suffix}@example.com`, passwordHash: hash } })
+      const compromisedId = `legacy-discord-${suffix}`
+      await prisma.account.create({ data: { userId: admin.id, provider: 'discord', providerAccountId: compromisedId, type: 'oauth' } })
+      const record = await player(compromisedId)
+      assert.equal(await linkDiscordPlayer(admin.id, compromisedId), null)
+      assert.equal((await prisma.player.findUniqueOrThrow({ where: { id: record.id } })).ownerId, null)
+      const signIn = config.callbacks!.signIn!
+      assert.equal(await signIn({ user: admin, account: { provider: 'discord', providerAccountId: compromisedId, type: 'oauth' } }), false)
+      const jwt = config.callbacks!.jwt!
+      const check = (token: object) => jwt({ token } as Parameters<typeof jwt>[0])
+      assert.equal(await check({ id: admin.id, role: 'ADMIN' }), null)
+      assert.equal(await check({ id: admin.id, authProvider: 'discord' }), null)
+      assert.equal((await check({ id: admin.id, authProvider: 'credentials' }))?.role, 'ADMIN')
+      assert.equal(await check({ id: member.id, authProvider: 'credentials' }), null)
+      const issued = await jwt({ token: {}, user: member, account: { provider: 'discord', providerAccountId: discordId, type: 'oauth' } } as Parameters<typeof jwt>[0])
+      assert.equal(issued?.authProvider, 'discord')
+      assert.equal(issued?.id, member.id)
+    })
+    await t.test('repair migration separates all password-linked Discord identities and preserves administrator and player data', async () => {
+      const { Client } = await import('pg')
+      const client = new Client({ connectionString: process.env.DATABASE_URL })
+      await client.connect()
+      await client.query('BEGIN')
+      try {
+        const id = `repair-${suffix}`, accountId = `repair-account-${suffix}`, discord = `repair-discord-${suffix}`
+        await client.query('INSERT INTO "User" (id, email, name, "passwordHash", role) VALUES ($1, $2, $3, $4, $5)', [id, `${id}@example.com`, 'Legacy admin', 'preserve-hash', 'ADMIN'])
+        await client.query('INSERT INTO "Account" (id, "userId", type, provider, "providerAccountId") VALUES ($1,$2,$3,$4,$5)', [accountId, id, 'oauth', 'discord', discord])
+        await client.query('INSERT INTO "Player" (id, username, ign, "userID", "ownerId", "ignImportLocked", "favouriteStudentImportLocked") VALUES ($1,$2,$3,$4,$5,true,true)', [`player-${id}`, `player-${id}`, 'Keep IGN', discord, id])
+        await client.query('INSERT INTO "Session" (id,"sessionToken","userId",expires) VALUES ($1,$2,$3,$4)', [id, id, id, new Date(Date.now() + 60000)])
+        const sql = await readFile('prisma/migrations/20261031000000_separate_discord_password_accounts/migration.sql', 'utf8')
+        await client.query(sql.replace(/^BEGIN;\s*/, '').replace(/COMMIT;\s*$/, ''))
+        const { rows: [legacy] } = await client.query('SELECT * FROM "User" WHERE id=$1', [id])
+        assert.equal(legacy.role, 'ADMIN'); assert.equal(legacy.passwordHash, 'preserve-hash'); assert.equal(legacy.email, `${id}@example.com`)
+        const { rows: [account] } = await client.query('SELECT * FROM "Account" WHERE id=$1', [accountId])
+        assert.notEqual(account.userId, id)
+        const { rows: [member] } = await client.query('SELECT * FROM "User" WHERE id=$1', [account.userId])
+        assert.equal(member.role, 'VIEWER'); assert.equal(member.passwordHash, null); assert.equal(member.email, null)
+        const { rows: [saved] } = await client.query('SELECT * FROM "Player" WHERE id=$1', [`player-${id}`])
+        assert.equal(saved.ownerId, member.id); assert.equal(saved.ign, 'Keep IGN')
+        assert.equal(saved.ignImportLocked, true); assert.equal(saved.favouriteStudentImportLocked, true)
+        assert.equal((await client.query('SELECT * FROM "Session" WHERE "userId"=$1', [id])).rowCount, 0)
+        assert.equal((await client.query('SELECT count(*)::int AS count FROM "Account" a JOIN "User" u ON u.id=a."userId" WHERE a.provider=$1 AND u."passwordHash" IS NOT NULL', ['discord'])).rows[0].count, 0)
+      } finally { await client.query('ROLLBACK'); await client.end() }
+    })
     await t.test('only admins manage roles; managers access the dashboard but cannot promote', async () => {
       session = { user: member }
       assert.equal((await guard.requireAdmin())?.status, 401)
@@ -195,7 +274,7 @@ test('Discord ownership, profile editing, and role authorization with PostgreSQL
     })
     await t.test('session callback refreshes roles and rejects deleted users', async () => {
       const jwt = config.callbacks!.jwt!
-      const token = await jwt({ token: { id: member.id, role: 'ADMIN' } } as unknown as Parameters<typeof jwt>[0])
+      const token = await jwt({ token: { id: member.id, role: 'ADMIN', authProvider: 'discord' } } as unknown as Parameters<typeof jwt>[0])
       assert.equal(token?.role, 'VIEWER')
       assert.equal(await jwt({ token: { id: 'nonexistent' } } as unknown as Parameters<typeof jwt>[0]), null)
     })

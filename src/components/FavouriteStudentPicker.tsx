@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, RefreshCw, X } from 'lucide-react'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import styles from './AccountProfile.module.css'
+import type { LocalStudentIdentity } from '@/lib/player-identity-cache'
 
-export interface FavouriteStudentChoice {
+export interface FavouriteStudentChoice extends LocalStudentIdentity {
   id: number; name: string; image: string; portrait: string | null; memorial: string | null
 }
 

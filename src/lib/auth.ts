@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Discord from 'next-auth/providers/discord'
-import { PrismaAdapter } from '@auth/prisma-adapter'
+import { authAdapter } from './auth-adapter'
 import { linkDiscordPlayer } from './discord-player'
 import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
@@ -9,7 +9,7 @@ import bcrypt from 'bcryptjs'
 const DUMMY_PASSWORD_HASH = '$2a$12$TUnCad.fsTZkB/7m9FKcv.cuf8nVUnVyjN7e/8ZOnKppsAqozwa06'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter: authAdapter,
   session: { strategy: 'jwt', maxAge: 7 * 24 * 60 * 60 },
   pages: {
     signIn: '/login',
@@ -44,11 +44,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.id = user.id
+    async signIn({ account }) {
+      if (account?.provider !== 'discord') return true
+      const linked = await prisma.account.findUnique({
+        where: { provider_providerAccountId: { provider: 'discord', providerAccountId: account.providerAccountId } },
+        select: { user: { select: { passwordHash: true } } },
+      })
+      return !linked || linked.user.passwordHash === null
+    },
+    async jwt({ token, user, account }) {
+      if (user) { token.id = user.id; token.authProvider = account?.provider }
+      // Untagged sessions predate account separation and must authenticate again.
+      if (token.authProvider !== 'credentials' && token.authProvider !== 'discord') return null
       const id = token.id as string | undefined
-      const current = id ? await prisma.user.findUnique({ where: { id }, select: { role: true } }) : null
+      const current = id ? await prisma.user.findUnique({ where: { id }, select: { role: true, passwordHash: true } }) : null
       if (!current) return null
+      if (token.authProvider === 'discord' && current.passwordHash !== null) return null
+      if (token.authProvider === 'credentials' && (!current.passwordHash || current.role !== 'ADMIN')) return null
       token.role = current.role
       return token
     },

@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useEffect, useRef, useState } from 'react'
 import localFont from 'next/font/local'
@@ -113,7 +114,8 @@ const scoreFont = localFont({
 const titleFont1Class = 'font-sans'
 const titleFont2Class = 'font-display'
 
-export function RaidCard({ raid, entry, elevated = false, videoMode = 'active', exportMode = false, watermarkLabel }: Props) {
+export function RaidCard({ raid, entry: cachedEntry, elevated = false, videoMode = 'active', exportMode = false, watermarkLabel }: Props) {
+  const entry = useLocalPlayerData(cachedEntry)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [videoReady, setVideoReady] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)

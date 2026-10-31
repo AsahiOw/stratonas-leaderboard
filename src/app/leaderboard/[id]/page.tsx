@@ -2,6 +2,7 @@ import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getPublicRaid, getPublicRaidEntries } from '@/lib/public-data'
+import { LocalPlayerName } from '@/components/PlayerIdentityProvider'
 import { LeaderboardCardGrid } from '@/components/LeaderboardCardGrid'
 import { RaidCardDownloadButton } from '@/components/RaidCardDownloadModal'
 import { ServerBadge } from '@/components/ui/ServerBadge'
@@ -119,7 +120,7 @@ export default async function RaidLeaderboardPage({ params }: { params: Promise<
               style={{ borderColor: `${raid.color}35` }}
             >
               <div className="text-[10px] font-semibold tracking-[0.1em] text-muted uppercase">Current Leader</div>
-              <div className="mt-1 font-bold text-lg">{topPlayer?.name || '—'}</div>
+              <div className="mt-1 font-bold text-lg"><LocalPlayerName playerId={topPlayer?.playerId} name={topPlayer?.name || '—'} /></div>
               <div className="font-mono text-sm font-bold" style={{ color: raid.color }}>
                 {topPlayer ? topPlayer.score.toLocaleString('en-US') : 'No score'} pts
               </div>

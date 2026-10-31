@@ -1,4 +1,5 @@
 'use client'
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import { Archive, ChartColumn, ClipboardList, Landmark, Swords, UsersRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ReturnLocationLink } from '@/components/ReturnLocationLink'
@@ -115,7 +116,8 @@ function EmptyBlock({ children }: { children: React.ReactNode }) {
 }
 
 export function StatsPage({ onPlayerClick }: Props) {
-  const [stats, setStats] = useState<StatsData | null>(null)
+  const [cachedStats, setStats] = useState<StatsData | null>(null)
+  const stats = useLocalPlayerData(cachedStats)
   const [visibleRows, setVisibleRows] = useState<Record<PagedSection, number>>({
     currentRaidLeaders: INITIAL_VISIBLE_ROWS,
     topPlayers: INITIAL_VISIBLE_ROWS,
@@ -124,7 +126,7 @@ export function StatsPage({ onPlayerClick }: Props) {
   })
 
   useEffect(() => {
-    fetch(`/api/stats?t=${Date.now()}`, { cache: 'no-store' }).then((r) => r.json()).then(setStats)
+    fetch('/api/stats').then((r) => r.json()).then(setStats)
   }, [])
 
   if (!stats) {

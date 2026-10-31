@@ -11,6 +11,7 @@
     "build": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
+    "test:player-identity": "node --import tsx --test src/lib/player-identity-cache.test.ts",
     "test:discord-auth": "node --experimental-test-module-mocks --import tsx --test src/lib/discord-issuer.test.ts src/lib/discord-auth.integration.test.ts",
     "test:student-lookup": "ts-node --project tsconfig.seed.json src/lib/student-name-matcher.test.ts",
     "chibi:setup": "tsx scripts/chibi-setup.ts",

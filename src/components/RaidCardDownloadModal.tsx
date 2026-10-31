@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { RaidCard } from '@/components/RaidCard'
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 import type { TableEntry } from '@/components/LeaderboardTable'
 import { StModal } from '@/components/ui/StModal'
 import {
@@ -234,10 +235,11 @@ export function RaidCardCustomizer() {
 
 function RaidCardDownloadModal({
   raid,
-  entries,
+  entries: cachedEntries,
   onClose,
   standalone = false,
 }: Props & { onClose: () => void; standalone?: boolean }) {
+  const entries = useLocalPlayerData(cachedEntries)
   const exportRef = useRef<HTMLDivElement | null>(null)
   const customExportCountRef = useRef(0)
   const [view, setView] = useState<View>(standalone ? 'custom' : 'menu')
@@ -247,7 +249,8 @@ function RaidCardDownloadModal({
   const [error, setError] = useState('')
   const [custom, setCustom] = useState<CustomForm>(() => defaultCustomForm(raid))
   const [exportCard, setExportCard] = useState<ExportCardState | null>(null)
-  const [customPlayers, setCustomPlayers] = useState<CustomPlayerOption[]>([])
+  const [cachedCustomPlayers, setCustomPlayers] = useState<CustomPlayerOption[]>([])
+  const customPlayers = useLocalPlayerData(cachedCustomPlayers)
   const [customClubs, setCustomClubs] = useState<CustomClubOption[]>([])
   const [customStudents, setCustomStudents] = useState<CustomStudentOption[]>([])
   const [customDataLoading, setCustomDataLoading] = useState(false)

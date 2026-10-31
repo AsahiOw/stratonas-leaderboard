@@ -5,6 +5,8 @@ export async function linkDiscordPlayer(userId: string, discordId: string) {
   return prisma.$transaction(async (tx) => {
     // Serialize simultaneous callbacks/profile requests for the same account.
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`
+    const user = await tx.user.findUnique({ where: { id: userId }, select: { passwordHash: true } })
+    if (!user || user.passwordHash !== null) return null
     const owned = await tx.player.findUnique({ where: { ownerId: userId } })
     if (owned) return owned
     await tx.player.updateMany({
@@ -23,6 +25,8 @@ export async function currentPlayer(userId: string) {
   if (account) await linkDiscordPlayer(userId, account.providerAccountId)
   return prisma.player.findUnique({
     where: { ownerId: userId },
-    include: { clubData: true, favouriteStudentData: { select: { id: true, name: true, image: true, portrait: true, memorial: true } }, _count: { select: { entries: true } } },
+    include: { clubData: true, favouriteStudentData: { select: { id: true, name: true, image: true, portrait: true, memorial: true,
+      portraitOffsetX: true, portraitOffsetY: true, portraitScale: true,
+      memorialOffsetX: true, memorialOffsetY: true, memorialScale: true } }, _count: { select: { entries: true } } },
   })
 }

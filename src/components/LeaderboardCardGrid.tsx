@@ -1,4 +1,5 @@
 'use client'
+import { useLocalPlayerData } from '@/components/PlayerIdentityProvider'
 
 import ProgressiveImage from '@/components/ui/ProgressiveImage'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -100,7 +101,8 @@ function ManagedRaidCard({
   )
 }
 
-export function LeaderboardCardGrid({ raid, entries, divisions }: Props) {
+export function LeaderboardCardGrid({ raid, entries: cachedEntries, divisions }: Props) {
+  const entries = useLocalPlayerData(cachedEntries)
   const prefersReducedMotion = usePrefersReducedMotion()
   const nodesRef = useRef(new Map<string, HTMLElement>())
   const entriesByKey = useMemo(() => new Map(entries.map((entry) => [cardKey(entry), entry])), [entries])

@@ -5,6 +5,7 @@ import { ReturnBackLink } from '@/components/PlayerBackLink'
 import { PublicHeader } from '@/components/PublicHeader'
 import { imageSrc } from '@/lib/utils'
 import { getPublicClubProfile } from '@/lib/public-data'
+import { LocalPlayerName } from '@/components/PlayerIdentityProvider'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,12 +81,12 @@ export default async function ClubPage({ params }: { params: Promise<{ id: strin
             {[
               ['Average Entry', fmtNum(club.stats.averageScore)],
               ['Best Rank', club.stats.bestRank ? `#${club.stats.bestRank}` : '-'],
-              ['Top Contributor', topContributor?.ign || '-', topContributor ? fmtNum(topContributor.totalScore) : 'Total score'],
+              ['Top Contributor', <LocalPlayerName key="contributor" playerId={topContributor?.id} name={topContributor?.ign || '-'} />, topContributor ? fmtNum(topContributor.totalScore) : 'Total score'],
               ['Most Total Entries', mostActive ? fmtNum(mostActive.totalEntries) : '-'],
-              ['Best Average', bestAverage?.ign || '-', bestAverage ? fmtNum(bestAverage.averageScore) : 'Average score'],
-              ['Podium Leader', podiumLeader?.ign || '-', podiumLeader ? `${fmtNum(podiumLeader.podiums)} podiums` : 'Podiums'],
+              ['Best Average', <LocalPlayerName key="average" playerId={bestAverage?.id} name={bestAverage?.ign || '-'} />, bestAverage ? fmtNum(bestAverage.averageScore) : 'Average score'],
+              ['Podium Leader', <LocalPlayerName key="podiums" playerId={podiumLeader?.id} name={podiumLeader?.ign || '-'} />, podiumLeader ? `${fmtNum(podiumLeader.podiums)} podiums` : 'Podiums'],
             ].map(([label, value, detail]) => (
-              <div key={label} className="rounded-xl border border-border bg-card2 px-4 py-3">
+              <div key={String(label)} className="rounded-xl border border-border bg-card2 px-4 py-3">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">{label}</div>
                 <div className={`mt-1 truncate font-semibold text-muted2 ${detail ? 'text-sm' : 'text-lg'}`}>{value}</div>
                 {detail && <div className="mt-0.5 truncate font-mono text-xs text-muted">{detail}</div>}
