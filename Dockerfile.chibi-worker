@@ -105,26 +105,27 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y ca-certificates libfontconfig1 libfreetype6 libglib2.0-0 libicu72 libstdc++6 libx11-6 libxext6 libxml2 libxrender1 openssl util-linux \
     && rm -rf /var/lib/apt/lists/*
 
+# Set ownership during COPY to avoid a second layer containing all of /app.
+RUN addgroup --system --gid 1001 chibi \
+    && adduser --system --uid 1001 --ingroup chibi chibi \
+    && mkdir -p /data/BAAD /data/chibi /home/chibi /opt/chibi-tools/baad \
+    && chown chibi:chibi /app /data /data/BAAD /data/chibi /home/chibi /opt/chibi-tools/baad
+
 COPY --from=dotnet-sdk /usr/share/dotnet /usr/share/dotnet
 COPY --from=dotnet-sdk /usr/bin/dotnet /usr/bin/dotnet
 COPY --from=chibi-tools /opt/chibi-tools /opt/chibi-tools
-COPY --from=baad-build /baad/target/release/baad /opt/chibi-tools/baad/baad
+COPY --from=baad-build --chown=1001:1001 /baad/target/release/baad /opt/chibi-tools/baad/baad
 COPY --from=node-deps /usr/local/bin/node /usr/local/bin/node
-COPY --from=node-deps /app/node_modules ./node_modules
-COPY package.json package-lock.json tsconfig.json prisma.config.ts ./
-COPY prisma ./prisma
-COPY --from=worker-build /app/dist/chibi-worker.mjs ./dist/chibi-worker.mjs
-COPY scripts/chibi ./scripts/chibi
-COPY scripts/chibi-postprocess.mjs ./scripts/chibi-postprocess.mjs
-COPY scripts/chibi-halo-follow.mjs scripts/chibi-incomplete-materials.mjs scripts/chibi-face-events.mjs scripts/chibi-root-rotations.mjs scripts/chibi-renderer-active.mjs scripts/chibi-face-skin.mjs scripts/chibi-alternate-hair.mjs scripts/chibi_v12_motion_proof_unitypy.py ./scripts/
-COPY scripts/chibi-worker.ts ./scripts/chibi-worker.ts
-COPY scripts/chibi-runtime.ts scripts/chibi-preflight.ts scripts/chibi-baad.ts ./scripts/
-COPY scripts/chibi-tools/manifest.json ./scripts/chibi-tools/manifest.json
-
-RUN addgroup --system --gid 1001 chibi \
-    && adduser --system --uid 1001 --ingroup chibi chibi \
-    && mkdir -p /data/BAAD /data/chibi /home/chibi \
-    && chown -R chibi:chibi /app /data /opt/chibi-tools/baad /home/chibi
+COPY --from=node-deps --chown=1001:1001 /app/node_modules ./node_modules
+COPY --chown=1001:1001 package.json package-lock.json tsconfig.json prisma.config.ts ./
+COPY --chown=1001:1001 prisma ./prisma
+COPY --from=worker-build --chown=1001:1001 /app/dist/chibi-worker.mjs ./dist/chibi-worker.mjs
+COPY --chown=1001:1001 scripts/chibi ./scripts/chibi
+COPY --chown=1001:1001 scripts/chibi-postprocess.mjs ./scripts/chibi-postprocess.mjs
+COPY --chown=1001:1001 scripts/chibi-halo-follow.mjs scripts/chibi-incomplete-materials.mjs scripts/chibi-face-events.mjs scripts/chibi-root-rotations.mjs scripts/chibi-renderer-active.mjs scripts/chibi-face-skin.mjs scripts/chibi-alternate-hair.mjs scripts/chibi_v12_motion_proof_unitypy.py ./scripts/
+COPY --chown=1001:1001 scripts/chibi-worker.ts ./scripts/chibi-worker.ts
+COPY --chown=1001:1001 scripts/chibi-runtime.ts scripts/chibi-preflight.ts scripts/chibi-baad.ts ./scripts/
+COPY --chown=1001:1001 scripts/chibi-tools/manifest.json ./scripts/chibi-tools/manifest.json
 
 COPY scripts/chibi-docker-entrypoint.sh /usr/local/bin/chibi-entrypoint
 RUN sed -i 's/\r$//' /usr/local/bin/chibi-entrypoint \

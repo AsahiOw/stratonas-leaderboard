@@ -269,6 +269,10 @@ caches; subsequent code updates can reuse them. Public images, audio, and other
 assets are copied separately, so changing them does not recompile the app. The
 local font imported by `next/font/local` remains a compilation input.
 
+The worker assigns file ownership during `COPY`, with its runtime user created
+before the application files are copied. This avoids a recursive ownership pass
+over `node_modules` and an extra image layer duplicating those dependencies.
+
 For an ordinary website update that does not change the conversion worker,
 dependencies, or Prisma schema/migrations, you can build and recreate only the app
 while leaving the running database and helpers in place:
