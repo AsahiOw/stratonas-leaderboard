@@ -6,13 +6,26 @@ src/generated/prisma
 Development_data
 Production_data
 
+backups
+.agents
+.claude
+.cursor
+.kilo
+.codex-remote-attachments
+.playwright-mcp
+docs
+coverage
+**/__pycache__
+**/*.pyc
+**/.DS_Store
+
 .env
 .env.*
 
 *.log
 *.tsbuildinfo
 
-README.md
+/*.md
 
 # The worker needs its source entrypoint and conversion libraries. Keep the
 # other scripts out of the context and never send a downloaded tool archive.
